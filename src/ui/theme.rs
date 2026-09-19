@@ -24,7 +24,7 @@ impl ThemeColors {
     pub const SLATE_900: Color = Color::from_rgb(0.059, 0.090, 0.165); // #0F172A
 
     // Surfaces & Backgrounds
-    pub const SURFACE_BG: Color = Self::SLATE_50;
+    pub const SURFACE_BG: Color = Color::from_rgb(0.955, 0.965, 0.978); // Soft COSMIC canvas backdrop
     pub const SURFACE_CARD: Color = Color::WHITE;
     pub const SURFACE_HEADER: Color = Color::WHITE;
     pub const SURFACE_ROW_HOVER: Color = Color::from_rgb(0.965, 0.975, 0.99);
@@ -64,16 +64,33 @@ impl ThemeColors {
 
 pub fn card_container_style(_theme: &iced::Theme) -> container::Style {
     container::Style {
-        background: Some(Background::Color(ThemeColors::SURFACE_CARD)),
+        background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.94))),
         border: Border {
-            color: ThemeColors::SURFACE_BORDER,
+            color: Color::from_rgba(0.85, 0.88, 0.93, 0.85),
             width: 1.0,
-            radius: 8.0.into(),
+            radius: 12.0.into(),
         },
         shadow: Shadow {
-            color: Color::from_rgba(0.0, 0.0, 0.0, 0.04),
-            offset: Vector::new(0.0, 1.0),
-            blur_radius: 4.0,
+            color: Color::from_rgba(0.06, 0.10, 0.18, 0.07),
+            offset: Vector::new(0.0, 4.0),
+            blur_radius: 16.0,
+        },
+        ..Default::default()
+    }
+}
+
+pub fn floating_panel_style(_theme: &iced::Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.92))),
+        border: Border {
+            color: Color::from_rgba(0.84, 0.88, 0.93, 0.85),
+            width: 1.0,
+            radius: 14.0.into(),
+        },
+        shadow: Shadow {
+            color: Color::from_rgba(0.06, 0.10, 0.20, 0.10),
+            offset: Vector::new(0.0, 6.0),
+            blur_radius: 20.0,
         },
         ..Default::default()
     }
@@ -81,11 +98,16 @@ pub fn card_container_style(_theme: &iced::Theme) -> container::Style {
 
 pub fn pill_container_style(_theme: &iced::Theme) -> container::Style {
     container::Style {
-        background: Some(Background::Color(ThemeColors::SLATE_100)),
+        background: Some(Background::Color(Color::from_rgba(0.93, 0.95, 0.98, 0.85))),
         border: Border {
-            color: ThemeColors::SLATE_200,
+            color: Color::from_rgba(0.82, 0.86, 0.92, 0.70),
             width: 1.0,
-            radius: 8.0.into(),
+            radius: 18.0.into(),
+        },
+        shadow: Shadow {
+            color: Color::from_rgba(0.0, 0.0, 0.0, 0.03),
+            offset: Vector::new(0.0, 1.0),
+            blur_radius: 3.0,
         },
         ..Default::default()
     }
@@ -93,23 +115,23 @@ pub fn pill_container_style(_theme: &iced::Theme) -> container::Style {
 
 pub fn modal_backdrop_style(_theme: &iced::Theme) -> container::Style {
     container::Style {
-        background: Some(Background::Color(Color::from_rgba(0.05, 0.08, 0.15, 0.45))),
+        background: Some(Background::Color(Color::from_rgba(0.05, 0.08, 0.15, 0.50))),
         ..Default::default()
     }
 }
 
 pub fn modal_card_style(_theme: &iced::Theme) -> container::Style {
     container::Style {
-        background: Some(Background::Color(ThemeColors::SURFACE_CARD)),
+        background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.98))),
         border: Border {
-            color: ThemeColors::SLATE_300,
+            color: Color::from_rgba(0.80, 0.84, 0.90, 0.80),
             width: 1.0,
-            radius: 12.0.into(),
+            radius: 16.0.into(),
         },
         shadow: Shadow {
-            color: Color::from_rgba(0.0, 0.0, 0.0, 0.18),
-            offset: Vector::new(0.0, 8.0),
-            blur_radius: 24.0,
+            color: Color::from_rgba(0.0, 0.0, 0.0, 0.22),
+            offset: Vector::new(0.0, 12.0),
+            blur_radius: 32.0,
         },
         ..Default::default()
     }
@@ -125,13 +147,13 @@ pub fn primary_button_style(_theme: &iced::Theme, status: button::Status) -> but
             background: Some(Background::Color(ThemeColors::PRIMARY)),
             text_color: ThemeColors::TEXT_LIGHT,
             border: Border {
-                radius: 6.0.into(),
+                radius: 8.0.into(),
                 ..Default::default()
             },
             shadow: Shadow {
-                color: Color::from_rgba(0.0, 0.0, 0.0, 0.08),
-                offset: Vector::new(0.0, 1.0),
-                blur_radius: 2.0,
+                color: Color::from_rgba(0.08, 0.38, 0.74, 0.22),
+                offset: Vector::new(0.0, 2.0),
+                blur_radius: 4.0,
             },
             ..Default::default()
         },
@@ -139,13 +161,13 @@ pub fn primary_button_style(_theme: &iced::Theme, status: button::Status) -> but
             background: Some(Background::Color(ThemeColors::PRIMARY_HOVER)),
             text_color: ThemeColors::TEXT_LIGHT,
             border: Border {
-                radius: 6.0.into(),
+                radius: 8.0.into(),
                 ..Default::default()
             },
             shadow: Shadow {
-                color: Color::from_rgba(0.0, 0.0, 0.0, 0.12),
-                offset: Vector::new(0.0, 2.0),
-                blur_radius: 4.0,
+                color: Color::from_rgba(0.08, 0.38, 0.74, 0.35),
+                offset: Vector::new(0.0, 4.0),
+                blur_radius: 10.0,
             },
             ..Default::default()
         },
@@ -153,7 +175,7 @@ pub fn primary_button_style(_theme: &iced::Theme, status: button::Status) -> but
             background: Some(Background::Color(ThemeColors::PRIMARY_ACTIVE)),
             text_color: ThemeColors::TEXT_LIGHT,
             border: Border {
-                radius: 6.0.into(),
+                radius: 8.0.into(),
                 ..Default::default()
             },
             shadow: Shadow::default(),
@@ -163,7 +185,7 @@ pub fn primary_button_style(_theme: &iced::Theme, status: button::Status) -> but
             background: Some(Background::Color(ThemeColors::SLATE_200)),
             text_color: ThemeColors::SLATE_400,
             border: Border {
-                radius: 6.0.into(),
+                radius: 8.0.into(),
                 ..Default::default()
             },
             shadow: Shadow::default(),
@@ -175,12 +197,12 @@ pub fn primary_button_style(_theme: &iced::Theme, status: button::Status) -> but
 pub fn secondary_button_style(_theme: &iced::Theme, status: button::Status) -> button::Style {
     match status {
         button::Status::Active => button::Style {
-            background: Some(Background::Color(ThemeColors::SURFACE_CARD)),
+            background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.90))),
             text_color: ThemeColors::SLATE_700,
             border: Border {
-                color: ThemeColors::SLATE_200,
+                color: Color::from_rgba(0.85, 0.88, 0.92, 0.85),
                 width: 1.0,
-                radius: 6.0.into(),
+                radius: 8.0.into(),
             },
             shadow: Shadow {
                 color: Color::from_rgba(0.0, 0.0, 0.0, 0.03),
@@ -190,17 +212,17 @@ pub fn secondary_button_style(_theme: &iced::Theme, status: button::Status) -> b
             ..Default::default()
         },
         button::Status::Hovered => button::Style {
-            background: Some(Background::Color(ThemeColors::SLATE_50)),
+            background: Some(Background::Color(Color::WHITE)),
             text_color: ThemeColors::SLATE_900,
             border: Border {
                 color: ThemeColors::SLATE_300,
                 width: 1.0,
-                radius: 6.0.into(),
+                radius: 8.0.into(),
             },
             shadow: Shadow {
-                color: Color::from_rgba(0.0, 0.0, 0.0, 0.06),
+                color: Color::from_rgba(0.0, 0.0, 0.0, 0.07),
                 offset: Vector::new(0.0, 2.0),
-                blur_radius: 3.0,
+                blur_radius: 5.0,
             },
             ..Default::default()
         },
@@ -210,7 +232,7 @@ pub fn secondary_button_style(_theme: &iced::Theme, status: button::Status) -> b
             border: Border {
                 color: ThemeColors::SLATE_300,
                 width: 1.0,
-                radius: 6.0.into(),
+                radius: 8.0.into(),
             },
             shadow: Shadow::default(),
             ..Default::default()
@@ -221,7 +243,7 @@ pub fn secondary_button_style(_theme: &iced::Theme, status: button::Status) -> b
             border: Border {
                 color: ThemeColors::SLATE_200,
                 width: 1.0,
-                radius: 6.0.into(),
+                radius: 8.0.into(),
             },
             shadow: Shadow::default(),
             ..Default::default()
@@ -232,12 +254,12 @@ pub fn secondary_button_style(_theme: &iced::Theme, status: button::Status) -> b
 pub fn danger_button_style(_theme: &iced::Theme, status: button::Status) -> button::Style {
     match status {
         button::Status::Active => button::Style {
-            background: Some(Background::Color(ThemeColors::ACCENT_RED_LIGHT)),
+            background: Some(Background::Color(Color::from_rgba(0.99, 0.92, 0.92, 0.90))),
             text_color: ThemeColors::ACCENT_RED,
             border: Border {
-                color: ThemeColors::ACCENT_RED,
+                color: Color::from_rgba(0.84, 0.22, 0.22, 0.40),
                 width: 1.0,
-                radius: 6.0.into(),
+                radius: 8.0.into(),
             },
             shadow: Shadow::default(),
             ..Default::default()
@@ -248,18 +270,22 @@ pub fn danger_button_style(_theme: &iced::Theme, status: button::Status) -> butt
             border: Border {
                 color: ThemeColors::ACCENT_RED,
                 width: 1.0,
-                radius: 6.0.into(),
+                radius: 8.0.into(),
             },
-            shadow: Shadow::default(),
+            shadow: Shadow {
+                color: Color::from_rgba(0.84, 0.22, 0.22, 0.30),
+                offset: Vector::new(0.0, 3.0),
+                blur_radius: 8.0,
+            },
             ..Default::default()
         },
         button::Status::Pressed => button::Style {
-            background: Some(Background::Color(ThemeColors::ACCENT_RED)),
+            background: Some(Background::Color(Color::from_rgb(0.70, 0.18, 0.18))),
             text_color: ThemeColors::TEXT_LIGHT,
             border: Border {
                 color: ThemeColors::ACCENT_RED,
                 width: 1.0,
-                radius: 6.0.into(),
+                radius: 8.0.into(),
             },
             shadow: Shadow::default(),
             ..Default::default()
@@ -274,37 +300,41 @@ pub fn segmented_tab_button(
     move |_theme, status| {
         if is_active {
             button::Style {
-                background: Some(Background::Color(ThemeColors::SURFACE_CARD)),
+                background: Some(Background::Color(Color::WHITE)),
                 text_color: ThemeColors::PRIMARY,
                 border: Border {
-                    color: ThemeColors::SLATE_200,
+                    color: Color::from_rgba(0.85, 0.88, 0.93, 0.80),
                     width: 1.0,
-                    radius: 6.0.into(),
+                    radius: 14.0.into(),
                 },
                 shadow: Shadow {
-                    color: Color::from_rgba(0.0, 0.0, 0.0, 0.08),
-                    offset: Vector::new(0.0, 1.0),
-                    blur_radius: 2.0,
+                    color: Color::from_rgba(0.08, 0.15, 0.28, 0.10),
+                    offset: Vector::new(0.0, 2.0),
+                    blur_radius: 6.0,
                 },
                 ..Default::default()
             }
         } else {
             match status {
                 button::Status::Hovered => button::Style {
-                    background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.6))),
-                    text_color: ThemeColors::SLATE_800,
+                    background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.65))),
+                    text_color: ThemeColors::SLATE_900,
                     border: Border {
-                        radius: 6.0.into(),
+                        radius: 14.0.into(),
                         ..Default::default()
                     },
-                    shadow: Shadow::default(),
+                    shadow: Shadow {
+                        color: Color::from_rgba(0.0, 0.0, 0.0, 0.02),
+                        offset: Vector::new(0.0, 1.0),
+                        blur_radius: 2.0,
+                    },
                     ..Default::default()
                 },
                 button::Status::Pressed => button::Style {
-                    background: Some(Background::Color(ThemeColors::SLATE_200)),
+                    background: Some(Background::Color(Color::from_rgba(0.85, 0.88, 0.94, 0.80))),
                     text_color: ThemeColors::SLATE_900,
                     border: Border {
-                        radius: 6.0.into(),
+                        radius: 14.0.into(),
                         ..Default::default()
                     },
                     shadow: Shadow::default(),
@@ -312,9 +342,9 @@ pub fn segmented_tab_button(
                 },
                 _ => button::Style {
                     background: None,
-                    text_color: ThemeColors::SLATE_500,
+                    text_color: ThemeColors::SLATE_600,
                     border: Border {
-                        radius: 6.0.into(),
+                        radius: 14.0.into(),
                         ..Default::default()
                     },
                     shadow: Shadow::default(),
@@ -331,29 +361,34 @@ pub fn list_item_button(
     move |_theme, status| {
         if is_selected {
             button::Style {
-                background: Some(Background::Color(ThemeColors::PRIMARY_LIGHT)),
+                background: Some(Background::Color(Color::from_rgba(0.91, 0.95, 0.99, 0.92))),
                 text_color: ThemeColors::PRIMARY,
                 border: Border {
                     color: ThemeColors::PRIMARY,
                     width: 1.5,
-                    radius: 6.0.into(),
+                    radius: 8.0.into(),
                 },
                 shadow: Shadow {
-                    color: Color::from_rgba(0.0, 0.0, 0.0, 0.04),
-                    offset: Vector::new(0.0, 1.0),
-                    blur_radius: 2.0,
+                    color: Color::from_rgba(0.08, 0.38, 0.74, 0.12),
+                    offset: Vector::new(0.0, 2.0),
+                    blur_radius: 4.0,
                 },
                 ..Default::default()
             }
         } else {
             match status {
                 button::Status::Hovered => button::Style {
-                    background: Some(Background::Color(ThemeColors::SLATE_100)),
+                    background: Some(Background::Color(Color::WHITE)),
                     text_color: ThemeColors::SLATE_900,
                     border: Border {
                         color: ThemeColors::SLATE_300,
                         width: 1.0,
-                        radius: 6.0.into(),
+                        radius: 8.0.into(),
+                    },
+                    shadow: Shadow {
+                        color: Color::from_rgba(0.0, 0.0, 0.0, 0.04),
+                        offset: Vector::new(0.0, 1.0),
+                        blur_radius: 3.0,
                     },
                     ..Default::default()
                 },
@@ -363,17 +398,17 @@ pub fn list_item_button(
                     border: Border {
                         color: ThemeColors::SLATE_400,
                         width: 1.0,
-                        radius: 6.0.into(),
+                        radius: 8.0.into(),
                     },
                     ..Default::default()
                 },
                 _ => button::Style {
-                    background: Some(Background::Color(ThemeColors::SURFACE_CARD)),
+                    background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.75))),
                     text_color: ThemeColors::SLATE_800,
                     border: Border {
-                        color: ThemeColors::SLATE_200,
+                        color: Color::from_rgba(0.88, 0.91, 0.94, 0.75),
                         width: 1.0,
-                        radius: 6.0.into(),
+                        radius: 8.0.into(),
                     },
                     ..Default::default()
                 },
@@ -389,11 +424,11 @@ pub fn list_item_button(
 pub fn modern_input_style(_theme: &iced::Theme, status: text_input::Status) -> text_input::Style {
     match status {
         text_input::Status::Active => text_input::Style {
-            background: Background::Color(ThemeColors::SURFACE_CARD),
+            background: Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.92)),
             border: Border {
-                color: ThemeColors::SLATE_200,
+                color: Color::from_rgba(0.85, 0.88, 0.92, 0.85),
                 width: 1.0,
-                radius: 6.0.into(),
+                radius: 8.0.into(),
             },
             icon: ThemeColors::SLATE_400,
             placeholder: ThemeColors::SLATE_400,
@@ -401,11 +436,11 @@ pub fn modern_input_style(_theme: &iced::Theme, status: text_input::Status) -> t
             selection: ThemeColors::PRIMARY_LIGHT,
         },
         text_input::Status::Hovered => text_input::Style {
-            background: Background::Color(ThemeColors::SURFACE_CARD),
+            background: Background::Color(Color::WHITE),
             border: Border {
                 color: ThemeColors::SLATE_300,
                 width: 1.0,
-                radius: 6.0.into(),
+                radius: 8.0.into(),
             },
             icon: ThemeColors::SLATE_500,
             placeholder: ThemeColors::SLATE_400,
@@ -413,11 +448,11 @@ pub fn modern_input_style(_theme: &iced::Theme, status: text_input::Status) -> t
             selection: ThemeColors::PRIMARY_LIGHT,
         },
         text_input::Status::Focused { .. } => text_input::Style {
-            background: Background::Color(ThemeColors::SURFACE_CARD),
+            background: Background::Color(Color::WHITE),
             border: Border {
                 color: ThemeColors::PRIMARY,
                 width: 1.5,
-                radius: 6.0.into(),
+                radius: 8.0.into(),
             },
             icon: ThemeColors::PRIMARY,
             placeholder: Color::TRANSPARENT,
@@ -429,7 +464,7 @@ pub fn modern_input_style(_theme: &iced::Theme, status: text_input::Status) -> t
             border: Border {
                 color: ThemeColors::SLATE_200,
                 width: 1.0,
-                radius: 6.0.into(),
+                radius: 8.0.into(),
             },
             icon: ThemeColors::SLATE_400,
             placeholder: ThemeColors::SLATE_400,

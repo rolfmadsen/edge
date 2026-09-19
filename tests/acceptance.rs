@@ -520,18 +520,18 @@ fn test_ui_theme_tokens_and_widget_styles() {
     // 2. Verificer container styles
     let card = card_container_style(&theme);
     assert!(card.background.is_some());
-    assert_eq!(card.border.radius, 8.0.into());
+    assert_eq!(card.border.radius, 12.0.into());
 
     let pill = pill_container_style(&theme);
     assert!(pill.background.is_some());
-    assert_eq!(pill.border.radius, 8.0.into());
+    assert_eq!(pill.border.radius, 18.0.into());
 
     let modal_bd = modal_backdrop_style(&theme);
     assert!(modal_bd.background.is_some());
 
     let modal_card = modal_card_style(&theme);
     assert!(modal_card.background.is_some());
-    assert_eq!(modal_card.border.radius, 12.0.into());
+    assert_eq!(modal_card.border.radius, 16.0.into());
 
     // 3. Verificer knap styles (Active & Hovered)
     let btn_prim_active = primary_button_style(&theme, iced::widget::button::Status::Active);

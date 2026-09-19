@@ -1519,11 +1519,11 @@ impl App {
                     border: iced::Border {
                         color: ThemeColors::PRIMARY,
                         width: 1.0,
-                        radius: 4.0.into(),
+                        radius: 10.0.into(),
                     },
                     ..Default::default()
                 })
-                .padding([2, 6]),
+                .padding([2, 8]),
         ]
         .align_y(Alignment::Center);
 

@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 016: COSMIC-Inspireret Glas & Dybde Designsystem i theme.rs"
 description: "Opgradering af Edges temasystem med COSMIC-inspireret æstetik: glasoverflader, bløde radier, dybe diffuse skygger og pille-formede kontroller"
-status: active
+status: completed
 generated: { by: process:antigravity-task-init, at: "2026-09-20T00:29:00Z" }
 tags: [ui, theme, cosmic, design-system, glassmorphism, elevation, styling]
 ---
 
 # Task 016: COSMIC-Inspireret Glas & Dybde Designsystem i theme.rs
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🔄 ENHANCEMENT`
 **Oprettet**: `2026-09-20`
 
@@ -23,11 +23,11 @@ tags: [ui, theme, cosmic, design-system, glassmorphism, elevation, styling]
 3. Bevare alle eksisterende modelregler, FDA-farver og test-invarianter.
 
 ## 📋 Acceptance Criteria
-- [ ] `card_container_style` opgraderet med semi-transparent baggrund, 12px radier og blød dybdeskygge.
-- [ ] `pill_container_style` og `segmented_tab_button` opdateret med ægte pille-form (16px radier) og hævet aktiv tilstand.
-- [ ] `primary_button_style` og `secondary_button_style` forfinet med 8px radier og hover-glød / elevation.
-- [ ] `modern_input_style` og `modal_card_style` forfinet med matchende COSMIC radier og dybde.
-- [ ] 100% test pass rate på unit-, accept- og proptests samt clippy med 0 advarsler.
+- [x] `card_container_style` opgraderet med semi-transparent baggrund, 12px radier og blød dybdeskygge.
+- [x] `pill_container_style` og `segmented_tab_button` opdateret med ægte pille-form (16px/18px radier) og hævet aktiv tilstand.
+- [x] `primary_button_style` og `secondary_button_style` forfinet med 8px radier og hover-glød / elevation.
+- [x] `modern_input_style` og `modal_card_style` forfinet med matchende COSMIC radier og dybde.
+- [x] 100% test pass rate på unit-, accept- og proptests samt clippy med 0 advarsler.
 
 ## 🚫 Must NOT
 - Må IKKE ændre FDA farvekoder i begrebs- eller informationsmodellen.
