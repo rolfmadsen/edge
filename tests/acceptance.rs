@@ -855,3 +855,143 @@ fn test_canvas_ergonomics_zoom_pan_grid() {
     let _ = app.update(Message::CanvasResetView);
     assert_eq!(app.canvas_zoom(), 1.0);
 }
+
+#[test]
+fn test_orthogonal_edge_routing_and_ports() {
+    use edge::features::concept_model::{DiagramEdge, DiagramNode, RelationKind};
+    use edge::features::concepts::{BelongsToDomain, Concept};
+    use edge::ui::edge_router::{EdgeRouter, PortSide};
+
+    // Opret test-begreber og noder
+    let c_super = Concept::new("Superklasse", "Overordnet begreb", BelongsToDomain::Yes);
+    let c_sub1 = Concept::new("Subklasse1", "Underordnet begreb 1", BelongsToDomain::Yes);
+    let c_sub2 = Concept::new("Subklasse2", "Underordnet begreb 2", BelongsToDomain::Yes);
+    let c_assoc = Concept::new("Associeret", "Tilknyttet begreb", BelongsToDomain::Yes);
+
+    // Node dimensioner er standard 180x80
+    // Superklasse placeret øverst: x=200, y=40 (bottom er y=120)
+    let node_super = DiagramNode::new(&c_super, 200.0, 40.0);
+    // Subklasse 1 placeret nederst til venstre: x=100, y=240 (top er y=240)
+    let node_sub1 = DiagramNode::new(&c_sub1, 100.0, 240.0);
+    // Subklasse 2 placeret nederst til højre: x=300, y=240 (top er y=240)
+    let node_sub2 = DiagramNode::new(&c_sub2, 300.0, 240.0);
+    // Associeret placeret til højre for superklasse: x=500, y=40
+    let node_assoc = DiagramNode::new(&c_assoc, 500.0, 40.0);
+
+    let nodes = vec![
+        node_super.clone(),
+        node_sub1.clone(),
+        node_sub2.clone(),
+        node_assoc.clone(),
+    ];
+
+    // Edge 1: Generalisering sub1 -> super
+    let mut edge_gen1 = DiagramEdge::new(node_sub1.id(), node_super.id(), RelationKind::Generalization);
+    edge_gen1.set_label(Some("er en".to_string())); // skal undertrykkes jf FDA
+
+    // Edge 2: Generalisering sub2 -> super
+    let edge_gen2 = DiagramEdge::new(node_sub2.id(), node_super.id(), RelationKind::Generalization);
+
+    // Edge 3: Association super -> assoc
+    let mut edge_asc = DiagramEdge::new(node_super.id(), node_assoc.id(), RelationKind::Association);
+    edge_asc.set_label(Some("relaterer".to_string()));
+
+    let edges = vec![edge_gen1.clone(), edge_gen2.clone(), edge_asc.clone()];
+
+    let routes = EdgeRouter::route_edges(&nodes, &edges);
+    assert_eq!(routes.len(), 3, "Skal route alle 3 edges");
+
+    // 1. Verificér ortogonalitet (kun 90 graders vinkler: alle segmenter er enten rent horisontale eller vertikale)
+    for route in &routes {
+        assert!(route.points.len() >= 2, "En rute skal have mindst 2 punkter");
+        for window in route.points.windows(2) {
+            let p1 = window[0];
+            let p2 = window[1];
+            let is_horizontal = (p1.y - p2.y).abs() < 0.001;
+            let is_vertical = (p1.x - p2.x).abs() < 0.001;
+            assert!(
+                is_horizontal || is_vertical,
+                "Alle linjesegmenter skal være strengt ortogonale (90°). Segment fra {:?} til {:?}",
+                p1, p2
+            );
+        }
+    }
+
+    // 2. Verificér FDA label-semantik: ingen label på generalisering, label bevares på association
+    let r_gen1 = routes.iter().find(|r| r.from == edge_gen1.from() && r.to == edge_gen1.to()).unwrap();
+    assert_eq!(
+        r_gen1.label, None,
+        "Generalisering må IKKE vise label jf FDA vejledning linje 1474 & 1526"
+    );
+
+    let r_asc = routes.iter().find(|r| r.from == edge_asc.from() && r.to == edge_asc.to()).unwrap();
+    assert_eq!(
+        r_asc.label.as_deref(),
+        Some("relaterer"),
+        "Association skal bevare sin label"
+    );
+
+    // 3. Verificér pilehoved: forankret præcist på målnodens kant
+    let arrow1 = r_gen1.arrow_head.as_ref().expect("Generalisering skal have pilehoved");
+    assert_eq!(
+        arrow1.direction,
+        PortSide::Bottom,
+        "Pil til superklasse oppefra skal ramme bundporten"
+    );
+    assert_eq!(
+        arrow1.tip.y,
+        node_super.y() + node_super.height(),
+        "Pilehovedets spids skal røre målnodens bundkant præcist (y = 120.0)"
+    );
+    assert!(
+        arrow1.left.y > arrow1.tip.y && arrow1.right.y > arrow1.tip.y,
+        "Pilehovedets trekantsbase skal ligge udenfor noden (større y), ikke skjules inde i noden"
+    );
+
+    // 4. Verificér multi-relation af samme type deler anker på target
+    let r_gen2 = routes.iter().find(|r| r.from == edge_gen2.from() && r.to == edge_gen2.to()).unwrap();
+    let arrow2 = r_gen2.arrow_head.as_ref().expect("Generalisering 2 skal have pilehoved");
+    assert_eq!(
+        arrow1.tip, arrow2.tip,
+        "To generaliseringer til samme superklasse på samme side skal dele ankerpunkt (FDA Fig 7.1)"
+    );
+
+    // 5. Test Nærhedshåndtering (Proximity Port Shift):
+    // Når to noder er så tæt på hinanden at afstanden er mindre end D_min (36px),
+    // må pilen IKKE routes direkte mellem modstående flader så pilen klemmes.
+    let close_sub = DiagramNode::new(&c_sub1, 200.0, 130.0); // y=130, super bottom=120 -> afstand kun 10px!
+    let close_nodes = vec![node_super.clone(), close_sub.clone()];
+    let close_edge = DiagramEdge::new(close_sub.id(), node_super.id(), RelationKind::Generalization);
+    let close_routes = EdgeRouter::route_edges(&close_nodes, &[close_edge]);
+    let close_route = &close_routes[0];
+    let close_arrow = close_route.arrow_head.as_ref().expect("Skal have pilehoved");
+    // Da afstanden vertikalt kun er 10px, skal porten skifte til side-port for at undgå flad/inverteret pil
+    assert_ne!(
+        close_arrow.direction,
+        PortSide::Bottom,
+        "Ved kritisk nærhed (afstand < 36px) skal porten skifte til side-porte for at bevare pilerum"
+    );
+
+    // 6. Test Krydsningsbroer (Bridge hops):
+    // Opret to edges der krydser hinanden ortogonalt i et X-kryds
+    let n_horiz_left = DiagramNode::new(&c_sub1, 0.0, 300.0);
+    let n_horiz_right = DiagramNode::new(&c_sub2, 400.0, 300.0);
+    let n_vert_top = DiagramNode::new(&c_super, 200.0, 100.0);
+    let n_vert_bottom = DiagramNode::new(&c_assoc, 200.0, 500.0);
+
+    let cross_nodes = vec![
+        n_horiz_left.clone(),
+        n_horiz_right.clone(),
+        n_vert_top.clone(),
+        n_vert_bottom.clone(),
+    ];
+    let edge_h = DiagramEdge::new(n_horiz_left.id(), n_horiz_right.id(), RelationKind::Association);
+    let edge_v = DiagramEdge::new(n_vert_top.id(), n_vert_bottom.id(), RelationKind::Association);
+
+    let cross_routes = EdgeRouter::route_edges(&cross_nodes, &[edge_h, edge_v]);
+    let has_bridge = cross_routes.iter().any(|r| !r.bridges.is_empty());
+    assert!(
+        has_bridge,
+        "Når to ortogonale linjer krydser, skal der detekteres mindst én krydsningsbro"
+    );
+}

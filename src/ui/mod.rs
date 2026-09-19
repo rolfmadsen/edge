@@ -1,6 +1,7 @@
 pub mod app;
 pub mod concept_editor;
 pub mod concept_table;
+pub mod edge_router;
 pub mod file_dialog;
 pub mod graph_canvas;
 pub mod theme;
