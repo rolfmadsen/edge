@@ -4,10 +4,10 @@
 **Task Title**: Task 011: UML Klassediagram Canvas og Canvas Studio Paradigme  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Source Manifest Digest**: `f3326ff6a2aecaf4cdff9c4357772f163a151c6f4edcdf09505460533c091856`  
-**Timestamp**: `2026-09-19T16:41:32Z`  
-**Head**: `83432b2`  
-**Commit**: `83432b2`  
+**Source Manifest Digest**: `41d47e730f53e79b6ff2e34f7ddacd68d9dde15365523113a76299162b5529ad`  
+**Timestamp**: `2026-09-19T16:47:42Z`  
+**Head**: `029c664`  
+**Commit**: `029c664`  
 
 ## Acceptance Criteria
 
@@ -24,9 +24,9 @@
 
 | Check Name | Status | Exit Code | Duration (s) |
 |---|---|---|---|
-| `lint` | `PASSED` | `0` | `0.173s` |
-| `types` | `PASSED` | `0` | `0.144s` |
-| `unit` | `PASSED` | `0` | `0.249s` |
-| `invariants` | `PASSED` | `0` | `0.250s` |
+| `lint` | `PASSED` | `0` | `0.157s` |
+| `types` | `PASSED` | `0` | `0.370s` |
+| `unit` | `PASSED` | `0` | `0.255s` |
+| `invariants` | `PASSED` | `0` | `0.258s` |
 
 ---

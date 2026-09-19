@@ -19,9 +19,9 @@
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "ad050f236341244ff460a590bbe92335aaf75a44c3e5b18c539b9f5837f02c0d",
-    "source_manifest_digest_pre": "f3326ff6a2aecaf4cdff9c4357772f163a151c6f4edcdf09505460533c091856",
-    "source_manifest_digest_post": "f3326ff6a2aecaf4cdff9c4357772f163a151c6f4edcdf09505460533c091856",
+    "source_content_digest": "b18987e3f414c8468bcfb46d44a051ea59d92207222f57f0fc0ec72644721eff",
+    "source_manifest_digest_pre": "41d47e730f53e79b6ff2e34f7ddacd68d9dde15365523113a76299162b5529ad",
+    "source_manifest_digest_post": "41d47e730f53e79b6ff2e34f7ddacd68d9dde15365523113a76299162b5529ad",
     "config_digest": "b7f5ab803250a6f35370ef8ff99eaaa95ad348f297e2e3bd484b50f960d7fd0c",
     "task_digest": "46a5c548b500a22f57c6fb3f3d77fc78efb704789ccc1e838a681438d9176c37",
     "policy_digest": "824947561334c1d5ba8c4b8fe4122d4cbe9c0160b5e7895a88fa06ddc11ab253",
@@ -29,15 +29,15 @@
     "included_files_count": 49,
     "vcs": {
       "type": "git",
-      "head": "83432b2",
-      "commit": "83432b2",
+      "head": "029c664",
+      "commit": "029c664",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-19T16:41:31Z",
-    "finished_at": "2026-09-19T16:41:32Z",
-    "total_duration_seconds": 0.833808205,
+    "started_at": "2026-09-19T16:47:40Z",
+    "finished_at": "2026-09-19T16:47:42Z",
+    "total_duration_seconds": 1.054806126,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -50,37 +50,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.173054733,
+      "duration_seconds": 0.157325208,
       "optional": true,
       "passed": true,
-      "log_digest": "a41051563a4cb5fc1b1bcdd9aa0ba28ca80f7736d629d90cc138218756e8e3a9"
+      "log_digest": "4cf86278c1e6d659943a46a3d7e3da429ac15be90f0f17742e24ef85228e7d3e"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.14443331,
+      "duration_seconds": 0.36962877,
       "optional": true,
       "passed": true,
-      "log_digest": "22e0df986057b9ba5be07526ac5fb348862a3dedef42108383cc3e088acbb889"
+      "log_digest": "9b0ddf4325e9944ee35b0e607b1b3603ca79e273555b989e69b2b8b0d75415f7"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.249335076,
+      "duration_seconds": 0.255348489,
       "optional": false,
       "passed": true,
-      "log_digest": "70db7dafc43f3fee574d984d7831350da05fb3ac59d5ec5324893d82862d9b48"
+      "log_digest": "485f22ed01e17931cdf7c431cbcbe14370ac2bcb70a5a7deeba2ee0dcbe55996"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.250309172,
+      "duration_seconds": 0.258068769,
       "optional": false,
       "passed": true,
-      "log_digest": "8e477988c62711ed856e4938a83284a20949dd357c6163b7e679a2e158cb1bfe"
+      "log_digest": "d9607e2c21ade85b254388748e89f9a49326c4dd9a3eba2dcff89036f523b228"
     }
   ],
   "diagnostics": []
