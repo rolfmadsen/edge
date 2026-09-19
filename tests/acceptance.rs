@@ -2064,3 +2064,59 @@ fn test_stateful_edge_port_hysteresis_and_persistence() {
     assert_eq!(legacy_edge.source_port(), None);
     assert_eq!(legacy_edge.target_port(), None);
 }
+
+#[test]
+fn test_directed_association_half_arrow_and_reversal() {
+    use edge::features::concept_model::{DiagramEdge, DiagramNode, PortSide, RelationKind};
+    use edge::features::concepts::{BelongsToDomain, Concept};
+    use edge::features::information_model::ClassGraph;
+    use edge::ui::edge_router::EdgeRouter;
+    use iced::Point;
+
+    let c_a = Concept::new("KlasseA", "A", BelongsToDomain::Yes);
+    let c_b = Concept::new("KlasseB", "B", BelongsToDomain::Yes);
+
+    let node_a = DiagramNode::new(&c_a, 100.0, 100.0);
+    let node_b = DiagramNode::new(&c_b, 400.0, 100.0);
+
+    // 1. Association er rettet som standard (directed == true)
+    let edge_assoc = DiagramEdge::new(node_a.id(), node_b.id(), RelationKind::Association);
+    assert!(edge_assoc.is_directed(), "Association skal være rettet som standard");
+
+    let routes = EdgeRouter::route_edges(&[node_a.clone(), node_b.clone()], &[edge_assoc.clone()]);
+    assert_eq!(routes.len(), 1);
+    let route = &routes[0];
+
+    // Skal have et half_arrow mod målnoden node_b (venstre port på node_b)
+    let half_arrow = route.half_arrow.as_ref().expect("Rettet association skal have en halv pil");
+    assert_eq!(half_arrow.tip, Point::new(node_b.x(), node_b.center().1));
+    assert_eq!(half_arrow.direction, PortSide::Left);
+
+    // 2. Kan slå pilen fra (undirected association)
+    let mut edge_undirected = edge_assoc.clone();
+    edge_undirected.set_directed(false);
+    assert!(!edge_undirected.is_directed());
+    let routes_undirected = EdgeRouter::route_edges(&[node_a.clone(), node_b.clone()], &[edge_undirected]);
+    assert!(routes_undirected[0].half_arrow.is_none(), "Uorienteret association må ikke have en halv pil");
+
+    // 3. Retningsvending (reverse_relation) i ClassGraph / ConceptGraph
+    let mut graph = ClassGraph::new();
+    let n1 = graph.add_node(uuid::Uuid::new_v4(), 0);
+    let n2 = graph.add_node(uuid::Uuid::new_v4(), 0);
+    graph.add_relation(n1, n2, RelationKind::Association, Some("forbinder".to_string()));
+    graph.update_edge_ports(n1, n2, Some(PortSide::Right), Some(PortSide::Left));
+
+    assert!(graph.find_edge(n1, n2).is_some());
+    assert!(graph.find_edge(n2, n1).is_none());
+
+    let reversed = graph.reverse_relation(n1, n2);
+    assert!(reversed, "Skal kunne vende relation");
+    assert!(graph.find_edge(n1, n2).is_none(), "Gammel retning skal være fjernet");
+    let rev_edge = graph.find_edge(n2, n1).expect("Ny vendt relation skal findes");
+    assert_eq!(rev_edge.from(), n2);
+    assert_eq!(rev_edge.to(), n1);
+    assert_eq!(rev_edge.source_port(), Some(PortSide::Left), "Porte skal være spejlvendt");
+    assert_eq!(rev_edge.target_port(), Some(PortSide::Right), "Porte skal være spejlvendt");
+    assert_eq!(rev_edge.label(), Some("forbinder"));
+}
+
