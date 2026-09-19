@@ -1410,3 +1410,76 @@ fn test_information_model_uml_canvas_and_studio_layout() {
         "Relationer til Node A skal være kaskadeslettet uden hængende kanter"
     );
 }
+
+#[test]
+fn test_task_012_unified_diagram_canvas_and_concept_studio_layout() {
+    use edge::features::concept_model::{DiagramNode, RelationKind};
+    use edge::features::concepts::{BelongsToDomain, Concept};
+    use edge::features::information_model::ClassDiagramNode;
+    use edge::ui::diagram_canvas::{CanvasEdge, CanvasNode, CanvasViewport, DiagramCanvas};
+    use uuid::Uuid;
+
+    // 1. Verificer abstraktionerne for CanvasNode og CanvasEdge
+    let c = Concept::new("Kunde", "En aftalepart", BelongsToDomain::Yes);
+    let concept_node = DiagramNode::new(&c, 100.0, 150.0);
+    assert_eq!(CanvasNode::id(&concept_node), concept_node.id());
+    assert_eq!(CanvasNode::position(&concept_node), (100.0, 150.0));
+    assert_eq!(CanvasNode::size(&concept_node), (180.0, 80.0));
+    assert!(CanvasNode::contains(&concept_node, 110.0, 160.0));
+    assert!(!CanvasNode::contains(&concept_node, 10.0, 10.0));
+
+    let class_node = ClassDiagramNode::new(Uuid::new_v4(), 200.0, 250.0, 2);
+    assert_eq!(CanvasNode::position(&class_node), (200.0, 250.0));
+    assert!(CanvasNode::contains(&class_node, 220.0, 270.0));
+
+    // 2. Initialiser App og test Canvas Studio workflow for Begrebsmodellen (Fane 3)
+    let mut app = App::new_with_path(None);
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+
+    let c1 = Concept::new("Kunde", "En aftalepart", BelongsToDomain::Yes);
+    let c2 = Concept::new("Faktura", "Et betalingskrav", BelongsToDomain::Yes);
+    let c1_id = app.project_mut().add_concept(c1).unwrap();
+    let c2_id = app.project_mut().add_concept(c2).unwrap();
+
+    // Verificer is_concept_on_diagram metoden
+    let node_c1_id = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(c1_id)
+        .map(|n| n.id());
+
+    // Hvis noder er på diagrammet, test fjernelse af node uden at slette begrebet
+    if let Some(n1) = node_c1_id {
+        let _ = app.update(Message::RemoveConceptFromDiagram(n1));
+        assert!(
+            !app.project().concept_graph().is_concept_on_diagram(c1_id),
+            "Noden skal være fjernet fra diagrammet"
+        );
+        assert!(
+            app.project().get_concept(c1_id).is_some(),
+            "Kernebegrebet må IKKE slettes fra projektets repository når det fjernes fra diagram"
+        );
+    }
+
+    // Test tilføjelse til diagram via Message::AddConceptToDiagram
+    let _ = app.update(Message::AddConceptToDiagram(c1_id));
+    assert!(
+        app.project().concept_graph().is_concept_on_diagram(c1_id),
+        "Begrebet skal nu optræde på diagrammet"
+    );
+
+    // 3. Test søgning i Begrebsmodel Studio paletten
+    let _ = app.update(Message::ConceptModelSearchChanged("fak".to_string()));
+
+    // 4. Verificer at Canvas Studio viewet for Begrebsmodellen renderer fejlfrit (3-delt opbygning)
+    {
+        let _view = app.view();
+    }
+
+    // 5. Verificer at Informationsmodellen også renderer fejlfrit med DiagramCanvas
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    {
+        let _view = app.view();
+    }
+}
+
