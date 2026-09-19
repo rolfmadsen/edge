@@ -17,6 +17,7 @@ pub fn view<'a>(
     concepts: &'a [Concept],
     concept_graph: &'a ConceptGraph,
     selected_node_id: Option<NodeId>,
+    selected_edge: Option<(NodeId, NodeId)>,
     search_query: &'a str,
     viewport: CanvasViewport,
     snap_to_grid: bool,
@@ -192,20 +193,25 @@ pub fn view<'a>(
     .spacing(6)
     .align_y(Alignment::Center);
 
-    let canvas_widget = iced::widget::canvas(DiagramCanvas::new(
-        concept_graph.nodes(),
-        concept_graph.edges(),
-        selected_node_id,
-        viewport,
-        snap_to_grid,
-        is_space_pressed,
-        render_concept_node,
-        Message::GraphNodeSelected,
-        Message::GraphNodeMoved,
-        Message::CanvasDoubleClicked,
-        Message::GraphNodeDoubleClicked,
-        Message::CanvasViewportChanged,
-    ))
+    let canvas_widget = iced::widget::canvas(
+        DiagramCanvas::new(
+            concept_graph.nodes(),
+            concept_graph.edges(),
+            selected_node_id,
+            viewport,
+            snap_to_grid,
+            is_space_pressed,
+            render_concept_node,
+            Message::GraphNodeSelected,
+            Message::GraphNodeMoved,
+            Message::CanvasDoubleClicked,
+            Message::GraphNodeDoubleClicked,
+            Message::CanvasViewportChanged,
+        )
+        .selected_edge(selected_edge)
+        .on_edge_selected(Message::GraphEdgeSelected)
+        .on_edge_created(Message::GraphEdgeCreated),
+    )
     .width(Length::Fill)
     .height(Length::Fill);
 
@@ -364,7 +370,118 @@ pub fn view<'a>(
     // ==========================================
     // 3. HØJRE INSPECTOR (Context Panel ~290px)
     // ==========================================
-    let right_inspector: Element<'a, Message> = if let Some(selected_id) = selected_node_id {
+    let right_inspector: Element<'a, Message> = if let Some((from_id, to_id)) = selected_edge {
+        if let Some(edge) = concept_graph.find_edge(from_id, to_id) {
+            let from_node = concept_graph.find_node(from_id);
+            let to_node = concept_graph.find_node(to_id);
+            let from_name = from_node.map(|n| n.label()).unwrap_or("Kilde");
+            let to_name = to_node.map(|n| n.label()).unwrap_or("Mål");
+
+            let header = row![
+                text("Relation").size(14).color(ThemeColors::PRIMARY),
+                Space::new().width(Length::Fill),
+                button(text("✕").size(11))
+                    .style(secondary_button_style)
+                    .on_press(Message::GraphEdgeSelected(None))
+                    .padding([2, 5]),
+            ]
+            .align_y(Alignment::Center);
+
+            let nodes_info = column![
+                text(format!("{} ➔ {}", from_name, to_name))
+                    .size(13)
+                    .color(ThemeColors::SLATE_900),
+                text("Rediger relationens egenskaber:")
+                    .size(11)
+                    .color(ThemeColors::TEXT_MUTED),
+            ]
+            .spacing(4);
+
+            let kind_selector = column![
+                text("Relationstype:")
+                    .size(11)
+                    .color(ThemeColors::SLATE_600),
+                row![
+                    button(text("Association").size(11))
+                        .style(if edge.kind() == RelationKind::Association {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        })
+                        .on_press(Message::GraphUpdateEdgeKind(
+                            from_id,
+                            to_id,
+                            RelationKind::Association
+                        ))
+                        .padding([4, 6]),
+                    button(text("Generalisering").size(11))
+                        .style(if edge.kind() == RelationKind::Generalization {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        })
+                        .on_press(Message::GraphUpdateEdgeKind(
+                            from_id,
+                            to_id,
+                            RelationKind::Generalization
+                        ))
+                        .padding([4, 6]),
+                    button(text("Komposition").size(11))
+                        .style(if edge.kind() == RelationKind::Composition {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        })
+                        .on_press(Message::GraphUpdateEdgeKind(
+                            from_id,
+                            to_id,
+                            RelationKind::Composition
+                        ))
+                        .padding([4, 6]),
+                ]
+                .spacing(4),
+            ]
+            .spacing(4);
+
+            let label_input = column![
+                text("Associationsnavn (valgfri):")
+                    .size(11)
+                    .color(ThemeColors::SLATE_600),
+                text_input("f.eks. omfatter, ejer...", edge.label().unwrap_or(""))
+                    .id("edge_label_input")
+                    .style(modern_input_style)
+                    .on_input(move |v| Message::GraphUpdateEdgeLabel(from_id, to_id, v))
+                    .padding(6)
+                    .width(Length::Fill),
+            ]
+            .spacing(4);
+
+            let actions = row![button(text("🗑️ Slet relation").size(11))
+                .style(danger_button_style)
+                .on_press(Message::GraphDeleteRelation(from_id, to_id))
+                .padding([4, 10]),]
+            .align_y(Alignment::Center);
+
+            let insp_col =
+                column![header, nodes_info, kind_selector, label_input, actions].spacing(12);
+
+            container(scrollable(insp_col))
+                .style(card_container_style)
+                .padding(14)
+                .width(Length::Fixed(290.0))
+                .height(Length::Fill)
+                .into()
+        } else {
+            container(
+                text("Relation ikke fundet")
+                    .size(12)
+                    .color(ThemeColors::TEXT_MUTED),
+            )
+            .width(Length::Fixed(290.0))
+            .height(Length::Fill)
+            .into()
+        }
+    } else if let Some(selected_id) = selected_node_id {
         if let Some(node) = concept_graph.find_node(selected_id) {
             match (is_inline_editing, editor_state) {
                 (true, Some(editor)) => {

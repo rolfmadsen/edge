@@ -184,6 +184,10 @@ impl DiagramEdge {
     pub fn set_label(&mut self, label: Option<String>) {
         self.label = label;
     }
+
+    pub fn set_kind(&mut self, kind: RelationKind) {
+        self.kind = kind;
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
@@ -292,6 +296,32 @@ impl ConceptGraph {
 
     pub fn remove_relation(&mut self, from: NodeId, to: NodeId) {
         self.edges.retain(|e| !(e.from == from && e.to == to));
+    }
+
+    pub fn find_edge(&self, from: NodeId, to: NodeId) -> Option<&DiagramEdge> {
+        self.edges.iter().find(|e| e.from == from && e.to == to)
+    }
+
+    pub fn find_edge_mut(&mut self, from: NodeId, to: NodeId) -> Option<&mut DiagramEdge> {
+        self.edges.iter_mut().find(|e| e.from == from && e.to == to)
+    }
+
+    pub fn update_edge_kind(&mut self, from: NodeId, to: NodeId, kind: RelationKind) -> bool {
+        if let Some(edge) = self.find_edge_mut(from, to) {
+            edge.set_kind(kind);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update_edge_label(&mut self, from: NodeId, to: NodeId, label: Option<String>) -> bool {
+        if let Some(edge) = self.find_edge_mut(from, to) {
+            edge.set_label(label);
+            true
+        } else {
+            false
+        }
     }
 
     pub fn sync_with_concepts(&mut self, concepts: &[Concept]) {

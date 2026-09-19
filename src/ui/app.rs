@@ -170,6 +170,13 @@ pub enum Message {
     QuickCreateCancel,
     GraphNodeDoubleClicked(NodeId),
 
+    // Begrebsmodel Edge Interaktivitet & Drag-to-Connect (Task 007)
+    GraphEdgeSelected(Option<(NodeId, NodeId)>),
+    GraphEdgeCreated(NodeId, NodeId),
+    GraphUpdateEdgeKind(NodeId, NodeId, RelationKind),
+    GraphUpdateEdgeLabel(NodeId, NodeId, String),
+    GraphDeleteSelected,
+
     // Canvas ergonomi, zoom, pan & grid (Task 008)
     CanvasViewportChanged(crate::ui::graph_canvas::CanvasViewport),
     ToggleSnapToGrid,
@@ -228,6 +235,7 @@ pub struct App {
     file_dialog_mode: Option<FileDialogMode>,
     file_dialog_input: String,
     selected_graph_node_id: Option<NodeId>,
+    selected_edge: Option<(NodeId, NodeId)>,
     relation_dialog: Option<RelationDialogState>,
     quick_create: Option<QuickCreateState>,
     is_inline_graph_editing: bool,
@@ -271,6 +279,7 @@ impl App {
                         file_dialog_mode: None,
                         file_dialog_input: String::new(),
                         selected_graph_node_id: None,
+                        selected_edge: None,
                         relation_dialog: None,
                         quick_create: None,
                         is_inline_graph_editing: false,
@@ -304,6 +313,7 @@ impl App {
             file_dialog_mode: None,
             file_dialog_input: String::new(),
             selected_graph_node_id: None,
+            selected_edge: None,
             relation_dialog: None,
             quick_create: None,
             is_inline_graph_editing: false,
@@ -378,6 +388,10 @@ impl App {
 
     pub fn selected_graph_node_id(&self) -> Option<NodeId> {
         self.selected_graph_node_id
+    }
+
+    pub fn selected_edge(&self) -> Option<(NodeId, NodeId)> {
+        self.selected_edge
     }
 
     pub fn trigger_autosave(&mut self) {
@@ -641,6 +655,8 @@ impl App {
                     self.editor_state = None;
                 } else if self.editor_state.is_some() {
                     self.editor_state = None;
+                } else if self.selected_edge.is_some() {
+                    self.selected_edge = None;
                 } else if self.selected_graph_node_id.is_some() {
                     self.selected_graph_node_id = None;
                 }
@@ -649,6 +665,66 @@ impl App {
             // Graf-handlinger (Fase 3)
             Message::GraphNodeSelected(node_id) => {
                 self.selected_graph_node_id = node_id;
+                if node_id.is_some() {
+                    self.selected_edge = None;
+                }
+            }
+            Message::GraphEdgeSelected(edge) => {
+                self.selected_edge = edge;
+                if edge.is_some() {
+                    self.selected_graph_node_id = None;
+                }
+            }
+            Message::GraphEdgeCreated(from, to) => {
+                if from == to {
+                    return Task::none();
+                }
+                let graph = self.project.concept_graph();
+                if graph.find_node(from).is_some() && graph.find_node(to).is_some() {
+                    if graph.find_edge(from, to).is_none() {
+                        self.project.concept_graph_mut().add_relation(
+                            from,
+                            to,
+                            RelationKind::Association,
+                        );
+                        self.trigger_autosave();
+                    }
+                    self.selected_graph_node_id = None;
+                    self.selected_edge = Some((from, to));
+                    return operation::focus("edge_label_input");
+                }
+            }
+            Message::GraphUpdateEdgeKind(from, to, kind) => {
+                if self
+                    .project
+                    .concept_graph_mut()
+                    .update_edge_kind(from, to, kind)
+                {
+                    self.trigger_autosave();
+                }
+            }
+            Message::GraphUpdateEdgeLabel(from, to, label) => {
+                let lbl = if label.trim().is_empty() {
+                    None
+                } else {
+                    Some(label)
+                };
+                if self
+                    .project
+                    .concept_graph_mut()
+                    .update_edge_label(from, to, lbl)
+                {
+                    self.trigger_autosave();
+                }
+            }
+            Message::GraphDeleteSelected => {
+                if let Some((from, to)) = self.selected_edge.take() {
+                    self.project.concept_graph_mut().remove_relation(from, to);
+                    self.trigger_autosave();
+                } else if let Some(node_id) = self.selected_graph_node_id.take() {
+                    self.project.concept_graph_mut().remove_node(node_id);
+                    self.trigger_autosave();
+                }
             }
             Message::GraphNodeMoved(node_id, x, y) => {
                 let (final_x, final_y) = if self.snap_to_grid {
@@ -755,6 +831,10 @@ impl App {
             }
             Message::GraphDeleteRelation(from, to) => {
                 self.project.concept_graph_mut().remove_relation(from, to);
+                if self.selected_edge == Some((from, to)) || self.selected_edge == Some((to, from))
+                {
+                    self.selected_edge = None;
+                }
                 self.trigger_autosave();
             }
             Message::GraphSyncNodes => {
@@ -1230,6 +1310,9 @@ impl App {
                             }
                         }
                         Key::Named(Named::Escape) => Some(Message::EscapePressed),
+                        Key::Named(Named::Delete) | Key::Named(Named::Backspace) => {
+                            Some(Message::GraphDeleteSelected)
+                        }
                         Key::Named(Named::Space) => Some(Message::CanvasSpacePressed(true)),
                         Key::Character(c)
                             if (c == "s" || c == "S")
@@ -1824,6 +1907,7 @@ impl App {
                 self.project.concepts(),
                 self.project.concept_graph(),
                 self.selected_graph_node_id,
+                self.selected_edge,
                 &self.concept_model_search,
                 self.canvas_viewport,
                 self.snap_to_grid,

@@ -199,7 +199,24 @@ pub struct DiagramCanvasState {
     pub panning_start: Option<(Point, Vector)>,
     pub is_panning_space: bool,
     pub modifiers: iced::keyboard::Modifiers,
+    pub connecting_from: Option<NodeId>,
+    pub connecting_cursor: Option<Point>,
+    pub hovered_target_node: Option<NodeId>,
 }
+
+/// Afstand fra punkt p til linjesegment a-b
+fn distance_to_segment(p: Point, a: Point, b: Point) -> f32 {
+    let l2 = (b.x - a.x).powi(2) + (b.y - a.y).powi(2);
+    if l2 < 0.0001 {
+        return (p.x - a.x).hypot(p.y - a.y);
+    }
+    let t = (((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / l2).clamp(0.0, 1.0);
+    let projection = Point::new(a.x + t * (b.x - a.x), a.y + t * (b.y - a.y));
+    (p.x - projection.x).hypot(p.y - projection.y)
+}
+
+type EdgeSelectHandler<'a, Message> = Box<dyn Fn(Option<(NodeId, NodeId)>) -> Message + 'a>;
+type EdgeCreateHandler<'a, Message> = Box<dyn Fn(NodeId, NodeId) -> Message + 'a>;
 
 /// Unificeret DiagramCanvas-komponent med pluggable node-rendering
 pub struct DiagramCanvas<'a, Message, N, E, R>
@@ -211,11 +228,14 @@ where
     nodes: &'a [N],
     edges: &'a [E],
     selected_node_id: Option<NodeId>,
+    selected_edge: Option<(NodeId, NodeId)>,
     viewport: CanvasViewport,
     snap_to_grid: bool,
     is_space_pressed: bool,
     render_node: R,
     on_node_selected: Box<dyn Fn(Option<NodeId>) -> Message + 'a>,
+    on_edge_selected: Option<EdgeSelectHandler<'a, Message>>,
+    on_edge_created: Option<EdgeCreateHandler<'a, Message>>,
     on_node_moved: Box<dyn Fn(NodeId, f32, f32) -> Message + 'a>,
     on_canvas_double_clicked: Box<dyn Fn(f32, f32) -> Message + 'a>,
     on_node_double_clicked: Box<dyn Fn(NodeId) -> Message + 'a>,
@@ -247,16 +267,37 @@ where
             nodes,
             edges,
             selected_node_id,
+            selected_edge: None,
             viewport,
             snap_to_grid,
             is_space_pressed,
             render_node,
             on_node_selected: Box::new(on_node_selected),
+            on_edge_selected: None,
+            on_edge_created: None,
             on_node_moved: Box::new(on_node_moved),
             on_canvas_double_clicked: Box::new(on_canvas_double_clicked),
             on_node_double_clicked: Box::new(on_node_double_clicked),
             on_viewport_changed: Box::new(on_viewport_changed),
         }
+    }
+
+    pub fn selected_edge(mut self, edge: Option<(NodeId, NodeId)>) -> Self {
+        self.selected_edge = edge;
+        self
+    }
+
+    pub fn on_edge_selected(
+        mut self,
+        handler: impl Fn(Option<(NodeId, NodeId)>) -> Message + 'a,
+    ) -> Self {
+        self.on_edge_selected = Some(Box::new(handler));
+        self
+    }
+
+    pub fn on_edge_created(mut self, handler: impl Fn(NodeId, NodeId) -> Message + 'a) -> Self {
+        self.on_edge_created = Some(Box::new(handler));
+        self
     }
 }
 
@@ -338,6 +379,24 @@ where
                 state.is_panning_space = false;
 
                 let world_pos = self.viewport.to_world(cursor_pos);
+
+                // 1. Tjek om der klikkes på forbindelseshåndtaget (connect handle) på den valgte node
+                if let Some(sel_id) = self.selected_node_id {
+                    if let Some(node) = self.nodes.iter().find(|n| n.id() == sel_id) {
+                        let (nx, ny) = node.position();
+                        let (nw, nh) = node.size();
+                        let handle_center = Point::new(nx + nw, ny + nh / 2.0);
+                        let dist =
+                            (world_pos.x - handle_center.x).hypot(world_pos.y - handle_center.y);
+                        if dist <= 14.0 {
+                            state.connecting_from = Some(sel_id);
+                            state.connecting_cursor = Some(world_pos);
+                            state.hovered_target_node = None;
+                            return Some(Action::capture());
+                        }
+                    }
+                }
+
                 let now = Instant::now();
                 let is_double_click = if let Some(last) = state.last_click {
                     let dist =
@@ -368,6 +427,7 @@ where
                     );
                 }
 
+                // 2. Klik på en node
                 for node in self.nodes.iter().rev() {
                     if node.contains(world_pos.x, world_pos.y) {
                         let (nx, ny) = node.position();
@@ -379,6 +439,48 @@ where
                     }
                 }
 
+                // 3. Klik på en relation (kant eller label)
+                let diagram_nodes: Vec<DiagramNode> =
+                    self.nodes.iter().map(|n| n.to_diagram_node()).collect();
+                let diagram_edges: Vec<DiagramEdge> =
+                    self.edges.iter().map(|e| e.to_diagram_edge()).collect();
+                let routed_edges = EdgeRouter::route_edges(&diagram_nodes, &diagram_edges);
+
+                for routed in routed_edges.iter().rev() {
+                    let hit_segment = routed
+                        .points
+                        .windows(2)
+                        .any(|w| distance_to_segment(world_pos, w[0], w[1]) <= 7.0);
+
+                    let hit_label =
+                        if let (Some(label), Some(pos)) = (&routed.label, routed.label_pos) {
+                            let approx_w = label.trim().len() as f32 * 6.8 + 16.0;
+                            let min_x = pos.x - approx_w / 2.0;
+                            let max_x = pos.x + approx_w / 2.0;
+                            let min_y = pos.y - 10.0;
+                            let max_y = pos.y + 10.0;
+                            world_pos.x >= min_x
+                                && world_pos.x <= max_x
+                                && world_pos.y >= min_y
+                                && world_pos.y <= max_y
+                        } else {
+                            false
+                        };
+
+                    if hit_segment || hit_label {
+                        if let Some(ref on_edge_selected) = self.on_edge_selected {
+                            return Some(
+                                Action::publish((on_edge_selected)(Some((routed.from, routed.to))))
+                                    .and_capture(),
+                            );
+                        }
+                    }
+                }
+
+                // 4. Klik på tomt lærred: fravælg node og kant
+                if let Some(ref on_edge_selected) = self.on_edge_selected {
+                    let _ = (on_edge_selected)(None);
+                }
                 Some(Action::publish((self.on_node_selected)(None)).and_capture())
             }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
@@ -387,6 +489,18 @@ where
                     let mut new_vp = self.viewport;
                     new_vp.set_pan(initial_pan + total_delta);
                     return Some(Action::publish((self.on_viewport_changed)(new_vp)).and_capture());
+                }
+
+                if let Some(source_id) = state.connecting_from {
+                    let world_pos = self.viewport.to_world(cursor_pos);
+                    state.connecting_cursor = Some(world_pos);
+                    state.hovered_target_node = self
+                        .nodes
+                        .iter()
+                        .rev()
+                        .find(|n| n.id() != source_id && n.contains(world_pos.x, world_pos.y))
+                        .map(|n| n.id());
+                    return Some(Action::capture());
                 }
 
                 if let Some((id, offset)) = state.dragging_node {
@@ -421,6 +535,23 @@ where
                 if was_panning_space {
                     return Some(Action::capture());
                 }
+
+                if let Some(source_id) = state.connecting_from.take() {
+                    state.connecting_cursor = None;
+                    let target = state.hovered_target_node.take();
+                    if let Some(target_id) = target {
+                        if target_id != source_id {
+                            if let Some(ref on_edge_created) = self.on_edge_created {
+                                return Some(
+                                    Action::publish((on_edge_created)(source_id, target_id))
+                                        .and_capture(),
+                                );
+                            }
+                        }
+                    }
+                    return Some(Action::capture());
+                }
+
                 if state.dragging_node.is_some() {
                     state.dragging_node = None;
                     return Some(Action::capture());
@@ -433,7 +564,7 @@ where
 
     fn draw(
         &self,
-        _state: &Self::State,
+        state: &Self::State,
         renderer: &Renderer,
         _theme: &Theme,
         bounds: Rectangle,
@@ -490,6 +621,15 @@ where
                 continue;
             }
 
+            let is_selected_edge = self.selected_edge == Some((routed.from, routed.to))
+                || self.selected_edge == Some((routed.to, routed.from));
+            let edge_color = if is_selected_edge {
+                ThemeColors::PRIMARY
+            } else {
+                Color::from_rgb(0.3, 0.3, 0.3)
+            };
+            let edge_width = if is_selected_edge { 2.8 } else { 1.5 };
+
             let path = Path::new(|b| {
                 b.move_to(routed.points[0]);
 
@@ -542,8 +682,8 @@ where
             frame.stroke(
                 &path,
                 Stroke::default()
-                    .with_color(Color::from_rgb(0.3, 0.3, 0.3))
-                    .with_width(1.5),
+                    .with_color(edge_color)
+                    .with_width(edge_width),
             );
         }
 
@@ -551,10 +691,73 @@ where
         for node in self.nodes {
             let is_selected = self.selected_node_id == Some(node.id());
             (self.render_node)(&mut frame, node, is_selected, self.viewport);
+
+            // Highlight målnode under drag-to-connect
+            if state.hovered_target_node == Some(node.id()) {
+                let (nx, ny) = node.position();
+                let (nw, nh) = node.size();
+                let target_glow = Path::rounded_rectangle(
+                    Point::new(nx - 3.0, ny - 3.0),
+                    Size::new(nw + 6.0, nh + 6.0),
+                    10.0.into(),
+                );
+                frame.stroke(
+                    &target_glow,
+                    Stroke::default()
+                        .with_color(ThemeColors::PRIMARY)
+                        .with_width(3.0),
+                );
+            }
+
+            // Forbindelseshåndtag (connect handle) på valgt node
+            if is_selected {
+                let (nx, ny) = node.position();
+                let (nw, nh) = node.size();
+                let handle_center = Point::new(nx + nw, ny + nh / 2.0);
+                let circle = Path::circle(handle_center, 8.0);
+                frame.fill(&circle, Color::WHITE);
+                frame.stroke(
+                    &circle,
+                    Stroke::default()
+                        .with_color(ThemeColors::PRIMARY)
+                        .with_width(2.0),
+                );
+                let inner_dot = Path::circle(handle_center, 3.5);
+                frame.fill(&inner_dot, ThemeColors::PRIMARY);
+            }
         }
 
-        // 5. Tegn pilehoveder og labels ovenpå noder for optimal synlighed
+        // 5. Elastik / Preview-linje under drag-to-connect
+        if let (Some(source_id), Some(cursor_world)) =
+            (state.connecting_from, state.connecting_cursor)
+        {
+            if let Some(src) = self.nodes.iter().find(|n| n.id() == source_id) {
+                let (sx, sy) = src.position();
+                let (sw, sh) = src.size();
+                let start_pt = Point::new(sx + sw, sy + sh / 2.0);
+                let preview = Path::line(start_pt, cursor_world);
+                frame.stroke(
+                    &preview,
+                    Stroke::default()
+                        .with_color(ThemeColors::PRIMARY)
+                        .with_width(2.5),
+                );
+                let end_circle = Path::circle(cursor_world, 5.0);
+                frame.fill(&end_circle, ThemeColors::PRIMARY);
+            }
+        }
+
+        // 6. Tegn pilehoveder og labels ovenpå noder for optimal synlighed
         for routed in &routed_edges {
+            let is_selected_edge = self.selected_edge == Some((routed.from, routed.to))
+                || self.selected_edge == Some((routed.to, routed.from));
+            let arrow_stroke_color = if is_selected_edge {
+                ThemeColors::PRIMARY
+            } else {
+                Color::from_rgb(0.2, 0.2, 0.2)
+            };
+            let arrow_stroke_width = if is_selected_edge { 2.2 } else { 1.5 };
+
             if let Some(ref arrow) = routed.arrow_head {
                 match routed.kind {
                     RelationKind::Generalization => {
@@ -568,8 +771,8 @@ where
                         frame.stroke(
                             &triangle,
                             Stroke::default()
-                                .with_color(Color::from_rgb(0.2, 0.2, 0.2))
-                                .with_width(1.5),
+                                .with_color(arrow_stroke_color)
+                                .with_width(arrow_stroke_width),
                         );
                     }
                     RelationKind::Composition => {
@@ -583,12 +786,12 @@ where
                             b.line_to(arrow.right);
                             b.close();
                         });
-                        frame.fill(&diamond_path, Color::from_rgb(0.2, 0.2, 0.2));
+                        frame.fill(&diamond_path, arrow_stroke_color);
                         frame.stroke(
                             &diamond_path,
                             Stroke::default()
-                                .with_color(Color::from_rgb(0.2, 0.2, 0.2))
-                                .with_width(1.5),
+                                .with_color(arrow_stroke_color)
+                                .with_width(arrow_stroke_width),
                         );
                     }
                     RelationKind::Association => {
@@ -600,8 +803,8 @@ where
                         frame.stroke(
                             &open_arrow,
                             Stroke::default()
-                                .with_color(Color::from_rgb(0.3, 0.3, 0.3))
-                                .with_width(1.5),
+                                .with_color(arrow_stroke_color)
+                                .with_width(arrow_stroke_width),
                         );
                     }
                 }
@@ -617,11 +820,23 @@ where
                         4.0.into(),
                     );
                     frame.fill(&pill, Color::from_rgba(1.0, 1.0, 1.0, 0.90));
+                    if is_selected_edge {
+                        frame.stroke(
+                            &pill,
+                            Stroke::default()
+                                .with_color(ThemeColors::PRIMARY)
+                                .with_width(1.5),
+                        );
+                    }
 
                     frame.fill_text(Text {
                         content: label_text.to_string(),
                         position: pos,
-                        color: ThemeColors::PRIMARY,
+                        color: if is_selected_edge {
+                            ThemeColors::PRIMARY
+                        } else {
+                            ThemeColors::SLATE_800
+                        },
                         size: 11.0.into(),
                         align_x: alignment::Horizontal::Center.into(),
                         align_y: alignment::Vertical::Center,
@@ -927,5 +1142,113 @@ mod tests {
         let _ = canvas.update(&mut state, &release_event, bounds, move_cursor);
         assert!(state.dragging_node.is_none());
         assert!(state.panning_start.is_none());
+    }
+
+    #[test]
+    fn test_drag_to_connect_lifecycle_and_edge_selection() {
+        use iced::mouse::Cursor;
+        use std::sync::Arc;
+        use uuid::Uuid;
+
+        let node1 = DiagramNode::custom(
+            Uuid::new_v4(),
+            "Node1".to_string(),
+            100.0,
+            100.0,
+            180.0,
+            80.0,
+        );
+        let node2 = DiagramNode::custom(
+            Uuid::new_v4(),
+            "Node2".to_string(),
+            400.0,
+            100.0,
+            180.0,
+            80.0,
+        );
+        let nodes = vec![node1.clone(), node2.clone()];
+        let edge = DiagramEdge::with_label(
+            node1.id(),
+            node2.id(),
+            RelationKind::Association,
+            Some("omfatter".to_string()),
+        );
+        let edges = vec![edge];
+
+        let created_edge = Arc::new(std::sync::Mutex::new(None));
+        let selected_edge = Arc::new(std::sync::Mutex::new(None));
+
+        let created_clone = Arc::clone(&created_edge);
+        let selected_clone = Arc::clone(&selected_edge);
+
+        let canvas = DiagramCanvas::new(
+            &nodes,
+            &edges,
+            Some(node1.id()),
+            CanvasViewport::default(),
+            false,
+            false,
+            |_, _, _, _| {},
+            |_| (),
+            |_, _, _| (),
+            |_, _| (),
+            |_| (),
+            |_| (),
+        )
+        .selected_edge(None)
+        .on_edge_selected(move |e| {
+            *selected_clone.lock().unwrap() = e;
+        })
+        .on_edge_created(move |from, to| {
+            *created_clone.lock().unwrap() = Some((from, to));
+        });
+
+        let mut state = DiagramCanvasState::default();
+        let bounds = Rectangle::new(Point::ORIGIN, Size::new(1000.0, 1000.0));
+
+        // 1. Klik på forbindelseshåndtaget for node1: placeret ved (nx + nw, ny + nh/2) = (280.0, 140.0)
+        let handle_cursor = Cursor::Available(Point::new(280.0, 140.0));
+        let press_event = Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left));
+        let action = canvas.update(&mut state, &press_event, bounds, handle_cursor);
+        assert!(action.is_some());
+        assert_eq!(state.connecting_from, Some(node1.id()));
+        assert_eq!(state.connecting_cursor, Some(Point::new(280.0, 140.0)));
+
+        // 2. CursorMoved over Node 2 (f.eks. ved (450.0, 120.0))
+        let target_cursor = Cursor::Available(Point::new(450.0, 120.0));
+        let move_event = Event::Mouse(mouse::Event::CursorMoved {
+            position: Point::new(450.0, 120.0),
+        });
+        let action = canvas.update(&mut state, &move_event, bounds, target_cursor);
+        assert!(action.is_some());
+        assert_eq!(state.hovered_target_node, Some(node2.id()));
+
+        // 3. Drop: ButtonReleased over Node 2 -> skal udstede on_edge_created(node1, node2)
+        let release_event = Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left));
+        let action = canvas.update(&mut state, &release_event, bounds, target_cursor);
+        assert!(action.is_some());
+        assert_eq!(
+            *created_edge.lock().unwrap(),
+            Some((node1.id(), node2.id()))
+        );
+        assert_eq!(state.connecting_from, None);
+        assert_eq!(state.hovered_target_node, None);
+
+        // 4. Klik på kanten/label for at vælge kanten
+        // Mellem node1 højre kant (280, 140) og node2 venstre kant (400, 140) er der et vandret linjestykke ved y=140
+        let edge_cursor = Cursor::Available(Point::new(340.0, 140.0));
+        let press_event = Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left));
+        let action = canvas.update(&mut state, &press_event, bounds, edge_cursor);
+        assert!(action.is_some());
+        assert_eq!(
+            *selected_edge.lock().unwrap(),
+            Some((node1.id(), node2.id()))
+        );
+
+        // 5. Klik på tomt lærred (50, 50) -> skal rydde kantmarkering
+        let empty_cursor = Cursor::Available(Point::new(50.0, 50.0));
+        let press_event = Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left));
+        let _ = canvas.update(&mut state, &press_event, bounds, empty_cursor);
+        assert_eq!(*selected_edge.lock().unwrap(), None);
     }
 }
