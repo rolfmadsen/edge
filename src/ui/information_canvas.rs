@@ -113,107 +113,125 @@ impl<'a, Message> Program<Message, Theme, Renderer> for InformationCanvas<'a, Me
                     if (zoom_factor - 1.0f32).abs() > 0.001 {
                         let mut new_vp = self.viewport;
                         new_vp.zoom_at(cursor_pos, zoom_factor);
-                        return Some(Action::publish((self.on_viewport_changed)(new_vp)));
+                        return Some(
+                            Action::publish((self.on_viewport_changed)(new_vp)).and_capture(),
+                        );
                     }
+                } else if state.modifiers.shift() {
+                    let shift_dx = if dy.abs() > dx.abs() { dy } else { dx };
+                    let mut new_vp = self.viewport;
+                    new_vp.translate(Vector::new(shift_dx, 0.0));
+                    return Some(Action::publish((self.on_viewport_changed)(new_vp)).and_capture());
                 } else {
                     let mut new_vp = self.viewport;
                     new_vp.translate(Vector::new(dx, dy));
-                    return Some(Action::publish((self.on_viewport_changed)(new_vp)));
+                    return Some(Action::publish((self.on_viewport_changed)(new_vp)).and_capture());
                 }
                 None
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Middle)) => {
                 state.panning_start = Some(cursor_pos);
-                None
-            }
-            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Middle)) => {
-                state.panning_start = None;
-                None
+                Some(Action::capture())
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
-                if state.space_pressed || self.is_space_pressed {
-                    state.is_panning_space = true;
+                if self.is_space_pressed || state.space_pressed {
                     state.panning_start = Some(cursor_pos);
-                    return None;
+                    state.is_panning_space = true;
+                    return Some(Action::capture());
                 }
 
-                let world_pos = self.viewport.to_world(cursor_pos);
-                let mut hit_node = None;
-
-                for node in self.graph.nodes().iter().rev() {
-                    if node.contains(world_pos.x, world_pos.y) {
-                        hit_node = Some(node);
-                        break;
-                    }
-                }
-
+                let now = Instant::now();
                 let is_double_click = if let Some(last) = state.last_click {
-                    let dist = ((last.position.x - cursor_pos.x).powi(2)
-                        + (last.position.y - cursor_pos.y).powi(2))
-                    .sqrt();
-                    last.time.elapsed().as_millis() < 400 && dist < 8.0
+                    let dx = last.position.x - cursor_pos.x;
+                    let dy = last.position.y - cursor_pos.y;
+                    let dist = (dx * dx + dy * dy).sqrt();
+                    dist < 6.0 && now.duration_since(last.time).as_millis() <= 350
                 } else {
                     false
                 };
 
-                state.last_click = Some(ClickRecord {
-                    position: cursor_pos,
-                    time: Instant::now(),
-                });
-
-                if let Some(node) = hit_node {
-                    if is_double_click {
-                        return Some(Action::publish((self.on_node_double_clicked)(node.id())));
-                    }
-
-                    let offset = Vector::new(world_pos.x - node.x(), world_pos.y - node.y());
-                    state.dragging_node = Some((node.id(), offset));
-                    Some(Action::publish((self.on_node_selected)(Some(node.id()))))
+                state.last_click = if is_double_click {
+                    None
                 } else {
-                    if is_double_click {
-                        return Some(Action::publish((self.on_canvas_double_clicked)(
-                            world_pos.x,
-                            world_pos.y,
-                        )));
-                    }
-                    Some(Action::publish((self.on_node_selected)(None)))
-                }
-            }
-            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => {
-                state.dragging_node = None;
-                if state.is_panning_space {
-                    state.is_panning_space = false;
-                    state.panning_start = None;
-                }
-                None
-            }
-            Event::Mouse(mouse::Event::CursorMoved { position }) => {
-                let current_pos = *position;
+                    Some(ClickRecord {
+                        position: cursor_pos,
+                        time: now,
+                    })
+                };
 
-                if let Some(start) = state.panning_start {
-                    let delta = Vector::new(current_pos.x - start.x, current_pos.y - start.y);
-                    state.panning_start = Some(current_pos);
+                let world_pos = self.viewport.to_world(cursor_pos);
+
+                for node in self.graph.nodes().iter().rev() {
+                    if node.contains(world_pos.x, world_pos.y) {
+                        if is_double_click {
+                            state.dragging_node = None;
+                            return Some(
+                                Action::publish((self.on_node_double_clicked)(node.id()))
+                                    .and_capture(),
+                            );
+                        }
+
+                        let offset = Vector::new(world_pos.x - node.x(), world_pos.y - node.y());
+                        state.dragging_node = Some((node.id(), offset));
+                        return Some(
+                            Action::publish((self.on_node_selected)(Some(node.id()))).and_capture(),
+                        );
+                    }
+                }
+
+                if is_double_click {
+                    state.dragging_node = None;
+                    return Some(
+                        Action::publish((self.on_canvas_double_clicked)(world_pos.x, world_pos.y))
+                            .and_capture(),
+                    );
+                }
+
+                state.dragging_node = None;
+                Some(Action::publish((self.on_node_selected)(None)))
+            }
+            Event::Mouse(mouse::Event::CursorMoved { .. }) => {
+                if let Some(last_pos) = state.panning_start {
+                    let delta = Vector::new(cursor_pos.x - last_pos.x, cursor_pos.y - last_pos.y);
+                    state.panning_start = Some(cursor_pos);
                     let mut new_vp = self.viewport;
                     new_vp.translate(delta);
-                    return Some(Action::publish((self.on_viewport_changed)(new_vp)));
+                    return Some(Action::publish((self.on_viewport_changed)(new_vp)).and_capture());
                 }
 
                 if let Some((node_id, offset)) = state.dragging_node {
-                    let world_pos = self.viewport.to_world(current_pos);
-                    let mut new_x = world_pos.x - offset.x;
-                    let mut new_y = world_pos.y - offset.y;
+                    let world_pos = self.viewport.to_world(cursor_pos);
+                    let mut new_x = (world_pos.x - offset.x).max(10.0);
+                    let mut new_y = (world_pos.y - offset.y).max(10.0);
 
                     if self.snap_to_grid {
-                        let snapped =
-                            CanvasViewport::snap_to_grid(Point::new(new_x, new_y), GRID_SIZE);
-                        new_x = snapped.x;
-                        new_y = snapped.y;
+                        new_x = (new_x / GRID_SIZE).round() * GRID_SIZE;
+                        new_y = (new_y / GRID_SIZE).round() * GRID_SIZE;
                     }
 
-                    Some(Action::publish((self.on_node_moved)(node_id, new_x, new_y)))
-                } else {
-                    None
+                    return Some(
+                        Action::publish((self.on_node_moved)(node_id, new_x, new_y)).and_capture(),
+                    );
                 }
+                None
+            }
+            Event::Mouse(mouse::Event::ButtonReleased(button)) => {
+                if *button == mouse::Button::Middle {
+                    state.panning_start = None;
+                    return Some(Action::capture());
+                }
+                if *button == mouse::Button::Left {
+                    if state.is_panning_space {
+                        state.panning_start = None;
+                        state.is_panning_space = false;
+                        return Some(Action::capture());
+                    }
+                    if state.dragging_node.is_some() {
+                        state.dragging_node = None;
+                        return Some(Action::capture());
+                    }
+                }
+                None
             }
             _ => None,
         }
