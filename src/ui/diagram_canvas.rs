@@ -392,7 +392,7 @@ where
                             state.connecting_from = Some(sel_id);
                             state.connecting_cursor = Some(world_pos);
                             state.hovered_target_node = None;
-                            return Some(Action::capture());
+                            return Some(Action::request_redraw().and_capture());
                         }
                     }
                 }
@@ -500,7 +500,7 @@ where
                         .rev()
                         .find(|n| n.id() != source_id && n.contains(world_pos.x, world_pos.y))
                         .map(|n| n.id());
-                    return Some(Action::capture());
+                    return Some(Action::request_redraw().and_capture());
                 }
 
                 if let Some((id, offset)) = state.dragging_node {
@@ -549,7 +549,7 @@ where
                             }
                         }
                     }
-                    return Some(Action::capture());
+                    return Some(Action::request_redraw().and_capture());
                 }
 
                 if state.dragging_node.is_some() {

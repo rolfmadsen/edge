@@ -223,6 +223,10 @@ pub enum Message {
     InfoRelationKindChanged(RelationKind),
     InfoRelationLabelChanged(String),
     InfoCreateRelation,
+    InfoEdgeSelected(Option<(NodeId, NodeId)>),
+    InfoEdgeCreated(NodeId, NodeId),
+    InfoUpdateEdgeKind(NodeId, NodeId, RelationKind),
+    InfoUpdateEdgeLabel(NodeId, NodeId, String),
 }
 
 pub struct App {
@@ -244,6 +248,7 @@ pub struct App {
     is_space_pressed: bool,
     selected_info_class_id: Option<Uuid>,
     selected_info_graph_node_id: Option<NodeId>,
+    selected_info_edge: Option<(NodeId, NodeId)>,
     info_class_search: String,
     info_canvas_viewport: crate::ui::graph_canvas::CanvasViewport,
     info_relation_dialog: Option<RelationDialogState>,
@@ -288,6 +293,7 @@ impl App {
                         is_space_pressed: false,
                         selected_info_class_id: None,
                         selected_info_graph_node_id: None,
+                        selected_info_edge: None,
                         info_class_search: String::new(),
                         info_canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
                         info_relation_dialog: None,
@@ -322,6 +328,7 @@ impl App {
             is_space_pressed: false,
             selected_info_class_id: None,
             selected_info_graph_node_id: None,
+            selected_info_edge: None,
             info_class_search: String::new(),
             info_canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
             info_relation_dialog: None,
@@ -392,6 +399,18 @@ impl App {
 
     pub fn selected_edge(&self) -> Option<(NodeId, NodeId)> {
         self.selected_edge
+    }
+
+    pub fn selected_info_class_id(&self) -> Option<Uuid> {
+        self.selected_info_class_id
+    }
+
+    pub fn selected_info_graph_node_id(&self) -> Option<NodeId> {
+        self.selected_info_graph_node_id
+    }
+
+    pub fn selected_info_edge(&self) -> Option<(NodeId, NodeId)> {
+        self.selected_info_edge
     }
 
     pub fn trigger_autosave(&mut self) {
@@ -657,8 +676,12 @@ impl App {
                     self.editor_state = None;
                 } else if self.selected_edge.is_some() {
                     self.selected_edge = None;
+                } else if self.selected_info_edge.is_some() {
+                    self.selected_info_edge = None;
                 } else if self.selected_graph_node_id.is_some() {
                     self.selected_graph_node_id = None;
+                } else if self.selected_info_graph_node_id.is_some() {
+                    self.selected_info_graph_node_id = None;
                 }
             }
 
@@ -717,15 +740,29 @@ impl App {
                     self.trigger_autosave();
                 }
             }
-            Message::GraphDeleteSelected => {
-                if let Some((from, to)) = self.selected_edge.take() {
-                    self.project.concept_graph_mut().remove_relation(from, to);
-                    self.trigger_autosave();
-                } else if let Some(node_id) = self.selected_graph_node_id.take() {
-                    self.project.concept_graph_mut().remove_node(node_id);
-                    self.trigger_autosave();
+            Message::GraphDeleteSelected => match self.active_tab {
+                Tab::ConceptModel => {
+                    if let Some((from, to)) = self.selected_edge.take() {
+                        self.project.concept_graph_mut().remove_relation(from, to);
+                        self.trigger_autosave();
+                    } else if let Some(node_id) = self.selected_graph_node_id.take() {
+                        self.project.concept_graph_mut().remove_node(node_id);
+                        self.trigger_autosave();
+                    }
                 }
-            }
+                Tab::InformationModel => {
+                    if let Some((from, to)) = self.selected_info_edge.take() {
+                        self.project
+                            .information_graph_mut()
+                            .remove_relation(from, to);
+                        self.trigger_autosave();
+                    } else if let Some(node_id) = self.selected_info_graph_node_id.take() {
+                        self.project.information_graph_mut().remove_node(node_id);
+                        self.trigger_autosave();
+                    }
+                }
+                _ => {}
+            },
             Message::GraphNodeMoved(node_id, x, y) => {
                 let (final_x, final_y) = if self.snap_to_grid {
                     (
@@ -961,6 +998,9 @@ impl App {
             // Informationsmodel (Task 010 & 011)
             Message::SelectInformationClass(id) => {
                 self.selected_info_class_id = id;
+                if id.is_some() {
+                    self.selected_info_edge = None;
+                }
                 if let Some(cid) = id {
                     if let Some(node) = self.project.information_graph().find_node_by_class(cid) {
                         self.selected_info_graph_node_id = Some(node.id());
@@ -977,9 +1017,11 @@ impl App {
                 let node_id = self.project.information_graph_mut().add_node(id, 0);
                 self.selected_info_class_id = Some(id);
                 self.selected_info_graph_node_id = Some(node_id);
+                self.selected_info_edge = None;
                 self.trigger_autosave();
             }
             Message::CreateInformationClassFromConcept(opt) => {
+                self.selected_info_edge = None;
                 if let Some(concept) = self.project.get_concept(opt.id).cloned() {
                     let id = self
                         .project
@@ -1170,10 +1212,64 @@ impl App {
             }
             Message::SelectInfoGraphNode(node_id_opt) => {
                 self.selected_info_graph_node_id = node_id_opt;
+                if node_id_opt.is_some() {
+                    self.selected_info_edge = None;
+                }
                 if let Some(nid) = node_id_opt {
                     if let Some(node) = self.project.information_graph().find_node(nid) {
                         self.selected_info_class_id = Some(node.class_id());
                     }
+                }
+            }
+            Message::InfoEdgeSelected(edge) => {
+                self.selected_info_edge = edge;
+                if edge.is_some() {
+                    self.selected_info_graph_node_id = None;
+                    self.selected_info_class_id = None;
+                }
+            }
+            Message::InfoEdgeCreated(from, to) => {
+                if from == to {
+                    return Task::none();
+                }
+                let graph = self.project.information_graph();
+                if graph.find_node(from).is_some() && graph.find_node(to).is_some() {
+                    if graph.find_edge(from, to).is_none() {
+                        self.project.information_graph_mut().add_relation(
+                            from,
+                            to,
+                            RelationKind::Association,
+                            None,
+                        );
+                        self.trigger_autosave();
+                    }
+                    self.selected_info_graph_node_id = None;
+                    self.selected_info_class_id = None;
+                    self.selected_info_edge = Some((from, to));
+                    return operation::focus("info_edge_label_input");
+                }
+            }
+            Message::InfoUpdateEdgeKind(from, to, kind) => {
+                if self
+                    .project
+                    .information_graph_mut()
+                    .update_edge_kind(from, to, kind)
+                {
+                    self.trigger_autosave();
+                }
+            }
+            Message::InfoUpdateEdgeLabel(from, to, label) => {
+                let lbl = if label.trim().is_empty() {
+                    None
+                } else {
+                    Some(label)
+                };
+                if self
+                    .project
+                    .information_graph_mut()
+                    .update_edge_label(from, to, lbl)
+                {
+                    self.trigger_autosave();
                 }
             }
             Message::AddClassRelation(from, to, kind, label) => {
@@ -1186,6 +1282,11 @@ impl App {
                 self.project
                     .information_graph_mut()
                     .remove_relation(from, to);
+                if self.selected_info_edge == Some((from, to))
+                    || self.selected_info_edge == Some((to, from))
+                {
+                    self.selected_info_edge = None;
+                }
                 self.trigger_autosave();
             }
             Message::InfoCanvasViewportChanged(vp) => {
@@ -1923,6 +2024,7 @@ impl App {
                 self.project.concepts(),
                 self.selected_info_class_id,
                 self.selected_info_graph_node_id,
+                self.selected_info_edge,
                 &self.info_class_search,
                 self.info_canvas_viewport,
                 self.info_snap_to_grid,

@@ -23,6 +23,7 @@ pub fn view<'a>(
     concepts: &'a [Concept],
     selected_class_id: Option<Uuid>,
     selected_node_id: Option<NodeId>,
+    selected_edge: Option<(NodeId, NodeId)>,
     search_query: &'a str,
     viewport: CanvasViewport,
     snap_to_grid: bool,
@@ -201,47 +202,52 @@ pub fn view<'a>(
     .spacing(6)
     .align_y(Alignment::Center);
 
-    let canvas_widget = iced::widget::canvas(DiagramCanvas::new(
-        class_graph.nodes(),
-        class_graph.edges(),
-        selected_node_id,
-        viewport,
-        snap_to_grid,
-        is_space_pressed,
-        |frame, node, is_selected, vp| {
-            let class_opt = info_model.get_class(node.class_id());
-            let class_name = if class_opt.map(|c| c.name()).unwrap_or("").trim().is_empty() {
-                "NyKlasse"
-            } else {
-                class_opt.map(|c| c.name()).unwrap()
-            };
-            let attributes: Vec<(String, String, String)> = class_opt
-                .map(|c| {
-                    c.attributes()
-                        .iter()
-                        .map(|a| {
-                            let name = if a.name().trim().is_empty() {
-                                "nyAttribut"
-                            } else {
-                                a.name()
-                            };
-                            (
-                                name.to_string(),
-                                a.data_type().as_str().to_string(),
-                                a.multiplicity().to_string(),
-                            )
-                        })
-                        .collect()
-                })
-                .unwrap_or_default();
-            render_uml_class_node(frame, node, class_name, &attributes, false, is_selected, vp);
-        },
-        Message::SelectInfoGraphNode,
-        Message::UpdateClassNodePosition,
-        |_x, _y| Message::CreateInformationClass,
-        |node_id| Message::SelectInfoGraphNode(Some(node_id)),
-        Message::InfoCanvasViewportChanged,
-    ))
+    let canvas_widget = iced::widget::canvas(
+        DiagramCanvas::new(
+            class_graph.nodes(),
+            class_graph.edges(),
+            selected_node_id,
+            viewport,
+            snap_to_grid,
+            is_space_pressed,
+            |frame, node, is_selected, vp| {
+                let class_opt = info_model.get_class(node.class_id());
+                let class_name = if class_opt.map(|c| c.name()).unwrap_or("").trim().is_empty() {
+                    "NyKlasse"
+                } else {
+                    class_opt.map(|c| c.name()).unwrap()
+                };
+                let attributes: Vec<(String, String, String)> = class_opt
+                    .map(|c| {
+                        c.attributes()
+                            .iter()
+                            .map(|a| {
+                                let name = if a.name().trim().is_empty() {
+                                    "nyAttribut"
+                                } else {
+                                    a.name()
+                                };
+                                (
+                                    name.to_string(),
+                                    a.data_type().as_str().to_string(),
+                                    a.multiplicity().to_string(),
+                                )
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                render_uml_class_node(frame, node, class_name, &attributes, false, is_selected, vp);
+            },
+            Message::SelectInfoGraphNode,
+            Message::UpdateClassNodePosition,
+            |_x, _y| Message::CreateInformationClass,
+            |node_id| Message::SelectInfoGraphNode(Some(node_id)),
+            Message::InfoCanvasViewportChanged,
+        )
+        .selected_edge(selected_edge)
+        .on_edge_selected(Message::InfoEdgeSelected)
+        .on_edge_created(Message::InfoEdgeCreated),
+    )
     .width(Length::Fill)
     .height(Length::Fill);
 
@@ -402,7 +408,124 @@ pub fn view<'a>(
     // ==========================================
     // 3. HØJRE INSPECTOR (Context Panel ~300px)
     // ==========================================
-    let right_inspector: Element<'a, Message> = if let Some(class_id) = selected_class_id {
+    let right_inspector: Element<'a, Message> = if let Some((from_id, to_id)) = selected_edge {
+        if let Some(edge) = class_graph.find_edge(from_id, to_id) {
+            let from_class = class_graph
+                .find_node(from_id)
+                .and_then(|n| info_model.get_class(n.class_id()))
+                .map(|c| c.name())
+                .unwrap_or("Kilde");
+            let to_class = class_graph
+                .find_node(to_id)
+                .and_then(|n| info_model.get_class(n.class_id()))
+                .map(|c| c.name())
+                .unwrap_or("Mål");
+
+            let header = row![
+                text("Relation").size(14).color(ThemeColors::PRIMARY),
+                Space::new().width(Length::Fill),
+                button(text("✕").size(11))
+                    .style(secondary_button_style)
+                    .on_press(Message::InfoEdgeSelected(None))
+                    .padding([2, 5]),
+            ]
+            .align_y(Alignment::Center);
+
+            let nodes_info = column![
+                text(format!("{} ➔ {}", from_class, to_class))
+                    .size(13)
+                    .color(ThemeColors::SLATE_900),
+                text("Rediger relationens egenskaber:")
+                    .size(11)
+                    .color(ThemeColors::TEXT_MUTED),
+            ]
+            .spacing(4);
+
+            let kind_selector = column![
+                text("Relationstype:")
+                    .size(11)
+                    .color(ThemeColors::SLATE_600),
+                row![
+                    button(text("Association").size(11))
+                        .style(if edge.kind() == RelationKind::Association {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        })
+                        .on_press(Message::InfoUpdateEdgeKind(
+                            from_id,
+                            to_id,
+                            RelationKind::Association
+                        ))
+                        .padding([4, 6]),
+                    button(text("Generalisering").size(11))
+                        .style(if edge.kind() == RelationKind::Generalization {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        })
+                        .on_press(Message::InfoUpdateEdgeKind(
+                            from_id,
+                            to_id,
+                            RelationKind::Generalization
+                        ))
+                        .padding([4, 6]),
+                    button(text("Komposition").size(11))
+                        .style(if edge.kind() == RelationKind::Composition {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        })
+                        .on_press(Message::InfoUpdateEdgeKind(
+                            from_id,
+                            to_id,
+                            RelationKind::Composition
+                        ))
+                        .padding([4, 6]),
+                ]
+                .spacing(4),
+            ]
+            .spacing(4);
+
+            let label_input = column![
+                text("Associationsnavn (valgfri):")
+                    .size(11)
+                    .color(ThemeColors::SLATE_600),
+                text_input("f.eks. omfatter, ejer...", edge.label().unwrap_or(""))
+                    .id("info_edge_label_input")
+                    .style(modern_input_style)
+                    .on_input(move |v| Message::InfoUpdateEdgeLabel(from_id, to_id, v))
+                    .padding(6)
+                    .width(Length::Fill),
+            ]
+            .spacing(4);
+
+            let actions = row![button(text("🗑️ Slet relation").size(11))
+                .style(danger_button_style)
+                .on_press(Message::DeleteClassRelation(from_id, to_id))
+                .padding([4, 10]),]
+            .align_y(Alignment::Center);
+
+            let insp_col =
+                column![header, nodes_info, kind_selector, label_input, actions].spacing(12);
+
+            container(scrollable(insp_col))
+                .style(card_container_style)
+                .padding(14)
+                .width(Length::Fixed(290.0))
+                .height(Length::Fill)
+                .into()
+        } else {
+            container(
+                text("Relation ikke fundet")
+                    .size(12)
+                    .color(ThemeColors::TEXT_MUTED),
+            )
+            .width(Length::Fixed(290.0))
+            .height(Length::Fill)
+            .into()
+        }
+    } else if let Some(class_id) = selected_class_id {
         if let Some(class) = info_model.get_class(class_id) {
             let is_on_canvas = class_graph.is_class_on_diagram(class_id);
 

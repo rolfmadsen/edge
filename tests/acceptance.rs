@@ -1803,20 +1803,30 @@ fn test_information_model_interactive_edges_drag_to_connect_and_inspector_crud()
 
     // 1. Opret to informationsklasser på diagrammet
     let _ = app.update(Message::CreateInformationClass);
-    let class1_id = app.selected_info_class_id().expect("Klasse 1 skal oprettes");
+    let class1_id = app
+        .selected_info_class_id()
+        .expect("Klasse 1 skal oprettes");
     let node1_id = app
         .selected_info_graph_node_id()
         .expect("Node 1 skal oprettes");
 
     let _ = app.update(Message::CreateInformationClass);
-    let class2_id = app.selected_info_class_id().expect("Klasse 2 skal oprettes");
+    let class2_id = app
+        .selected_info_class_id()
+        .expect("Klasse 2 skal oprettes");
     let node2_id = app
         .selected_info_graph_node_id()
         .expect("Node 2 skal oprettes");
 
     // Navngiv klasserne
-    let _ = app.update(Message::UpdateInformationClassName(class1_id, "Kunde".to_string()));
-    let _ = app.update(Message::UpdateInformationClassName(class2_id, "Ordre".to_string()));
+    let _ = app.update(Message::UpdateInformationClassName(
+        class1_id,
+        "Kunde".to_string(),
+    ));
+    let _ = app.update(Message::UpdateInformationClassName(
+        class2_id,
+        "Ordre".to_string(),
+    ));
 
     // Ingen edge er valgt endnu
     assert_eq!(app.selected_info_edge(), None);
@@ -1878,4 +1888,3 @@ fn test_information_model_interactive_edges_drag_to_connect_and_inspector_crud()
     );
     assert_eq!(app.selected_info_edge(), None);
 }
-

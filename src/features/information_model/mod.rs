@@ -467,6 +467,10 @@ impl ClassDiagramEdge {
         self.kind
     }
 
+    pub fn set_kind(&mut self, kind: RelationKind) {
+        self.kind = kind;
+    }
+
     pub fn label(&self) -> Option<&str> {
         self.label.as_deref()
     }
@@ -582,6 +586,34 @@ impl ClassGraph {
 
     pub fn remove_relation(&mut self, from: NodeId, to: NodeId) {
         self.edges.retain(|e| !(e.from() == from && e.to() == to));
+    }
+
+    pub fn find_edge(&self, from: NodeId, to: NodeId) -> Option<&ClassDiagramEdge> {
+        self.edges.iter().find(|e| e.from() == from && e.to() == to)
+    }
+
+    pub fn find_edge_mut(&mut self, from: NodeId, to: NodeId) -> Option<&mut ClassDiagramEdge> {
+        self.edges
+            .iter_mut()
+            .find(|e| e.from() == from && e.to() == to)
+    }
+
+    pub fn update_edge_kind(&mut self, from: NodeId, to: NodeId, kind: RelationKind) -> bool {
+        if let Some(edge) = self.find_edge_mut(from, to) {
+            edge.set_kind(kind);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update_edge_label(&mut self, from: NodeId, to: NodeId, label: Option<String>) -> bool {
+        if let Some(edge) = self.find_edge_mut(from, to) {
+            edge.set_label(label);
+            true
+        } else {
+            false
+        }
     }
 
     pub fn update_node_position(&mut self, id: NodeId, x: f32, y: f32) {
