@@ -1888,3 +1888,43 @@ fn test_information_model_interactive_edges_drag_to_connect_and_inspector_crud()
     );
     assert_eq!(app.selected_info_edge(), None);
 }
+
+#[test]
+fn test_composition_edge_has_diamond_at_source_node() {
+    use edge::features::concept_model::{DiagramEdge, DiagramNode, RelationKind};
+    use edge::features::concepts::{BelongsToDomain, Concept};
+    use edge::ui::edge_router::{EdgeRouter, PortSide};
+
+    let c_whole = Concept::new("Bil", "Et motorkøretøj", BelongsToDomain::Yes);
+    let c_part = Concept::new("Motor", "En fremdriftsmaskine", BelongsToDomain::Yes);
+
+    let node_whole = DiagramNode::new(&c_whole, 100.0, 100.0);
+    let node_part = DiagramNode::new(&c_part, 400.0, 100.0);
+
+    let edge_comp = DiagramEdge::new(node_whole.id(), node_part.id(), RelationKind::Composition);
+
+    let routes = EdgeRouter::route_edges(&[node_whole.clone(), node_part.clone()], &[edge_comp]);
+    assert_eq!(routes.len(), 1);
+    let route = &routes[0];
+
+    // Skal have et source_diamond forankret på source-noden (node_whole)
+    let diamond = route
+        .source_diamond
+        .as_ref()
+        .expect("Komposition skal have en diamant ved source noden");
+    assert_eq!(
+        diamond.direction,
+        PortSide::Right,
+        "Source noden (venstre) skal have diamanten pegende ud fra højre port mod part-noden"
+    );
+    assert_eq!(
+        diamond.tip.x,
+        node_whole.x() + node_whole.width(),
+        "Diamantens spids skal røre source nodens højre kant præcist"
+    );
+    assert!(
+        diamond.back.x > diamond.tip.x,
+        "Diamantens bagerste spids skal pege ud i lærredet mod part-noden"
+    );
+}
+
