@@ -886,14 +886,23 @@ fn test_orthogonal_edge_routing_and_ports() {
     ];
 
     // Edge 1: Generalisering sub1 -> super
-    let mut edge_gen1 = DiagramEdge::new(node_sub1.id(), node_super.id(), RelationKind::Generalization);
+    let mut edge_gen1 = DiagramEdge::new(
+        node_sub1.id(),
+        node_super.id(),
+        RelationKind::Generalization,
+    );
     edge_gen1.set_label(Some("er en".to_string())); // skal undertrykkes jf FDA
 
     // Edge 2: Generalisering sub2 -> super
-    let edge_gen2 = DiagramEdge::new(node_sub2.id(), node_super.id(), RelationKind::Generalization);
+    let edge_gen2 = DiagramEdge::new(
+        node_sub2.id(),
+        node_super.id(),
+        RelationKind::Generalization,
+    );
 
     // Edge 3: Association super -> assoc
-    let mut edge_asc = DiagramEdge::new(node_super.id(), node_assoc.id(), RelationKind::Association);
+    let mut edge_asc =
+        DiagramEdge::new(node_super.id(), node_assoc.id(), RelationKind::Association);
     edge_asc.set_label(Some("relaterer".to_string()));
 
     let edges = vec![edge_gen1.clone(), edge_gen2.clone(), edge_asc.clone()];
@@ -903,7 +912,10 @@ fn test_orthogonal_edge_routing_and_ports() {
 
     // 1. Verificér ortogonalitet (kun 90 graders vinkler: alle segmenter er enten rent horisontale eller vertikale)
     for route in &routes {
-        assert!(route.points.len() >= 2, "En rute skal have mindst 2 punkter");
+        assert!(
+            route.points.len() >= 2,
+            "En rute skal have mindst 2 punkter"
+        );
         for window in route.points.windows(2) {
             let p1 = window[0];
             let p2 = window[1];
@@ -912,19 +924,26 @@ fn test_orthogonal_edge_routing_and_ports() {
             assert!(
                 is_horizontal || is_vertical,
                 "Alle linjesegmenter skal være strengt ortogonale (90°). Segment fra {:?} til {:?}",
-                p1, p2
+                p1,
+                p2
             );
         }
     }
 
     // 2. Verificér FDA label-semantik: ingen label på generalisering, label bevares på association
-    let r_gen1 = routes.iter().find(|r| r.from == edge_gen1.from() && r.to == edge_gen1.to()).unwrap();
+    let r_gen1 = routes
+        .iter()
+        .find(|r| r.from == edge_gen1.from() && r.to == edge_gen1.to())
+        .unwrap();
     assert_eq!(
         r_gen1.label, None,
         "Generalisering må IKKE vise label jf FDA vejledning linje 1474 & 1526"
     );
 
-    let r_asc = routes.iter().find(|r| r.from == edge_asc.from() && r.to == edge_asc.to()).unwrap();
+    let r_asc = routes
+        .iter()
+        .find(|r| r.from == edge_asc.from() && r.to == edge_asc.to())
+        .unwrap();
     assert_eq!(
         r_asc.label.as_deref(),
         Some("relaterer"),
@@ -932,7 +951,10 @@ fn test_orthogonal_edge_routing_and_ports() {
     );
 
     // 3. Verificér pilehoved: forankret præcist på målnodens kant
-    let arrow1 = r_gen1.arrow_head.as_ref().expect("Generalisering skal have pilehoved");
+    let arrow1 = r_gen1
+        .arrow_head
+        .as_ref()
+        .expect("Generalisering skal have pilehoved");
     assert_eq!(
         arrow1.direction,
         PortSide::Bottom,
@@ -949,8 +971,14 @@ fn test_orthogonal_edge_routing_and_ports() {
     );
 
     // 4. Verificér multi-relation af samme type deler anker på target
-    let r_gen2 = routes.iter().find(|r| r.from == edge_gen2.from() && r.to == edge_gen2.to()).unwrap();
-    let arrow2 = r_gen2.arrow_head.as_ref().expect("Generalisering 2 skal have pilehoved");
+    let r_gen2 = routes
+        .iter()
+        .find(|r| r.from == edge_gen2.from() && r.to == edge_gen2.to())
+        .unwrap();
+    let arrow2 = r_gen2
+        .arrow_head
+        .as_ref()
+        .expect("Generalisering 2 skal have pilehoved");
     assert_eq!(
         arrow1.tip, arrow2.tip,
         "To generaliseringer til samme superklasse på samme side skal dele ankerpunkt (FDA Fig 7.1)"
@@ -961,10 +989,17 @@ fn test_orthogonal_edge_routing_and_ports() {
     // må pilen IKKE routes direkte mellem modstående flader så pilen klemmes.
     let close_sub = DiagramNode::new(&c_sub1, 200.0, 130.0); // y=130, super bottom=120 -> afstand kun 10px!
     let close_nodes = vec![node_super.clone(), close_sub.clone()];
-    let close_edge = DiagramEdge::new(close_sub.id(), node_super.id(), RelationKind::Generalization);
+    let close_edge = DiagramEdge::new(
+        close_sub.id(),
+        node_super.id(),
+        RelationKind::Generalization,
+    );
     let close_routes = EdgeRouter::route_edges(&close_nodes, &[close_edge]);
     let close_route = &close_routes[0];
-    let close_arrow = close_route.arrow_head.as_ref().expect("Skal have pilehoved");
+    let close_arrow = close_route
+        .arrow_head
+        .as_ref()
+        .expect("Skal have pilehoved");
     // Da afstanden vertikalt kun er 10px, skal porten skifte til side-port for at undgå flad/inverteret pil
     assert_ne!(
         close_arrow.direction,
@@ -985,8 +1020,16 @@ fn test_orthogonal_edge_routing_and_ports() {
         n_vert_top.clone(),
         n_vert_bottom.clone(),
     ];
-    let edge_h = DiagramEdge::new(n_horiz_left.id(), n_horiz_right.id(), RelationKind::Association);
-    let edge_v = DiagramEdge::new(n_vert_top.id(), n_vert_bottom.id(), RelationKind::Association);
+    let edge_h = DiagramEdge::new(
+        n_horiz_left.id(),
+        n_horiz_right.id(),
+        RelationKind::Association,
+    );
+    let edge_v = DiagramEdge::new(
+        n_vert_top.id(),
+        n_vert_bottom.id(),
+        RelationKind::Association,
+    );
 
     let cross_routes = EdgeRouter::route_edges(&cross_nodes, &[edge_h, edge_v]);
     let has_bridge = cross_routes.iter().any(|r| !r.bridges.is_empty());

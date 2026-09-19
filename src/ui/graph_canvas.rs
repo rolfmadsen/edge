@@ -1,4 +1,5 @@
-use crate::features::concept_model::{ConceptGraph, NodeId, RelationKind, GRID_SIZE};
+use crate::features::concept_model::{ConceptGraph, NodeId, GRID_SIZE};
+use crate::ui::edge_router::EdgeRouter;
 use crate::ui::theme::ThemeColors;
 use iced::mouse;
 use iced::widget::canvas::{Action, Event, Frame, Geometry, Path, Program, Stroke, Text};
@@ -403,102 +404,70 @@ impl<'a, Message> Program<Message, Theme, Renderer> for GraphCanvas<'a, Message>
         frame.translate(self.viewport.pan());
         frame.scale(self.viewport.zoom());
 
-        // 3. Tegn UML relationer (edges)
-        for edge in self.graph.edges() {
-            let from_node = self.graph.find_node(edge.from());
-            let to_node = self.graph.find_node(edge.to());
+        // 3. Deterministisk ortogonal edge routing (ADR 005 & Task 009)
+        let routed_edges = EdgeRouter::route_edges(self.graph.nodes(), self.graph.edges());
 
-            if let (Some(from), Some(to)) = (from_node, to_node) {
-                let (from_cx, from_cy) = from.center();
-                let (to_cx, to_cy) = to.center();
-
-                let p1 = Point::new(from_cx, from_cy);
-                let p2 = Point::new(to_cx, to_cy);
-
-                match edge.kind() {
-                    RelationKind::Generalization => {
-                        // Generalisering jf. FDA Tabel 1: Linje med hvid lukket trekant mod superklasse
-                        let line = Path::line(p1, p2);
-                        frame.stroke(
-                            &line,
-                            Stroke::default()
-                                .with_color(Color::from_rgb(0.3, 0.3, 0.3))
-                                .with_width(1.5),
-                        );
-
-                        // Beregn trekantspids ved mål-noden (to_node)
-                        let dx = p2.x - p1.x;
-                        let dy = p2.y - p1.y;
-                        let len = (dx * dx + dy * dy).sqrt();
-
-                        if len > 20.0 {
-                            let ux = dx / len;
-                            let uy = dy / len;
-
-                            let target_pt = Point::new(
-                                p2.x - ux * (to.width() * 0.35),
-                                p2.y - uy * (to.height() * 0.35),
-                            );
-                            let arrow_len = 16.0;
-                            let arrow_width = 8.0;
-
-                            let base_pt = Point::new(
-                                target_pt.x - ux * arrow_len,
-                                target_pt.y - uy * arrow_len,
-                            );
-                            let left_pt = Point::new(
-                                base_pt.x - uy * arrow_width,
-                                base_pt.y + ux * arrow_width,
-                            );
-                            let right_pt = Point::new(
-                                base_pt.x + uy * arrow_width,
-                                base_pt.y - ux * arrow_width,
-                            );
-
-                            let triangle = Path::new(|b| {
-                                b.move_to(target_pt);
-                                b.line_to(left_pt);
-                                b.line_to(right_pt);
-                                b.close();
-                            });
-
-                            frame.fill(&triangle, Color::WHITE);
-                            frame.stroke(
-                                &triangle,
-                                Stroke::default()
-                                    .with_color(Color::from_rgb(0.2, 0.2, 0.2))
-                                    .with_width(1.5),
-                            );
-                        }
-                    }
-                    RelationKind::Association | RelationKind::Composition => {
-                        let line = Path::line(p1, p2);
-                        frame.stroke(
-                            &line,
-                            Stroke::default()
-                                .with_color(Color::from_rgb(0.3, 0.3, 0.3))
-                                .with_width(1.5),
-                        );
-
-                        if let Some(label) = edge.label() {
-                            if !label.trim().is_empty() {
-                                let mid_x = (p1.x + p2.x) / 2.0;
-                                let mid_y = (p1.y + p2.y) / 2.0 - 10.0;
-
-                                frame.fill_text(Text {
-                                    content: label.to_string(),
-                                    position: Point::new(mid_x, mid_y),
-                                    color: ThemeColors::PRIMARY,
-                                    size: 11.0.into(),
-                                    align_x: alignment::Horizontal::Center.into(),
-                                    align_y: alignment::Vertical::Center,
-                                    ..Default::default()
-                                });
-                            }
-                        }
-                    }
-                }
+        // A. Tegn ortogonale linjeforløb med krydsningsbroer (line jumps)
+        for routed in &routed_edges {
+            if routed.points.len() < 2 {
+                continue;
             }
+
+            let path = Path::new(|b| {
+                b.move_to(routed.points[0]);
+
+                for window in routed.points.windows(2) {
+                    let (p1, p2) = (window[0], window[1]);
+                    let is_h = (p1.y - p2.y).abs() < 0.001;
+
+                    if is_h && !routed.bridges.is_empty() {
+                        let min_x = p1.x.min(p2.x);
+                        let max_x = p1.x.max(p2.x);
+                        let mut seg_bridges: Vec<_> = routed
+                            .bridges
+                            .iter()
+                            .filter(|br| {
+                                br.is_horizontal
+                                    && (br.center.y - p1.y).abs() < 0.001
+                                    && br.center.x > min_x + 2.0
+                                    && br.center.x < max_x - 2.0
+                            })
+                            .collect();
+
+                        if p1.x < p2.x {
+                            seg_bridges
+                                .sort_by(|a, b| a.center.x.partial_cmp(&b.center.x).unwrap());
+                        } else {
+                            seg_bridges
+                                .sort_by(|a, b| b.center.x.partial_cmp(&a.center.x).unwrap());
+                        }
+
+                        let r = 5.0;
+                        for bridge in seg_bridges {
+                            let bx = bridge.center.x;
+                            let by = bridge.center.y;
+                            let approach_x = if p1.x < p2.x { bx - r } else { bx + r };
+                            let exit_x = if p1.x < p2.x { bx + r } else { bx - r };
+
+                            b.line_to(Point::new(approach_x, by));
+                            b.bezier_curve_to(
+                                Point::new(approach_x, by - 6.0),
+                                Point::new(exit_x, by - 6.0),
+                                Point::new(exit_x, by),
+                            );
+                        }
+                    }
+
+                    b.line_to(p2);
+                }
+            });
+
+            frame.stroke(
+                &path,
+                Stroke::default()
+                    .with_color(Color::from_rgb(0.3, 0.3, 0.3))
+                    .with_width(1.5),
+            );
         }
 
         // 4. Tegn Noder jf. FDA Modelreglerne (Kapitel 5 & 7.3)
@@ -567,6 +536,49 @@ impl<'a, Message> Program<Message, Theme, Renderer> for GraphCanvas<'a, Message>
                 align_y: alignment::Vertical::Center,
                 ..Default::default()
             });
+        }
+
+        // 5. Tegn Pilehoveder og Labels ovenpå noder for maksimal synlighed (ADR 005)
+        for routed in &routed_edges {
+            if let Some(ref arrow) = routed.arrow_head {
+                let triangle = Path::new(|b| {
+                    b.move_to(arrow.tip);
+                    b.line_to(arrow.left);
+                    b.line_to(arrow.right);
+                    b.close();
+                });
+
+                frame.fill(&triangle, Color::WHITE);
+                frame.stroke(
+                    &triangle,
+                    Stroke::default()
+                        .with_color(Color::from_rgb(0.2, 0.2, 0.2))
+                        .with_width(1.5),
+                );
+            }
+
+            if let (Some(label), Some(pos)) = (&routed.label, routed.label_pos) {
+                if !label.trim().is_empty() {
+                    let label_text = label.trim();
+                    let approx_w = label_text.len() as f32 * 6.8 + 12.0;
+                    let pill = Path::rounded_rectangle(
+                        Point::new(pos.x - approx_w / 2.0, pos.y - 8.0),
+                        Size::new(approx_w, 16.0),
+                        4.0.into(),
+                    );
+                    frame.fill(&pill, Color::from_rgba(1.0, 1.0, 1.0, 0.90));
+
+                    frame.fill_text(Text {
+                        content: label_text.to_string(),
+                        position: pos,
+                        color: ThemeColors::PRIMARY,
+                        size: 11.0.into(),
+                        align_x: alignment::Horizontal::Center.into(),
+                        align_y: alignment::Vertical::Center,
+                        ..Default::default()
+                    });
+                }
+            }
         }
 
         vec![frame.into_geometry()]
