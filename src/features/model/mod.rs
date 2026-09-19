@@ -1,3 +1,4 @@
+use crate::features::concept_model::ConceptGraph;
 use crate::features::concepts::{Concept, ConceptValidator, ValidationError};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -82,10 +83,12 @@ impl ModelMetadata {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModelProject {
     metadata: ModelMetadata,
     concepts: Vec<Concept>,
+    #[serde(default)]
+    concept_graph: ConceptGraph,
 }
 
 impl ModelProject {
@@ -93,6 +96,7 @@ impl ModelProject {
         Self {
             metadata,
             concepts: Vec::new(),
+            concept_graph: ConceptGraph::new(),
         }
     }
 
@@ -112,6 +116,18 @@ impl ModelProject {
         &mut self.concepts
     }
 
+    pub fn concept_graph(&self) -> &ConceptGraph {
+        &self.concept_graph
+    }
+
+    pub fn concept_graph_mut(&mut self) -> &mut ConceptGraph {
+        &mut self.concept_graph
+    }
+
+    pub fn sync_concept_graph(&mut self) {
+        self.concept_graph.sync_with_concepts(&self.concepts);
+    }
+
     pub fn get_concept(&self, id: Uuid) -> Option<&Concept> {
         self.concepts.iter().find(|c| c.id() == id)
     }
@@ -124,6 +140,7 @@ impl ModelProject {
         ConceptValidator::validate(&concept)?;
         let id = concept.id();
         self.concepts.push(concept);
+        self.sync_concept_graph();
         Ok(id)
     }
 
@@ -131,6 +148,7 @@ impl ModelProject {
         ConceptValidator::validate(&concept)?;
         if let Some(existing) = self.concepts.iter_mut().find(|c| c.id() == concept.id()) {
             *existing = concept;
+            self.sync_concept_graph();
             Ok(())
         } else {
             Err(ValidationError::MissingRequiredField("Begreb ikke fundet i projekt"))
@@ -139,7 +157,9 @@ impl ModelProject {
 
     pub fn remove_concept(&mut self, id: Uuid) -> Option<Concept> {
         if let Some(idx) = self.concepts.iter().position(|c| c.id() == id) {
-            Some(self.concepts.remove(idx))
+            let removed = self.concepts.remove(idx);
+            self.concept_graph.remove_node_by_concept(id);
+            Some(removed)
         } else {
             None
         }

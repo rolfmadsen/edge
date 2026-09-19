@@ -11,15 +11,31 @@ pub enum RelationKind {
     Composition,
 }
 
+impl std::fmt::Display for RelationKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Generalization => write!(f, "Generalisering (UML trekant)"),
+            Self::Association => write!(f, "Association (UML linje)"),
+            Self::Composition => write!(f, "Komposition"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DiagramNode {
     id: NodeId,
     concept_id: Uuid,
     label: String,
+    #[serde(default = "default_is_local")]
+    is_local: bool,
     x: f32,
     y: f32,
     width: f32,
     height: f32,
+}
+
+fn default_is_local() -> bool {
+    true
 }
 
 impl DiagramNode {
@@ -28,10 +44,11 @@ impl DiagramNode {
             id: Uuid::new_v4(),
             concept_id: concept.id(),
             label: concept.preferred_term().to_string(),
+            is_local: concept.belongs_to_domain().is_local(),
             x,
             y,
-            width: 160.0,
-            height: 80.0,
+            width: 170.0,
+            height: 70.0,
         }
     }
 
@@ -47,6 +64,18 @@ impl DiagramNode {
         &self.label
     }
 
+    pub fn set_label(&mut self, label: String) {
+        self.label = label;
+    }
+
+    pub fn is_local(&self) -> bool {
+        self.is_local
+    }
+
+    pub fn set_is_local(&mut self, is_local: bool) {
+        self.is_local = is_local;
+    }
+
     pub fn x(&self) -> f32 {
         self.x
     }
@@ -55,9 +84,25 @@ impl DiagramNode {
         self.y
     }
 
+    pub fn width(&self) -> f32 {
+        self.width
+    }
+
+    pub fn height(&self) -> f32 {
+        self.height
+    }
+
     pub fn set_position(&mut self, x: f32, y: f32) {
         self.x = x;
         self.y = y;
+    }
+
+    pub fn center(&self) -> (f32, f32) {
+        (self.x + self.width / 2.0, self.y + self.height / 2.0)
+    }
+
+    pub fn contains(&self, px: f32, py: f32) -> bool {
+        px >= self.x && px <= self.x + self.width && py >= self.y && py <= self.y + self.height
     }
 }
 
@@ -76,6 +121,15 @@ impl DiagramEdge {
             to,
             kind,
             label: None,
+        }
+    }
+
+    pub fn with_label(from: NodeId, to: NodeId, kind: RelationKind, label: Option<String>) -> Self {
+        Self {
+            from,
+            to,
+            kind,
+            label,
         }
     }
 
@@ -116,8 +170,8 @@ impl ConceptGraph {
 
     pub fn add_node(&mut self, concept: &Concept) -> NodeId {
         let node_count = self.nodes.len() as f32;
-        let x = 60.0 + (node_count % 4.0) * 200.0;
-        let y = 60.0 + (node_count / 4.0).floor() * 120.0;
+        let x = 60.0 + (node_count % 3.0) * 230.0;
+        let y = 60.0 + (node_count / 3.0).floor() * 130.0;
         let node = DiagramNode::new(concept, x, y);
         let id = node.id();
         self.nodes.push(node);
@@ -126,6 +180,16 @@ impl ConceptGraph {
 
     pub fn add_relation(&mut self, from: NodeId, to: NodeId, kind: RelationKind) {
         self.edges.push(DiagramEdge::new(from, to, kind));
+    }
+
+    pub fn add_relation_with_label(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        kind: RelationKind,
+        label: Option<String>,
+    ) {
+        self.edges.push(DiagramEdge::with_label(from, to, kind, label));
     }
 
     pub fn node_count(&self) -> usize {
@@ -140,7 +204,86 @@ impl ConceptGraph {
         &self.nodes
     }
 
+    pub fn nodes_mut(&mut self) -> &mut Vec<DiagramNode> {
+        &mut self.nodes
+    }
+
     pub fn edges(&self) -> &[DiagramEdge] {
         &self.edges
+    }
+
+    pub fn edges_mut(&mut self) -> &mut Vec<DiagramEdge> {
+        &mut self.edges
+    }
+
+    pub fn find_node(&self, id: NodeId) -> Option<&DiagramNode> {
+        self.nodes.iter().find(|n| n.id() == id)
+    }
+
+    pub fn find_node_mut(&mut self, id: NodeId) -> Option<&mut DiagramNode> {
+        self.nodes.iter_mut().find(|n| n.id() == id)
+    }
+
+    pub fn find_node_by_concept(&self, concept_id: Uuid) -> Option<&DiagramNode> {
+        self.nodes.iter().find(|n| n.concept_id() == concept_id)
+    }
+
+    pub fn find_node_by_concept_mut(&mut self, concept_id: Uuid) -> Option<&mut DiagramNode> {
+        self.nodes.iter_mut().find(|n| n.concept_id() == concept_id)
+    }
+
+    pub fn update_node_position(&mut self, id: NodeId, x: f32, y: f32) {
+        if let Some(node) = self.find_node_mut(id) {
+            node.set_position(x, y);
+        }
+    }
+
+    pub fn remove_node(&mut self, id: NodeId) {
+        if let Some(idx) = self.nodes.iter().position(|n| n.id() == id) {
+            self.nodes.remove(idx);
+        }
+        // Kaskadesletning af tilknyttede relationer (Fail-Closed mod dangling edges)
+        self.edges.retain(|e| e.from != id && e.to != id);
+    }
+
+    pub fn remove_node_by_concept(&mut self, concept_id: Uuid) {
+        if let Some(node) = self.find_node_by_concept(concept_id) {
+            let id = node.id();
+            self.remove_node(id);
+        }
+    }
+
+    pub fn remove_relation(&mut self, from: NodeId, to: NodeId) {
+        self.edges.retain(|e| !(e.from == from && e.to == to));
+    }
+
+    pub fn sync_with_concepts(&mut self, concepts: &[Concept]) {
+        // 1. Fjern noder der ikke længere findes i begrebslisten
+        let valid_concept_ids: Vec<Uuid> = concepts.iter().map(|c| c.id()).collect();
+        let removed_node_ids: Vec<NodeId> = self
+            .nodes
+            .iter()
+            .filter(|n| !valid_concept_ids.contains(&n.concept_id()))
+            .map(|n| n.id())
+            .collect();
+
+        for id in removed_node_ids {
+            self.remove_node(id);
+        }
+
+        // 2. Tilføj nye eller opdater eksisterende
+        for concept in concepts {
+            if let Some(node) = self.find_node_by_concept_mut(concept.id()) {
+                node.set_label(concept.preferred_term().to_string());
+                node.set_is_local(concept.belongs_to_domain().is_local());
+            } else {
+                let count = self.nodes.len() as f32;
+                let x = 60.0 + (count % 3.0) * 230.0;
+                let y = 60.0 + (count / 3.0).floor() * 130.0;
+                let mut node = DiagramNode::new(concept, x, y);
+                node.set_is_local(concept.belongs_to_domain().is_local());
+                self.nodes.push(node);
+            }
+        }
     }
 }

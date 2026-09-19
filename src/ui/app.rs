@@ -1,17 +1,43 @@
+use crate::features::concept_model::{NodeId, RelationKind};
 use crate::features::concepts::Concept;
 use crate::features::model::storage::ProjectStorage;
 use crate::features::model::ModelProject;
 use crate::ui::concept_editor::ConceptEditorState;
 use crate::ui::concept_table;
+use crate::ui::graph_canvas::GraphCanvas;
 use crate::ui::theme::ThemeColors;
 use iced::event::{self, Event};
 use iced::keyboard::{self, key::Named, Key};
+use iced::widget::canvas;
 use iced::widget::operation;
-use iced::widget::{button, column, container, row, text, text_input, Space};
+use iced::widget::pick_list;
+use iced::widget::{button, column, container, row, scrollable, text, text_input, Space};
 use iced::{Alignment, Element, Length, Subscription, Task};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NodeOption {
+    pub id: NodeId,
+    pub label: String,
+}
+
+impl std::fmt::Display for NodeOption {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.label)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct RelationDialogState {
+    pub from_node: Option<NodeOption>,
+    pub to_node: Option<NodeOption>,
+    pub kind: RelationKind,
+    pub label: String,
+    pub error: Option<String>,
+}
+
 
 pub use crate::ui::concept_editor::ConceptFormField;
 
@@ -69,6 +95,19 @@ pub enum Message {
     FocusNext,
     FocusPrevious,
     EscapePressed,
+
+    // Graf-handlinger (Fase 3)
+    GraphNodeSelected(Option<NodeId>),
+    GraphNodeMoved(NodeId, f32, f32),
+    GraphOpenRelationDialog,
+    GraphCloseRelationDialog,
+    GraphRelationFromChanged(NodeOption),
+    GraphRelationToChanged(NodeOption),
+    GraphRelationKindChanged(RelationKind),
+    GraphRelationLabelChanged(String),
+    GraphCreateRelation,
+    GraphDeleteRelation(NodeId, NodeId),
+    GraphSyncNodes,
 }
 
 pub struct App {
@@ -80,6 +119,8 @@ pub struct App {
     save_status: SaveStatus,
     file_dialog_mode: Option<FileDialogMode>,
     file_dialog_input: String,
+    selected_graph_node_id: Option<NodeId>,
+    relation_dialog: Option<RelationDialogState>,
 }
 
 impl Default for App {
@@ -91,35 +132,30 @@ impl Default for App {
 impl App {
     pub fn new() -> Self {
         let default_path = ProjectStorage::default_project_path();
-        if default_path.exists() {
-            match ProjectStorage::load_from_file(&default_path) {
-                Ok(proj) => Self {
-                    project: proj,
-                    active_tab: Tab::Metadata,
-                    editor_state: None,
-                    search_query: String::new(),
-                    current_file_path: Some(default_path.clone()),
-                    save_status: SaveStatus::Saved(default_path.display().to_string()),
-                    file_dialog_mode: None,
-                    file_dialog_input: String::new(),
-                },
-                Err(err) => Self {
-                    project: ModelProject::default(),
-                    active_tab: Tab::Metadata,
-                    editor_state: None,
-                    search_query: String::new(),
-                    current_file_path: Some(default_path),
-                    save_status: SaveStatus::Error(err.to_string()),
-                    file_dialog_mode: None,
-                    file_dialog_input: String::new(),
-                },
-            }
-        } else {
-            Self::new_with_path(Some(default_path))
-        }
+        Self::new_with_path(Some(default_path))
     }
 
     pub fn new_with_path(path: Option<PathBuf>) -> Self {
+        if let Some(p) = &path {
+            if p.exists() {
+                if let Ok(mut proj) = ProjectStorage::load_from_file(p) {
+                    proj.sync_concept_graph();
+                    return Self {
+                        project: proj,
+                        active_tab: Tab::Metadata,
+                        editor_state: None,
+                        search_query: String::new(),
+                        current_file_path: path.clone(),
+                        save_status: SaveStatus::Saved(p.display().to_string()),
+                        file_dialog_mode: None,
+                        file_dialog_input: String::new(),
+                        selected_graph_node_id: None,
+                        relation_dialog: None,
+                    };
+                }
+            }
+        }
+
         let save_status = match &path {
             Some(p) => SaveStatus::Saved(p.display().to_string()),
             None => SaveStatus::Unsaved,
@@ -134,6 +170,8 @@ impl App {
             save_status,
             file_dialog_mode: None,
             file_dialog_input: String::new(),
+            selected_graph_node_id: None,
+            relation_dialog: None,
         }
     }
 
@@ -163,6 +201,10 @@ impl App {
 
     pub fn is_file_dialog_open(&self) -> bool {
         self.file_dialog_mode.is_some()
+    }
+
+    pub fn selected_graph_node_id(&self) -> Option<NodeId> {
+        self.selected_graph_node_id
     }
 
     pub fn trigger_autosave(&mut self) {
@@ -202,6 +244,9 @@ impl App {
         match message {
             Message::SelectTab(tab) => {
                 self.active_tab = tab;
+                if tab == Tab::ConceptModel {
+                    self.project.sync_concept_graph();
+                }
             }
             Message::NewProject => {
                 self.project = ModelProject::default();
@@ -210,6 +255,8 @@ impl App {
                 self.search_query.clear();
                 self.current_file_path = None;
                 self.save_status = SaveStatus::Unsaved;
+                self.selected_graph_node_id = None;
+                self.relation_dialog = None;
             }
             Message::StartNewConcept => {
                 self.editor_state = Some(ConceptEditorState::new_empty());
@@ -217,6 +264,7 @@ impl App {
             Message::EditConcept(id) => {
                 if let Some(concept) = self.project.get_concept(id) {
                     self.editor_state = Some(ConceptEditorState::from_concept(concept));
+                    self.active_tab = Tab::ConceptList;
                 }
             }
             Message::DeleteConcept(id) => {
@@ -345,12 +393,15 @@ impl App {
                 self.file_dialog_mode = None;
             }
             Message::OpenProjectFile(path) => match ProjectStorage::load_from_file(&path) {
-                Ok(proj) => {
+                Ok(mut proj) => {
+                    proj.sync_concept_graph();
                     self.project = proj;
                     let display = path.display().to_string();
                     self.current_file_path = Some(path);
                     self.save_status = SaveStatus::Saved(display);
                     self.file_dialog_mode = None;
+                    self.selected_graph_node_id = None;
+                    self.relation_dialog = None;
                     if !self.project.concepts().is_empty() {
                         self.active_tab = Tab::ConceptList;
                     }
@@ -374,11 +425,115 @@ impl App {
                 return operation::focus_previous();
             }
             Message::EscapePressed => {
-                if self.file_dialog_mode.is_some() {
+                if self.relation_dialog.is_some() {
+                    self.relation_dialog = None;
+                } else if self.file_dialog_mode.is_some() {
                     self.file_dialog_mode = None;
                 } else if self.editor_state.is_some() {
                     self.editor_state = None;
+                } else if self.selected_graph_node_id.is_some() {
+                    self.selected_graph_node_id = None;
                 }
+            }
+
+            // Graf-handlinger (Fase 3)
+            Message::GraphNodeSelected(node_id) => {
+                self.selected_graph_node_id = node_id;
+            }
+            Message::GraphNodeMoved(node_id, x, y) => {
+                self.project.concept_graph_mut().update_node_position(node_id, x, y);
+                self.trigger_autosave();
+            }
+            Message::GraphOpenRelationDialog => {
+                let node_options: Vec<NodeOption> = self
+                    .project
+                    .concept_graph()
+                    .nodes()
+                    .iter()
+                    .map(|n| NodeOption {
+                        id: n.id(),
+                        label: n.label().to_string(),
+                    })
+                    .collect();
+
+                let from_node = node_options.first().cloned();
+                let to_node = node_options.get(1).or_else(|| node_options.first()).cloned();
+                self.relation_dialog = Some(RelationDialogState {
+                    from_node,
+                    to_node,
+                    kind: RelationKind::Generalization,
+                    label: String::new(),
+                    error: None,
+                });
+            }
+            Message::GraphCloseRelationDialog => {
+                self.relation_dialog = None;
+            }
+            Message::GraphRelationFromChanged(opt) => {
+                if let Some(dialog) = &mut self.relation_dialog {
+                    dialog.from_node = Some(opt);
+                    dialog.error = None;
+                }
+            }
+            Message::GraphRelationToChanged(opt) => {
+                if let Some(dialog) = &mut self.relation_dialog {
+                    dialog.to_node = Some(opt);
+                    dialog.error = None;
+                }
+            }
+            Message::GraphRelationKindChanged(kind) => {
+                if let Some(dialog) = &mut self.relation_dialog {
+                    dialog.kind = kind;
+                }
+            }
+            Message::GraphRelationLabelChanged(label) => {
+                if let Some(dialog) = &mut self.relation_dialog {
+                    dialog.label = label;
+                }
+            }
+            Message::GraphCreateRelation => {
+                if let Some(dialog) = &self.relation_dialog {
+                    match (&dialog.from_node, &dialog.to_node) {
+                        (Some(from), Some(to)) => {
+                            if from.id == to.id {
+                                if let Some(d) = &mut self.relation_dialog {
+                                    d.error = Some(
+                                        "Kilde og mål kan ikke være det samme begreb.".to_string(),
+                                    );
+                                }
+                            } else {
+                                let label = if dialog.kind == RelationKind::Association
+                                    && !dialog.label.trim().is_empty()
+                                {
+                                    Some(dialog.label.trim().to_string())
+                                } else {
+                                    None
+                                };
+                                self.project.concept_graph_mut().add_relation_with_label(
+                                    from.id,
+                                    to.id,
+                                    dialog.kind,
+                                    label,
+                                );
+                                self.relation_dialog = None;
+                                self.trigger_autosave();
+                            }
+                        }
+                        _ => {
+                            if let Some(d) = &mut self.relation_dialog {
+                                d.error = Some("Vælg venligst både kilde og målbegreb.".to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            Message::GraphDeleteRelation(from, to) => {
+                self.project.concept_graph_mut().remove_relation(from, to);
+                self.trigger_autosave();
+            }
+            Message::GraphSyncNodes => {
+                self.project.sync_concept_graph();
+                self.trigger_autosave();
             }
         }
 
@@ -556,13 +711,306 @@ impl App {
                 }
             }
 
-            Tab::ConceptModel => column![
-                text("Begrebsmodel (Graf)").size(22),
-                text("Interaktiv grafkomponent med noder, generaliseringer og associationer etableres i Fase 3.")
+            Tab::ConceptModel => {
+                let toolbar = row![
+                    text("Begrebsmodel (Graf)").size(20),
+                    Space::new().width(16),
+                    button(text("+ Opret Relation").size(12))
+                        .style(button::primary)
+                        .on_press(Message::GraphOpenRelationDialog)
+                        .padding([6, 12]),
+                    button(text("🔄 Synkroniser Begreber").size(12))
+                        .style(button::secondary)
+                        .on_press(Message::GraphSyncNodes)
+                        .padding([6, 10]),
+                    Space::new().width(Length::Fill),
+                    text(format!(
+                        "Noder: {}  •  Relationer: {}",
+                        self.project.concept_graph().node_count(),
+                        self.project.concept_graph().edge_count()
+                    ))
+                    .size(12)
                     .color(ThemeColors::TEXT_MUTED),
-            ]
-            .spacing(10)
-            .into(),
+                ]
+                .spacing(10)
+                .align_y(Alignment::Center);
+
+                let maybe_dialog_banner: Option<Element<Message>> = self.relation_dialog.as_ref().map(|d| {
+                    let node_options: Vec<NodeOption> = self
+                        .project
+                        .concept_graph()
+                        .nodes()
+                        .iter()
+                        .map(|n| NodeOption {
+                            id: n.id(),
+                            label: n.label().to_string(),
+                        })
+                        .collect();
+
+                    let kinds = [RelationKind::Generalization, RelationKind::Association];
+
+                    let mut dialog_col = column![
+                        text("Opret Relation").size(14).color(ThemeColors::PRIMARY),
+                    ]
+                    .spacing(8);
+
+                    if let Some(err) = &d.error {
+                        dialog_col = dialog_col.push(text(err).size(12).color(ThemeColors::ACCENT_RED));
+                    }
+
+                    let from_pick = pick_list(node_options.clone(), d.from_node.clone(), Message::GraphRelationFromChanged);
+                    let to_pick = pick_list(node_options, d.to_node.clone(), Message::GraphRelationToChanged);
+                    let kind_pick = pick_list(kinds.to_vec(), Some(d.kind), Message::GraphRelationKindChanged);
+
+                    let fields_row = row![
+                        column![text("Kilde (fra):").size(11).color(ThemeColors::TEXT_MUTED), from_pick].spacing(2),
+                        column![text("Mål (til):").size(11).color(ThemeColors::TEXT_MUTED), to_pick].spacing(2),
+                        column![text("Type:").size(11).color(ThemeColors::TEXT_MUTED), kind_pick].spacing(2),
+                    ]
+                    .spacing(12)
+                    .align_y(Alignment::Center);
+
+                    let action_row = if d.kind == RelationKind::Association {
+                        row![
+                            text_input("Rolle eller associationstekst (f.eks. ejer)...", &d.label)
+                                .on_input(Message::GraphRelationLabelChanged)
+                                .padding(6)
+                                .width(Length::FillPortion(2)),
+                            button(text("Gem relation").size(12))
+                                .style(button::primary)
+                                .on_press(Message::GraphCreateRelation)
+                                .padding([5, 12]),
+                            button(text("Annuller").size(12))
+                                .style(button::secondary)
+                                .on_press(Message::GraphCloseRelationDialog)
+                                .padding([5, 10]),
+                        ]
+                        .spacing(10)
+                        .align_y(Alignment::Center)
+                    } else {
+                        row![
+                            text("(Specialisering peger på superklasse med lukket hvid trekant)").size(11).color(ThemeColors::TEXT_MUTED),
+                            Space::new().width(Length::Fill),
+                            button(text("Gem relation").size(12))
+                                .style(button::primary)
+                                .on_press(Message::GraphCreateRelation)
+                                .padding([5, 12]),
+                            button(text("Annuller").size(12))
+                                .style(button::secondary)
+                                .on_press(Message::GraphCloseRelationDialog)
+                                .padding([5, 10]),
+                        ]
+                        .spacing(10)
+                        .align_y(Alignment::Center)
+                    };
+
+                    container(column![dialog_col, fields_row, action_row].spacing(10))
+                        .style(container::bordered_box)
+                        .padding(12)
+                        .width(Length::Fill)
+                        .into()
+                });
+
+                let canvas_widget = canvas(GraphCanvas::new(
+                    self.project.concept_graph(),
+                    self.selected_graph_node_id,
+                    Message::GraphNodeSelected,
+                    Message::GraphNodeMoved,
+                ))
+                .width(Length::Fill)
+                .height(Length::Fill);
+
+                let inspector_panel: Element<Message> = if let Some(selected_id) = self.selected_graph_node_id {
+                    if let Some(node) = self.project.concept_graph().find_node(selected_id) {
+                        let concept = self.project.get_concept(node.concept_id());
+                        let title = node.label();
+                        let is_local = node.is_local();
+
+                        let (domain_badge, badge_bg, badge_fg) = if is_local {
+                            ("Lokalt begreb (Sand farve)", ThemeColors::FDA_SAND, ThemeColors::TEXT_DARK)
+                        } else {
+                            ("Lånt begreb / ModelRef (Blå farve)", ThemeColors::FDA_BORROWED_BLUE, ThemeColors::TEXT_DARK)
+                        };
+
+                        let mut insp = column![
+                            row![
+                                text(title).size(18),
+                                Space::new().width(Length::Fill),
+                                button(text("✕").size(11))
+                                    .style(button::secondary)
+                                    .on_press(Message::GraphNodeSelected(None))
+                                    .padding([2, 6]),
+                            ]
+                            .align_y(Alignment::Center),
+                            container(text(domain_badge).size(11).color(badge_fg))
+                                .style(move |_| container::Style {
+                                    background: Some(iced::Background::Color(badge_bg)),
+                                    border: iced::Border {
+                                        color: ThemeColors::BORDER_COLOR,
+                                        width: 1.0,
+                                        radius: 4.0.into(),
+                                    },
+                                    ..Default::default()
+                                })
+                                .padding([3, 8]),
+                        ]
+                        .spacing(8);
+
+                        if let Some(c) = concept {
+                            insp = insp.push(
+                                column![
+                                    text("Definition:").size(11).color(ThemeColors::TEXT_MUTED),
+                                    text(c.definition()).size(12),
+                                ]
+                                .spacing(2),
+                            );
+
+                            if let Some(src) = c.source() {
+                                insp = insp.push(
+                                    column![
+                                        text("Kilde:").size(11).color(ThemeColors::TEXT_MUTED),
+                                        text(src).size(12),
+                                    ]
+                                    .spacing(2),
+                                );
+                            }
+
+                            if let Some(legal) = c.legal_source() {
+                                insp = insp.push(
+                                    column![
+                                        text("Retsgrundlag:").size(11).color(ThemeColors::TEXT_MUTED),
+                                        text(legal).size(12),
+                                    ]
+                                    .spacing(2),
+                                );
+                            }
+
+                            insp = insp.push(
+                                button(text("✏️ Rediger i Begrebsliste").size(12))
+                                    .style(button::secondary)
+                                    .on_press(Message::EditConcept(c.id()))
+                                    .padding([4, 10]),
+                            );
+                        }
+
+                        let connected_edges: Vec<_> = self
+                            .project
+                            .concept_graph()
+                            .edges()
+                            .iter()
+                            .filter(|e| e.from() == selected_id || e.to() == selected_id)
+                            .collect();
+
+                        if !connected_edges.is_empty() {
+                            insp = insp.push(Space::new().height(6));
+                            insp = insp.push(
+                                text("Tilknyttede relationer:")
+                                    .size(12)
+                                    .color(ThemeColors::PRIMARY),
+                            );
+
+                            for edge in connected_edges {
+                                let from_node = self.project.concept_graph().find_node(edge.from());
+                                let to_node = self.project.concept_graph().find_node(edge.to());
+                                let from_name = from_node.map(|n| n.label()).unwrap_or("?");
+                                let to_name = to_node.map(|n| n.label()).unwrap_or("?");
+                                let desc = match edge.kind() {
+                                    RelationKind::Generalization => format!("{} ⮞ {}", from_name, to_name),
+                                    RelationKind::Association => {
+                                        if let Some(lbl) = edge.label() {
+                                            format!("{} ──({})── {}", from_name, lbl, to_name)
+                                        } else {
+                                            format!("{} ── {}", from_name, to_name)
+                                        }
+                                    }
+                                    RelationKind::Composition => format!("{} ◆── {}", from_name, to_name),
+                                };
+
+                                let edge_from = edge.from();
+                                let edge_to = edge.to();
+                                let edge_row = row![
+                                    text(desc).size(11).width(Length::Fill),
+                                    button(text("🗑️").size(11))
+                                        .style(button::secondary)
+                                        .on_press(Message::GraphDeleteRelation(edge_from, edge_to))
+                                        .padding([2, 5]),
+                                ]
+                                .spacing(4)
+                                .align_y(Alignment::Center);
+
+                                insp = insp.push(edge_row);
+                            }
+                        }
+
+                        container(scrollable(insp.spacing(8)))
+                            .style(container::bordered_box)
+                            .padding(14)
+                            .width(Length::Fixed(280.0))
+                            .height(Length::Fill)
+                            .into()
+                    } else {
+                        container(text("Ingen node valgt").size(12).color(ThemeColors::TEXT_MUTED))
+                            .width(Length::Fixed(280.0))
+                            .height(Length::Fill)
+                            .into()
+                    }
+                } else {
+                    container(
+                        column![
+                            text("💡 Begrebsmodel Inspector").size(14).color(ThemeColors::PRIMARY),
+                            text("• Klik på en node for at se definition og relationer.")
+                                .size(12)
+                                .color(ThemeColors::TEXT_MUTED),
+                            text("• Træk en node med musen for at ændre placering.")
+                                .size(12)
+                                .color(ThemeColors::TEXT_MUTED),
+                            text("• Klik '+ Opret Relation' for at forbinde begreber.")
+                                .size(12)
+                                .color(ThemeColors::TEXT_MUTED),
+                            text("• FDA Sand (#FEFAF7) = Lokalt begreb.")
+                                .size(12)
+                                .color(ThemeColors::TEXT_MUTED),
+                            text("• FDA Blå (#87CDEB) = Lånt begreb.")
+                                .size(12)
+                                .color(ThemeColors::TEXT_MUTED),
+                        ]
+                        .spacing(8),
+                    )
+                    .style(container::bordered_box)
+                    .padding(14)
+                    .width(Length::Fixed(280.0))
+                    .height(Length::Fill)
+                    .into()
+                };
+
+                let body = row![
+                    container(canvas_widget)
+                        .style(|_| container::Style {
+                            background: Some(iced::Background::Color(iced::Color::from_rgb(
+                                0.98, 0.98, 0.98
+                            ))),
+                            border: iced::Border {
+                                color: ThemeColors::BORDER_COLOR,
+                                width: 1.0,
+                                radius: 4.0.into(),
+                            },
+                            ..Default::default()
+                        })
+                        .width(Length::Fill)
+                        .height(Length::Fill),
+                    inspector_panel,
+                ]
+                .spacing(12)
+                .height(Length::Fill);
+
+                let mut graph_view = column![toolbar].spacing(10).height(Length::Fill);
+                if let Some(banner) = maybe_dialog_banner {
+                    graph_view = graph_view.push(banner);
+                }
+                graph_view = graph_view.push(body);
+
+                graph_view.into()
+            }
 
             Tab::InformationModel => column![
                 text("Informationsmodel (UML Klasser)").size(22),
