@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 014: Rettede Associationer (Halv pil), Retningsvending & Filter-forbedringer"
 description: "Halv pil på associationer som default med mulighed for toggle, retningsvending af relationer i panelet, filtrering af eksisterende klassenavne i dropdown og fjernelse af forældet Synk-knap"
-status: active
+status: completed
 generated: { by: process:xgauntlet-task-init, at: "2026-09-19T21:55:00Z" }
 tags: [task-lifecycle, intent, ui, canvas, graph, relations, directed-association, half-arrow, reversal, filtering]
 ---
 
 # Task 014: Rettede Associationer (Halv pil), Retningsvending & Filter-forbedringer
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-19`
 
