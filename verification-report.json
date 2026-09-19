@@ -4,33 +4,48 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "012-unified-diagram-canvas-and-concept-studio",
-    "task_title": "Task 012: Unified Diagram Canvas og Begrebsmodel Studio",
+    "task_id": "007-canvas-interactive-edges-drag-connect",
+    "task_title": "Task 007: Interaktiv Relation-håndtering, Drag-to-Connect & Edges",
+    "task_digest": "608fec51206b95aedd60dfa34ecb7388a5a8916658144da5ef5e70dc26faab17",
     "acceptance_criteria": [
-      "**Unified `DiagramCanvas` (`src/ui/diagram_canvas.rs`)**:",
-      "**Begrebsmodel Studio 3-delt Layout (`src/ui/concept_model_view.rs`)**:",
-      "**Model & Controller integration**:",
-      "**Fuld Verifikation & Nul Regressionsfejl**:"
+      "Når en node er markeret på lærredet, vises et synligt forbindelseshåndtag (connect handle).",
+      "Klik-og-træk fra forbindelseshåndtaget på Node A starter en elastik-preview-linje mod musemarkøren.",
+      "Målnode B highlightes som gyldigt slip-mål under træk (forudsat $B \\neq A$).",
+      "Ved slip over en målnode oprettes relationen automatisk som `RelationKind::Association`, og relationen markeres straks.",
+      "Den valgte relation åbner en dedikeret relations-inspektør i højre panel med fokus på navnefeltet (label) og hurtig ændring af relationstype (Association, Generalisering, Komposition).",
+      "Relationer på canvaset kan klikkes og markeres direkte som et selvstændigt objekt (visuel fremhævning af linjen).",
+      "Tastaturet (`Delete` eller `Backspace`) sletter det aktuelt markerede objekt (enten valgt relation eller valgt node).",
+      "Dobbeltklik på en relations label eller klik på linjen åbner/aktiverer relations-inspektøren.",
+      "100% test pass rate på unit-, accept- og proptests samt clippy med 0 advarsler."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
+    "source_content_digest": "25764748e51f4a5034f31ac6bc3ca79dc2523b08ba74cf5a6fcf5f948df46d9a",
+    "source_manifest_digest_pre": "d8a5b668f7ae887ab34f9e4571f1a539ecb7d1a2fa6465d4f6208c5769c572e3",
+    "source_manifest_digest_post": "d8a5b668f7ae887ab34f9e4571f1a539ecb7d1a2fa6465d4f6208c5769c572e3",
+    "config_digest": "b7f5ab803250a6f35370ef8ff99eaaa95ad348f297e2e3bd484b50f960d7fd0c",
+    "task_digest": "608fec51206b95aedd60dfa34ecb7388a5a8916658144da5ef5e70dc26faab17",
+    "policy_digest": "824947561334c1d5ba8c4b8fe4122d4cbe9c0160b5e7895a88fa06ddc11ab253",
+    "check_definitions_digest": "ad2dda9df4efbcf8fd2933fe087fdab18ef447b67e5453e11e303deae237cde4",
+    "included_files_count": 52,
     "vcs": {
       "type": "git",
-      "head": "1756fe5",
-      "commit": "1756fe5",
-      "is_dirty": false
+      "head": "04593b1",
+      "commit": "04593b1",
+      "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-19T18:59:30Z",
-    "finished_at": "2026-09-19T19:00:00Z",
-    "total_duration_seconds": 30.0,
+    "started_at": "2026-09-19T20:28:01Z",
+    "finished_at": "2026-09-19T20:28:02Z",
+    "total_duration_seconds": 1.069067272,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
-      "platform": "linux"
+      "platform": "linux",
+      "version": "0.7.2"
     }
   },
   "checks": [
@@ -38,25 +53,38 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "command": "cargo clippy --all-targets -- -D warnings"
-    },
-    {
-      "name": "fmt",
-      "status": "PASSED",
-      "exit_code": 0,
-      "command": "cargo fmt --check"
+      "duration_seconds": 0.213921448,
+      "optional": true,
+      "passed": true,
+      "log_digest": "2b34696728dc82b03cbf6311d7e3a6a41658bbde097834c3010a78bc82842c1a"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "command": "cargo check"
+      "duration_seconds": 0.240836349,
+      "optional": true,
+      "passed": true,
+      "log_digest": "2bc683fb4e4f4f21ee9ee39e2b8ecce2efe20d3b1be57bda5316aa519ab3d30a"
     },
     {
-      "name": "tests",
+      "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "command": "cargo test --workspace"
+      "duration_seconds": 0.313124606,
+      "optional": false,
+      "passed": true,
+      "log_digest": "1f1969b607f291e05ef48e9d4b6e5248c333b7f612560e0084b3633b8acdebf6"
+    },
+    {
+      "name": "invariants",
+      "status": "PASSED",
+      "exit_code": 0,
+      "duration_seconds": 0.282155106,
+      "optional": false,
+      "passed": true,
+      "log_digest": "2744c176777853bbc8d40e001c709eb7323d83620957b2ba95d65666e56c89e4"
     }
-  ]
+  ],
+  "diagnostics": []
 }
