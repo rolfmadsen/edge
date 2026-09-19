@@ -169,7 +169,7 @@ impl<'a, Message> Program<Message, Theme, Renderer> for GraphCanvas<'a, Message>
                                     color: ThemeColors::PRIMARY,
                                     size: 11.0.into(),
                                     align_x: alignment::Horizontal::Center.into(),
-                                    align_y: alignment::Vertical::Center.into(),
+                                    align_y: alignment::Vertical::Center,
                                     ..Default::default()
                                 });
                             }
@@ -216,7 +216,7 @@ impl<'a, Message> Program<Message, Theme, Renderer> for GraphCanvas<'a, Message>
                 color: Color::from_rgb(0.1, 0.1, 0.1),
                 size: 14.0.into(),
                 align_x: alignment::Horizontal::Center.into(),
-                align_y: alignment::Vertical::Center.into(),
+                align_y: alignment::Vertical::Center,
                 ..Default::default()
             });
 
@@ -233,7 +233,7 @@ impl<'a, Message> Program<Message, Theme, Renderer> for GraphCanvas<'a, Message>
                 color: Color::from_rgb(0.45, 0.45, 0.45),
                 size: 10.0.into(),
                 align_x: alignment::Horizontal::Center.into(),
-                align_y: alignment::Vertical::Center.into(),
+                align_y: alignment::Vertical::Center,
                 ..Default::default()
             });
         }
