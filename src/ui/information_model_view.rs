@@ -240,10 +240,21 @@ pub fn view<'a>(
                                 .placeholder("+ Knyt begreb...")
                                 .padding(5)
                                 .width(Length::Fixed(180.0))
+                            } else if concept_options.is_empty() {
+                                pick_list(
+                                    concept_options.clone(),
+                                    None::<ConceptOption>,
+                                    move |opt| Message::AddConceptToInformationClass(class_id, opt),
+                                )
+                                .placeholder("Ingen begreber oprettet")
+                                .padding(5)
+                                .width(Length::Fixed(180.0))
                             } else {
-                                pick_list(vec![], None::<ConceptOption>, move |opt| {
-                                    Message::AddConceptToInformationClass(class_id, opt)
-                                })
+                                pick_list(
+                                    concept_options.clone(),
+                                    None::<ConceptOption>,
+                                    move |opt| Message::AddConceptToInformationClass(class_id, opt),
+                                )
                                 .placeholder("Alle begreber knyttet")
                                 .padding(5)
                                 .width(Length::Fixed(180.0))
@@ -323,23 +334,22 @@ pub fn view<'a>(
                     let attr_id = attr.id();
                     let is_valid_case = is_lower_camel_case(attr.name());
 
-                    let name_col = column![
-                        text_input("f.eks. fornavn...", attr.name())
-                            .style(modern_input_style)
-                            .on_input(move |val| {
-                                Message::UpdateAttributeName(class_id, attr_id, val)
-                            })
-                            .padding(6),
-                        if !is_valid_case && !attr.name().is_empty() {
-                            text("Bør være lowerCamelCase jf. §6.3")
-                                .size(10)
-                                .color(ThemeColors::ACCENT_RED)
-                        } else {
-                            text("").size(0)
-                        },
-                    ]
+                    let mut name_col = column![text_input("f.eks. fornavn...", attr.name())
+                        .style(modern_input_style)
+                        .on_input(move |val| {
+                            Message::UpdateAttributeName(class_id, attr_id, val)
+                        })
+                        .padding(6),]
                     .spacing(2)
                     .width(Length::Fixed(200.0));
+
+                    if !is_valid_case && !attr.name().is_empty() {
+                        name_col = name_col.push(
+                            text("Bør være lowerCamelCase jf. §6.3")
+                                .size(10)
+                                .color(ThemeColors::ACCENT_RED),
+                        );
+                    }
 
                     let type_col =
                         pick_list(PrimitiveType::ALL, Some(attr.data_type()), move |dt| {
@@ -386,27 +396,19 @@ pub fn view<'a>(
                         .cloned()
                         .collect();
 
-                    let concept_col = row![
-                        attr_concept_row,
-                        if !unlinked_for_attr.is_empty() {
+                    let mut concept_col =
+                        row![attr_concept_row].spacing(4).align_y(Alignment::Center);
+                    if !unlinked_for_attr.is_empty() {
+                        concept_col = concept_col.push(
                             pick_list(unlinked_for_attr, None::<ConceptOption>, move |opt| {
                                 Message::AddConceptToAttribute(class_id, attr_id, opt)
                             })
                             .placeholder("+ Begreb...")
                             .padding(4)
-                            .width(Length::Fixed(130.0))
-                        } else {
-                            pick_list(vec![], None::<ConceptOption>, move |opt| {
-                                Message::AddConceptToAttribute(class_id, attr_id, opt)
-                            })
-                            .placeholder("Alle tilknyttet")
-                            .padding(4)
-                            .width(Length::Fixed(130.0))
-                        }
-                    ]
-                    .spacing(4)
-                    .align_y(Alignment::Center)
-                    .width(Length::Fill);
+                            .width(Length::Fixed(130.0)),
+                        );
+                    }
+                    let concept_col = concept_col.width(Length::Fill);
 
                     let del_col = button(text("🗑️").size(12))
                         .style(secondary_button_style)
