@@ -85,3 +85,97 @@ fn test_ui_app_state_and_tab_switching() {
     app.update(Message::SelectTab(Tab::InformationModel));
     assert_eq!(app.active_tab(), Tab::InformationModel);
 }
+
+#[test]
+fn test_fda_project_concept_crud() {
+    let mut project = ModelProject::default();
+    assert!(project.concepts().is_empty());
+
+    let mut c1 = Concept::new(
+        "Køretøj",
+        "Et mobilt teknisk anlæg til transport af personer eller gods.",
+        BelongsToDomain::Yes,
+    );
+    c1.set_source(Some("Færdselsloven § 2, stk. 1".to_string()));
+    c1.set_legal_source(Some("LBK nr 1324 af 21/11/2023".to_string()));
+
+    // 1. Create (Add)
+    let id1 = project.add_concept(c1.clone()).expect("Gyldigt begreb skal tilføjes");
+    assert_eq!(project.concepts().len(), 1);
+    assert_eq!(project.get_concept(id1).unwrap().preferred_term(), "Køretøj");
+
+    // 2. Reject Invalid Concept
+    let invalid = Concept::new("", "Ugyldig uden term", BelongsToDomain::Yes);
+    assert!(project.add_concept(invalid).is_err());
+
+    // 3. Update
+    let mut updated = project.get_concept(id1).unwrap().clone();
+    updated.set_definition("Opdateret præcis definition af køretøj.");
+    project.update_concept(updated).expect("Opdatering skal lykkes");
+    assert_eq!(
+        project.get_concept(id1).unwrap().definition(),
+        "Opdateret præcis definition af køretøj."
+    );
+
+    // 4. Delete
+    let removed = project.remove_concept(id1);
+    assert!(removed.is_some());
+    assert!(project.concepts().is_empty());
+}
+
+#[test]
+fn test_concept_list_ui_crud_cycle() {
+    use edge::ui::app::ConceptFormField;
+
+    let mut app = App::new();
+    app.update(Message::SelectTab(Tab::ConceptList));
+
+    // 1. Start nyt begreb
+    app.update(Message::StartNewConcept);
+    assert!(app.is_editing_concept());
+
+    // 2. Udfyld felter
+    app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "Personbil".to_string()));
+    app.update(Message::UpdateConceptField(
+        ConceptFormField::Definition,
+        "Køretøj indrettet til befordring af højst 9 personer.".to_string(),
+    ));
+    app.update(Message::UpdateConceptField(ConceptFormField::BelongsToDomain, "Ja".to_string()));
+    app.update(Message::UpdateConceptField(ConceptFormField::Source, "Færdselsloven".to_string()));
+    app.update(Message::UpdateConceptField(ConceptFormField::LegalSource, "LBK nr 1324".to_string()));
+
+    // 3. Gem begreb
+    app.update(Message::SaveConcept);
+    assert!(!app.is_editing_concept());
+    assert_eq!(app.project().concepts().len(), 1);
+
+    let saved = &app.project().concepts()[0];
+    assert_eq!(saved.preferred_term(), "Personbil");
+    assert_eq!(saved.definition(), "Køretøj indrettet til befordring af højst 9 personer.");
+    assert_eq!(saved.belongs_to_domain(), &BelongsToDomain::Yes);
+    assert_eq!(saved.source(), Some("Færdselsloven"));
+    assert_eq!(saved.legal_source(), Some("LBK nr 1324"));
+
+    // 4. Søgning / filtrering
+    app.update(Message::SearchQueryChanged("Person".to_string()));
+    assert_eq!(app.filtered_concepts().len(), 1);
+
+    app.update(Message::SearchQueryChanged("Ukendt".to_string()));
+    assert_eq!(app.filtered_concepts().len(), 0);
+
+    app.update(Message::SearchQueryChanged("".to_string()));
+    assert_eq!(app.filtered_concepts().len(), 1);
+
+    // 5. Rediger begreb
+    let id = saved.id();
+    app.update(Message::EditConcept(id));
+    assert!(app.is_editing_concept());
+    app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "Personbil (M1)".to_string()));
+    app.update(Message::SaveConcept);
+    assert_eq!(app.project().concepts()[0].preferred_term(), "Personbil (M1)");
+
+    // 6. Slet begreb
+    app.update(Message::DeleteConcept(id));
+    assert!(app.project().concepts().is_empty());
+}
+
