@@ -69,6 +69,21 @@
       "source": null,
       "identifier": null,
       "derived_from": null
+    },
+    {
+      "id": "f0a5138d-1a0b-42da-8fe5-52f1e15d0bcf",
+      "preferred_term": "Organisation",
+      "definition": "En organisation er en offentlig eller privat virksomhed med et formål",
+      "belongs_to_domain": "Yes",
+      "accepted_term": null,
+      "deprecated_term": null,
+      "example": null,
+      "comment": null,
+      "application_note": null,
+      "legal_source": null,
+      "source": null,
+      "identifier": null,
+      "derived_from": null
     }
   ],
   "concept_graph": {
@@ -98,7 +113,7 @@
         "concept_id": "59e4b522-0adb-4808-bd88-786eaacf712d",
         "label": "OrgPerson",
         "is_local": true,
-        "x": 260.0,
+        "x": 280.0,
         "y": 420.0,
         "width": 180.0,
         "height": 80.0
@@ -108,8 +123,18 @@
         "concept_id": "f3e7d2a5-6369-490c-8e9b-7818eebaff81",
         "label": "CprPerson",
         "is_local": true,
-        "x": 60.0,
+        "x": 40.0,
         "y": 420.0,
+        "width": 180.0,
+        "height": 80.0
+      },
+      {
+        "id": "1705e56e-4594-4e1d-8af7-28957865aa30",
+        "concept_id": "f0a5138d-1a0b-42da-8fe5-52f1e15d0bcf",
+        "label": "Organisation",
+        "is_local": true,
+        "x": 500.0,
+        "y": 240.0,
         "width": 180.0,
         "height": 80.0
       }
@@ -119,19 +144,41 @@
         "from": "5c5b482e-e482-4567-9b9f-305de2b97bc5",
         "to": "02e4b5ff-1b17-40f7-a836-94db06b1ce18",
         "kind": "Association",
-        "label": "ejer en"
+        "label": "ejer en",
+        "source_port": "Top",
+        "target_port": "Bottom"
       },
       {
         "from": "9f015618-1d47-4c28-ab66-5d8ab75495f8",
         "to": "5c5b482e-e482-4567-9b9f-305de2b97bc5",
-        "kind": "Generalization",
-        "label": null
+        "kind": "Composition",
+        "label": null,
+        "source_port": "Top",
+        "target_port": "Bottom"
       },
       {
         "from": "f311b075-bd05-47b6-8f41-daa1fb449e4a",
         "to": "5c5b482e-e482-4567-9b9f-305de2b97bc5",
         "kind": "Generalization",
-        "label": null
+        "label": null,
+        "source_port": "Top",
+        "target_port": "Bottom"
+      },
+      {
+        "from": "9f015618-1d47-4c28-ab66-5d8ab75495f8",
+        "to": "f311b075-bd05-47b6-8f41-daa1fb449e4a",
+        "kind": "Association",
+        "label": null,
+        "source_port": "Left",
+        "target_port": "Right"
+      },
+      {
+        "from": "1705e56e-4594-4e1d-8af7-28957865aa30",
+        "to": "5c5b482e-e482-4567-9b9f-305de2b97bc5",
+        "kind": "Generalization",
+        "label": null,
+        "source_port": "Left",
+        "target_port": "Right"
       }
     ]
   },
@@ -161,7 +208,7 @@
             "data_type": "CharacterString",
             "multiplicity": {
               "lower": 1,
-              "upper": 1
+              "upper": null
             },
             "concept_ids": []
           }
@@ -178,7 +225,7 @@
       },
       {
         "id": "daaa1b63-8dcd-489a-b16e-6358ffd378ee",
-        "name": "",
+        "name": "Test klasse",
         "description": null,
         "concept_ids": [],
         "attributes": []
@@ -198,16 +245,16 @@
       {
         "id": "9efa1b57-0bf4-4165-ba74-fbd4ec0654b2",
         "class_id": "c389b6be-3336-4dd3-940b-411793567b03",
-        "x": -200.0,
-        "y": 360.0,
+        "x": 60.0,
+        "y": 260.0,
         "width": 220.0,
         "height": 80.0
       },
       {
         "id": "314b0ea1-1b49-4b3b-a31a-4a719bf12b1f",
         "class_id": "daaa1b63-8dcd-489a-b16e-6358ffd378ee",
-        "x": 100.0,
-        "y": 240.0,
+        "x": 60.0,
+        "y": 120.0,
         "width": 220.0,
         "height": 80.0
       }
@@ -218,6 +265,18 @@
         "to": "fb3be45c-265b-4f24-9e6d-5984851e4ff0",
         "kind": "Generalization",
         "label": "er en"
+      },
+      {
+        "from": "314b0ea1-1b49-4b3b-a31a-4a719bf12b1f",
+        "to": "fb3be45c-265b-4f24-9e6d-5984851e4ff0",
+        "kind": "Composition",
+        "label": null
+      },
+      {
+        "from": "314b0ea1-1b49-4b3b-a31a-4a719bf12b1f",
+        "to": "9efa1b57-0bf4-4165-ba74-fbd4ec0654b2",
+        "kind": "Association",
+        "label": null
       }
     ]
   }
