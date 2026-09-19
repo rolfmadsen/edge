@@ -1,0 +1,28 @@
+{
+  "xgauntlet": {
+    "enabled": true,
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "xgauntlet hook antigravity",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreInvocation": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "xgauntlet telemetry --format antigravity-hook"
+          }
+        ]
+      }
+    ]
+  }
+}
