@@ -79,7 +79,7 @@
         "label": "Person",
         "is_local": true,
         "x": 160.0,
-        "y": 280.0,
+        "y": 240.0,
         "width": 180.0,
         "height": 80.0
       },
@@ -206,8 +206,8 @@
       {
         "id": "314b0ea1-1b49-4b3b-a31a-4a719bf12b1f",
         "class_id": "daaa1b63-8dcd-489a-b16e-6358ffd378ee",
-        "x": 580.0,
-        "y": 60.0,
+        "x": 100.0,
+        "y": 240.0,
         "width": 220.0,
         "height": 80.0
       }

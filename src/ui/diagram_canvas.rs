@@ -198,7 +198,6 @@ pub struct DiagramCanvasState {
     pub last_click: Option<ClickRecord>,
     pub panning_start: Option<(Point, Vector)>,
     pub is_panning_space: bool,
-    pub space_pressed: bool,
     pub modifiers: iced::keyboard::Modifiers,
 }
 
@@ -279,20 +278,12 @@ where
         let cursor_pos = cursor.position_in(bounds)?;
 
         match event {
-            Event::Keyboard(iced::keyboard::Event::KeyPressed { key, modifiers, .. }) => {
+            Event::Keyboard(iced::keyboard::Event::KeyPressed { modifiers, .. }) => {
                 state.modifiers = *modifiers;
-                if let iced::keyboard::Key::Named(iced::keyboard::key::Named::Space) = key {
-                    state.space_pressed = true;
-                }
                 None
             }
-            Event::Keyboard(iced::keyboard::Event::KeyReleased { key, modifiers, .. }) => {
+            Event::Keyboard(iced::keyboard::Event::KeyReleased { modifiers, .. }) => {
                 state.modifiers = *modifiers;
-                if let iced::keyboard::Key::Named(iced::keyboard::key::Named::Space) = key {
-                    state.space_pressed = false;
-                    state.is_panning_space = false;
-                    state.panning_start = None;
-                }
                 None
             }
             Event::Keyboard(iced::keyboard::Event::ModifiersChanged(modifiers)) => {
@@ -337,11 +328,14 @@ where
                 Some(Action::capture())
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
-                if self.is_space_pressed || state.space_pressed {
+                if self.is_space_pressed {
                     state.panning_start = Some((cursor_pos, self.viewport.pan()));
                     state.is_panning_space = true;
                     return Some(Action::capture());
                 }
+
+                state.panning_start = None;
+                state.is_panning_space = false;
 
                 let world_pos = self.viewport.to_world(cursor_pos);
                 let now = Instant::now();
@@ -421,9 +415,10 @@ where
                 Some(Action::capture())
             }
             Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => {
-                if state.is_panning_space {
-                    state.panning_start = None;
-                    state.is_panning_space = false;
+                state.panning_start = None;
+                let was_panning_space = state.is_panning_space;
+                state.is_panning_space = false;
+                if was_panning_space {
                     return Some(Action::capture());
                 }
                 if state.dragging_node.is_some() {
@@ -863,5 +858,74 @@ mod tests {
 
         // Slutpositionen for pan skal svare nøjagtigt til total cursor-bevægelse (+100px i X)
         assert_eq!(last_pan, Vector::new(110.0, 20.0));
+    }
+
+    #[test]
+    fn test_node_selection_and_dragging_lifecycle() {
+        use iced::mouse::Cursor;
+        use std::sync::Arc;
+        use uuid::Uuid;
+
+        let node = DiagramNode::custom(
+            Uuid::new_v4(),
+            "TestNode".to_string(),
+            100.0,
+            100.0,
+            180.0,
+            80.0,
+        );
+        let nodes = vec![node];
+        let edges: Vec<DiagramEdge> = vec![];
+
+        let selected = Arc::new(std::sync::Mutex::new(None));
+        let moved = Arc::new(std::sync::Mutex::new(None));
+
+        let sel_clone = Arc::clone(&selected);
+        let mov_clone = Arc::clone(&moved);
+
+        let canvas = DiagramCanvas::new(
+            &nodes,
+            &edges,
+            None,
+            CanvasViewport::default(),
+            true,
+            false, // is_space_pressed = false
+            |_, _, _, _| {},
+            move |id| {
+                *sel_clone.lock().unwrap() = id;
+            },
+            move |id, x, y| {
+                *mov_clone.lock().unwrap() = Some((id, x, y));
+            },
+            |_, _| (),
+            |_| (),
+            |_| (),
+        );
+
+        let mut state = DiagramCanvasState::default();
+        let bounds = Rectangle::new(Point::ORIGIN, Size::new(1000.0, 1000.0));
+        let cursor_on_node = Cursor::Available(Point::new(120.0, 120.0));
+
+        // 1. Left click på node -> skal vælge noden og initialisere dragging_node
+        let press_event = Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left));
+        let action = canvas.update(&mut state, &press_event, bounds, cursor_on_node);
+        assert!(action.is_some());
+        assert_eq!(*selected.lock().unwrap(), Some(nodes[0].id()));
+        assert!(state.dragging_node.is_some());
+
+        // 2. CursorMoved -> skal flytte noden
+        let move_cursor = Cursor::Available(Point::new(160.0, 140.0));
+        let move_event = Event::Mouse(mouse::Event::CursorMoved {
+            position: Point::new(160.0, 140.0),
+        });
+        let action = canvas.update(&mut state, &move_event, bounds, move_cursor);
+        assert!(action.is_some());
+        assert!(moved.lock().unwrap().is_some());
+
+        // 3. ButtonReleased -> skal rydde dragging_node og panning_start
+        let release_event = Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left));
+        let _ = canvas.update(&mut state, &release_event, bounds, move_cursor);
+        assert!(state.dragging_node.is_none());
+        assert!(state.panning_start.is_none());
     }
 }

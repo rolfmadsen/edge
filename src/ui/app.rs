@@ -1212,54 +1212,62 @@ impl App {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        event::listen_with(|event, _status, _window| match event {
-            Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
-                match key.as_ref() {
-                    Key::Named(Named::Tab) => {
-                        if modifiers.shift() {
-                            Some(Message::FocusPrevious)
-                        } else {
-                            Some(Message::FocusNext)
+        event::listen_with(|event, status, _window| {
+            if let Event::Window(iced::window::Event::Unfocused) = event {
+                return Some(Message::CanvasSpacePressed(false));
+            }
+            if status == event::Status::Captured {
+                return None;
+            }
+            match event {
+                Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
+                    match key.as_ref() {
+                        Key::Named(Named::Tab) => {
+                            if modifiers.shift() {
+                                Some(Message::FocusPrevious)
+                            } else {
+                                Some(Message::FocusNext)
+                            }
                         }
+                        Key::Named(Named::Escape) => Some(Message::EscapePressed),
+                        Key::Named(Named::Space) => Some(Message::CanvasSpacePressed(true)),
+                        Key::Character(c)
+                            if (c == "s" || c == "S")
+                                && (modifiers.control() || modifiers.command()) =>
+                        {
+                            Some(Message::SaveProject)
+                        }
+                        Key::Character(c)
+                            if (c == "+" || c == "=")
+                                && (modifiers.control() || modifiers.command()) =>
+                        {
+                            Some(Message::CanvasZoomIn)
+                        }
+                        Key::Character(c)
+                            if c == "-" && (modifiers.control() || modifiers.command()) =>
+                        {
+                            Some(Message::CanvasZoomOut)
+                        }
+                        Key::Character(c)
+                            if c == "0" && (modifiers.control() || modifiers.command()) =>
+                        {
+                            Some(Message::CanvasResetView)
+                        }
+                        _ => None,
                     }
-                    Key::Named(Named::Escape) => Some(Message::EscapePressed),
-                    Key::Named(Named::Space) => Some(Message::CanvasSpacePressed(true)),
-                    Key::Character(c)
-                        if (c == "s" || c == "S")
-                            && (modifiers.control() || modifiers.command()) =>
-                    {
-                        Some(Message::SaveProject)
-                    }
-                    Key::Character(c)
-                        if (c == "+" || c == "=")
-                            && (modifiers.control() || modifiers.command()) =>
-                    {
-                        Some(Message::CanvasZoomIn)
-                    }
-                    Key::Character(c)
-                        if c == "-" && (modifiers.control() || modifiers.command()) =>
-                    {
-                        Some(Message::CanvasZoomOut)
-                    }
-                    Key::Character(c)
-                        if c == "0" && (modifiers.control() || modifiers.command()) =>
-                    {
-                        Some(Message::CanvasResetView)
-                    }
-                    _ => None,
                 }
-            }
-            Event::Keyboard(keyboard::Event::KeyReleased { key, .. }) => {
-                if let Key::Named(Named::Space) = key.as_ref() {
-                    Some(Message::CanvasSpacePressed(false))
-                } else {
-                    None
+                Event::Keyboard(keyboard::Event::KeyReleased { key, .. }) => {
+                    if let Key::Named(Named::Space) = key.as_ref() {
+                        Some(Message::CanvasSpacePressed(false))
+                    } else {
+                        None
+                    }
                 }
+                Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
+                    Some(Message::CanvasModifiersChanged(modifiers))
+                }
+                _ => None,
             }
-            Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
-                Some(Message::CanvasModifiersChanged(modifiers))
-            }
-            _ => None,
         })
     }
 
