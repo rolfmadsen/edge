@@ -391,4 +391,77 @@ fn test_concept_graph_lifecycle_and_persistence() {
     let _ = std::fs::remove_file(file_path);
 }
 
+#[test]
+fn test_ui_theme_tokens_and_widget_styles() {
+    use edge::ui::theme::{
+        ThemeColors, card_container_style, pill_container_style,
+        primary_button_style, secondary_button_style, modern_input_style,
+        modal_backdrop_style, modal_card_style,
+    };
+    use iced::Theme;
+
+    let theme = Theme::Light;
+
+    // 1. Verificer at de nye tokens er tilgængelige
+    assert_ne!(ThemeColors::SURFACE_CARD, ThemeColors::SURFACE_BG);
+    assert_ne!(ThemeColors::SLATE_50, ThemeColors::SLATE_900);
+    assert_ne!(ThemeColors::PRIMARY_HOVER, ThemeColors::PRIMARY_ACTIVE);
+
+    // 2. Verificer container styles
+    let card = card_container_style(&theme);
+    assert!(card.background.is_some());
+    assert_eq!(card.border.radius, 8.0.into());
+
+    let pill = pill_container_style(&theme);
+    assert!(pill.background.is_some());
+    assert_eq!(pill.border.radius, 8.0.into());
+
+    let modal_bd = modal_backdrop_style(&theme);
+    assert!(modal_bd.background.is_some());
+
+    let modal_card = modal_card_style(&theme);
+    assert!(modal_card.background.is_some());
+    assert_eq!(modal_card.border.radius, 12.0.into());
+
+    // 3. Verificer knap styles (Active & Hovered)
+    let btn_prim_active = primary_button_style(&theme, iced::widget::button::Status::Active);
+    assert!(btn_prim_active.background.is_some());
+    let btn_prim_hover = primary_button_style(&theme, iced::widget::button::Status::Hovered);
+    assert_ne!(btn_prim_active.background, btn_prim_hover.background);
+
+    let btn_sec_active = secondary_button_style(&theme, iced::widget::button::Status::Active);
+    assert!(btn_sec_active.background.is_some());
+
+    // 4. Verificer input style
+    let input_active = modern_input_style(&theme, iced::widget::text_input::Status::Active);
+    let input_focused = modern_input_style(&theme, iced::widget::text_input::Status::Focused { is_hovered: false });
+    assert_ne!(input_active.border.color, input_focused.border.color);
+}
+
+#[test]
+fn test_app_modal_overlay_rendering() {
+    let mut app = App::new_with_path(None);
+
+    // 1. Åbn fildialog og verificer at modal view renderes uden panic
+    let _ = app.update(Message::OpenInlineFileDialog(edge::ui::app::FileDialogMode::SaveAs));
+    assert!(app.is_file_dialog_open());
+    let _ = app.view();
+
+    // 2. Escape lukker modal fildialog
+    let _ = app.update(Message::EscapePressed);
+    assert!(!app.is_file_dialog_open());
+    let _ = app.view();
+
+    // 3. Åbn graf relationsdialog og verificer at modal view renderes uden panic
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    let _ = app.update(Message::GraphOpenRelationDialog);
+    assert!(app.is_relation_dialog_open());
+    let _ = app.view();
+
+    // 4. Escape lukker modal relationsdialog
+    let _ = app.update(Message::EscapePressed);
+    assert!(!app.is_relation_dialog_open());
+    let _ = app.view();
+}
+
 
