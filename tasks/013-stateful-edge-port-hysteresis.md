@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 013: Stateful Edge Port Hysteresis & Persistence"
 description: "Tilstandsbaseret port-routing med geometriske tærskler og persistens af relationers aktive porte i modellen"
-status: active
+status: done
 generated: { by: process:xgauntlet-task-init, at: "2026-09-19T21:10:00Z" }
 tags: [task-lifecycle, intent, ui, canvas, graph, relations, routing, hysteresis, ports]
 ---
 
 # Task 013: Stateful Edge Port Hysteresis & Persistence
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-19`
 
@@ -17,16 +17,16 @@ tags: [task-lifecycle, intent, ui, canvas, graph, relations, routing, hysteresis
 Forbedre port-routingen for diagram-relationer så relationer ikke flimrer eller skifter port uhensigtsmæssigt, når noder placeres i hjørnekvadranterne. Implementere tilstandsbaseret hysterese baseret på geometriske grænsetærskler (nodens bounding-box forlængelser) og persistere de aktive porte (`source_port` og `target_port`) i datamodellen (`model.edge.json`) med fuld bagudkompatibilitet.
 
 ## 📋 Acceptance Criteria
-- [ ] `PortSide` (`Top`, `Right`, `Bottom`, `Left`) er en first-class type i domænemodellen med serde-understøttelse.
-- [ ] `DiagramEdge` og `ClassDiagramEdge` persisterer `source_port` og `target_port` som valgfrie felter (`Option<PortSide>`).
-- [ ] Eksisterende JSON-modeller uden port-felter kan indlæses uden fejl (bagudkompatibilitet).
-- [ ] `EdgeRouter::select_ports` bevarer `Right` port på kilden, når målnoden er til højre for kildens højre kant (`target.x >= source.right`), selv hvis noden flyttes op eller ned i hjørnekvadranterne.
-- [ ] Først når målnoden trækkes ind over den vertikale grænselinje (`target.x < source.right`), skifter kildens port baseret på relativ vertikal placering (`Bottom` hvis under centrum, `Top` hvis over centrum).
-- [ ] `EdgeRouter::select_ports` bevarer `Bottom` port på kilden, når målnoden er under kildens bundkant (`target.y >= source.bottom`), indtil noden trækkes op over bundkanten.
-- [ ] Symmetrisk hysterese gælder for `Left` og `Top` porte samt for målnodens tilknyttede port.
-- [ ] Generaliseringspile forbinder lateralt til højre/venstre side uden baglæns knuder, når subklassen er forskudt til siden.
-- [ ] Flytning af noder på lærredet (`on_node_moved`) opdaterer de aktive porte i grafen, så de gemmes ved autosave.
-- [ ] 100% test pass rate på unit-, accept- og proptests samt clippy med 0 advarsler.
+- [x] `PortSide` (`Top`, `Right`, `Bottom`, `Left`) er en first-class type i domænemodellen med serde-understøttelse.
+- [x] `DiagramEdge` og `ClassDiagramEdge` persisterer `source_port` og `target_port` som valgfrie felter (`Option<PortSide>`).
+- [x] Eksisterende JSON-modeller uden port-felter kan indlæses uden fejl (bagudkompatibilitet).
+- [x] `EdgeRouter::select_ports` bevarer `Right` port på kilden, når målnoden er til højre for kildens højre kant (`target.x >= source.right`), selv hvis noden flyttes op eller ned i hjørnekvadranterne.
+- [x] Først når målnoden trækkes ind over den vertikale grænselinje (`target.x < source.right`), skifter kildens port baseret på relativ vertikal placering (`Bottom` hvis under centrum, `Top` hvis over centrum).
+- [x] `EdgeRouter::select_ports` bevarer `Bottom` port på kilden, når målnoden er under kildens bundkant (`target.y >= source.bottom`), indtil noden trækkes op over bundkanten.
+- [x] Symmetrisk hysterese gælder for `Left` og `Top` porte samt for målnodens tilknyttede port.
+- [x] Generaliseringspile forbinder lateralt til højre/venstre side uden baglæns knuder, når subklassen er forskudt til siden.
+- [x] Flytning af noder på lærredet (`on_node_moved`) opdaterer de aktive porte i grafen, så de gemmes ved autosave.
+- [x] 100% test pass rate på unit-, accept- og proptests samt clippy med 0 advarsler.
 
 ## 🚫 Must NOT
 - Må IKKE bryde eksisterende serialisering eller ødelægge eksisterende `model.edge.json` filer.
@@ -36,6 +36,7 @@ Forbedre port-routingen for diagram-relationer så relationer ikke flimrer eller
 
 ## 📝 Revisions
 - 2026-09-19: Oprettet som Model A (Stateful Hysteresis Port Selection & Persistence) godkendt af brugeren.
+- 2026-09-19: Implementeret og verificeret med 39/39 beståede tests og 0 clippy advarsler.
 
 ## 🧪 Verifikation
 - `cargo test --tests`
