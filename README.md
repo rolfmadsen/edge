@@ -14,17 +14,44 @@ Applikationen giver arkitekter og modelleringsfolk et visuelt lærred til opbygn
 
 Installationspakker genereres automatisk ved hver ny version og findes under [GitHub Releases (Seneste version)](https://github.com/rolfmadsen/edge/releases/latest).
 
-| Operativsystem | Arkitektur | Filformat | Direkte Download |
-| :--- | :--- | :--- | :--- |
-| 🍏 **macOS** | Apple Silicon (M1/M2/M3/M4) | `.tar.gz` | [edge-macos-aarch64.tar.gz](https://github.com/rolfmadsen/edge/releases/latest/download/edge-macos-aarch64.tar.gz) |
-| 🐧 **Linux** | x86_64 (64-bit) | `.tar.gz` | [edge-linux-x86_64.tar.gz](https://github.com/rolfmadsen/edge/releases/latest/download/edge-linux-x86_64.tar.gz) |
-| 🪟 **Windows** | x86_64 (64-bit) | `.zip` | [edge-windows-x86_64.zip](https://github.com/rolfmadsen/edge/releases/latest/download/edge-windows-x86_64.zip) |
+| Operativsystem | Arkitektur | Filformat | Beskrivelse | Direkte Download |
+| :--- | :--- | :--- | :--- | :--- |
+| 🐧 **Linux (Debian / Ubuntu / Mint / Pop!_OS)** | x86_64 | `.deb` | Fuld systeminstallation m. app-ikon & menu | [Hent `.deb` pakke](https://github.com/rolfmadsen/edge/releases/latest) |
+| 🐧 **Linux (Alle distributioner)** | x86_64 | `.tar.gz` | Transportabel binær | [edge-linux-x86_64.tar.gz](https://github.com/rolfmadsen/edge/releases/latest/download/edge-linux-x86_64.tar.gz) |
+| 🍏 **macOS** | Apple Silicon (M1/M2/M3/M4) | `.tar.gz` | Transportabel binær | [edge-macos-aarch64.tar.gz](https://github.com/rolfmadsen/edge/releases/latest/download/edge-macos-aarch64.tar.gz) |
+| 🪟 **Windows** | x86_64 | `.zip` | Transportabel applikation (`edge.exe`) | [edge-windows-x86_64.zip](https://github.com/rolfmadsen/edge/releases/latest/download/edge-windows-x86_64.zip) |
 
 *(macOS Intel og Linux ARM64 tilføjes ved efterspørgsel).*
 
 ---
 
 ## 🚀 Installations- og kørselsvejledning
+
+### 🐧 Linux (x86_64)
+
+#### Metode A: Debian / Ubuntu / Mint / Pop!_OS (`.deb` — Anbefalet)
+Installerer Edge direkte i dit system og tilføjer programmet til din applikationsmenu med officielt logo:
+1. Hent den seneste `.deb`-fil fra [GitHub Releases](https://github.com/rolfmadsen/edge/releases/latest).
+2. Dobbeltklik på den hentede fil for at åbne den i dit Software Center, eller kør i Terminal:
+   ```bash
+   sudo apt install ./edge_*_amd64.deb
+   ```
+3. Start Edge fra dit skrivebords programstarter eller ved blot at skrive `edge` i en terminal.
+
+#### Metode B: Transportabel arkiv (`.tar.gz` — Alle distributioner)
+1. Hent `edge-linux-x86_64.tar.gz`.
+2. Pak arkivet ud og kør programmet:
+   ```bash
+   tar -xzf edge-linux-x86_64.tar.gz
+   chmod +x edge
+   ./edge
+   ```
+3. **Systemafhængigheder:**
+   Edge benytter Vulkan/OpenGL via `wgpu`. De fleste moderne desktop-distributioner har disse forudinstalleret. Ved en minimal installation:
+   - **Ubuntu/Debian:** `sudo apt update && sudo apt install -y libwayland-client0 libx11-6 libxkbcommon0 libvulkan1`
+   - **Fedora:** `sudo dnf install wayland-libs libX11 libxkbcommon vulkan-loader`
+
+---
 
 ### 🍏 macOS (Apple Silicon: M1 / M2 / M3 / M4)
 
@@ -41,31 +68,6 @@ Installationspakker genereres automatisk ved hver ny version og findes under [Gi
      ```bash
      xattr -d com.apple.quarantine ./edge
      ./edge
-     ```
-
----
-
-### 🐧 Linux (x86_64)
-
-1. **Download:** Hent `edge-linux-x86_64.tar.gz`.
-2. **Pak ud:**
-   ```bash
-   tar -xzf edge-linux-x86_64.tar.gz
-   ```
-3. **Gør eksekverbar og kør:**
-   ```bash
-   chmod +x edge
-   ./edge
-   ```
-4. **Systemafhængigheder:**
-   Edge benytter Vulkan/OpenGL via `wgpu`. De fleste moderne desktop-distributioner (Ubuntu, Fedora, Debian, Arch) har de nødvendige biblioteker forudinstalleret. Hvis du kører en minimal installation, installeres afhængighederne via:
-   - **Ubuntu/Debian:**
-     ```bash
-     sudo apt update && sudo apt install -y libwayland-client0 libx11-6 libxkbcommon0 libvulkan1
-     ```
-   - **Fedora:**
-     ```bash
-     sudo dnf install wayland-libs libX11 libxkbcommon vulkan-loader
      ```
 
 ---

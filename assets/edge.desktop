@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Edge
+GenericName=Modeleringsværktøj
+Comment=FDA begrebs- og informationsmodellering
+Exec=edge
+Icon=edge
+Terminal=false
+Type=Application
+Categories=Office;Development;Graphics;
+StartupNotify=true
+StartupWMClass=edge

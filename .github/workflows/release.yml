@@ -72,6 +72,19 @@ jobs:
           tar -czf "${{ matrix.archive_file }}" -C dist .
           shasum -a 256 "${{ matrix.archive_file }}" > "${{ matrix.archive_file }}.sha256"
 
+      - name: Install cargo-deb
+        if: matrix.os == 'ubuntu-latest'
+        uses: taiki-e/install-action@cargo-deb
+
+      - name: Package Debian package (.deb)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cargo deb --no-build --target ${{ matrix.target }}
+          cp target/${{ matrix.target }}/debian/*.deb .
+          for f in *.deb; do
+            shasum -a 256 "$f" > "$f.sha256"
+          done
+
       - name: Package release archive (Windows)
         if: ${{ matrix.is_windows }}
         shell: pwsh
@@ -91,6 +104,9 @@ jobs:
           path: |
             ${{ matrix.archive_file }}
             ${{ matrix.archive_file }}.sha256
+            *.deb
+            *.deb.sha256
+          if-no-files-found: ignore
 
   publish-release:
     name: Publish GitHub Release

@@ -21,7 +21,8 @@ tags: [ci-cd, github-actions, release, multi-platform, readme, installation, win
 ## 📋 Acceptance Criteria
 - [x] `src/main.rs` konfigureret med `windows_subsystem = "windows"` for release-builds.
 - [x] `.github/workflows/release.yml` oprettet med matrix build for Linux x86_64, macOS aarch64 og Windows x86_64, pakning af arkiver (`.tar.gz` og `.zip`), sha256 checksums og automatisk GitHub Release oprettelse.
-- [x] `README.md` udbygget med projektbeskrivelse, status badges, direkte download-links for alle tre operativsystemer og udførlig installationsguide for hhv. Linux, macOS og Windows.
+- [x] Linux udvidet med Debian `.deb` pakke via `cargo-deb`, inkl. desktop-genvej (`assets/edge.desktop`) og app-ikon (`assets/icons/edge.svg`).
+- [x] `README.md` udbygget med projektbeskrivelse, status badges, direkte download-links for alle tre operativsystemer og udførlig installationsguide for hhv. Linux (.deb & tar.gz), macOS og Windows.
 - [x] Alle eksisterende tests og lintere valideret lokalt (`cargo check`, `cargo test`, `cargo clippy`).
 
 ## 🚫 Must NOT
@@ -31,6 +32,7 @@ tags: [ci-cd, github-actions, release, multi-platform, readme, installation, win
 
 ## 📝 Revisions
 - 2026-09-20: Oprettet efter brugerønske om automatiseret multi-platform release flow ved nye versioner og en brugervenlig README.md.
+- 2026-09-20: Tilføjet understøttelse for Debian `.deb` pakke, system desktop entry og SVG app-ikon.
 
 ## 🧪 Verifikation
 - `cargo check`
