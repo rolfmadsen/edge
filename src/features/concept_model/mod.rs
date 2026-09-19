@@ -265,6 +265,10 @@ impl ConceptGraph {
         self.nodes.iter_mut().find(|n| n.concept_id() == concept_id)
     }
 
+    pub fn is_concept_on_diagram(&self, concept_id: Uuid) -> bool {
+        self.find_node_by_concept(concept_id).is_some()
+    }
+
     pub fn update_node_position(&mut self, id: NodeId, x: f32, y: f32) {
         if let Some(node) = self.find_node_mut(id) {
             node.set_position(x, y);

@@ -5,8 +5,7 @@ use crate::features::information_model::{
     PrimitiveType,
 };
 use crate::ui::app::{ConceptOption, Message, NodeOption, RelationDialogState};
-use crate::ui::graph_canvas::CanvasViewport;
-use crate::ui::information_canvas::InformationCanvas;
+use crate::ui::diagram_canvas::{render_uml_class_node, CanvasViewport, DiagramCanvas};
 use crate::ui::theme::{
     card_container_style, danger_button_style, list_item_button, modern_input_style,
     pill_container_style, primary_button_style, secondary_button_style, ThemeColors,
@@ -196,13 +195,32 @@ pub fn view<'a>(
     .spacing(6)
     .align_y(Alignment::Center);
 
-    let canvas_widget = iced::widget::canvas(InformationCanvas::new(
-        class_graph,
-        info_model,
+    let canvas_widget = iced::widget::canvas(DiagramCanvas::new(
+        class_graph.nodes(),
+        class_graph.edges(),
         selected_node_id,
         viewport,
         snap_to_grid,
         is_space_pressed,
+        |frame, node, is_selected, vp| {
+            let class_opt = info_model.get_class(node.class_id());
+            let class_name = class_opt.map(|c| c.name()).unwrap_or("Ukendt Klasse");
+            let attributes: Vec<(String, String, String)> = class_opt
+                .map(|c| {
+                    c.attributes()
+                        .iter()
+                        .map(|a| {
+                            (
+                                a.name().to_string(),
+                                a.data_type().as_str().to_string(),
+                                a.multiplicity().to_string(),
+                            )
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            render_uml_class_node(frame, node, class_name, &attributes, false, is_selected, vp);
+        },
         Message::SelectInfoGraphNode,
         Message::UpdateClassNodePosition,
         |_x, _y| Message::CreateInformationClass,

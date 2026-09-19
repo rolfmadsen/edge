@@ -1413,10 +1413,10 @@ fn test_information_model_uml_canvas_and_studio_layout() {
 
 #[test]
 fn test_task_012_unified_diagram_canvas_and_concept_studio_layout() {
-    use edge::features::concept_model::{DiagramNode, RelationKind};
+    use edge::features::concept_model::{DiagramEdge, DiagramNode, RelationKind};
     use edge::features::concepts::{BelongsToDomain, Concept};
-    use edge::features::information_model::ClassDiagramNode;
-    use edge::ui::diagram_canvas::{CanvasEdge, CanvasNode, CanvasViewport, DiagramCanvas};
+    use edge::features::information_model::{ClassDiagramEdge, ClassDiagramNode};
+    use edge::ui::diagram_canvas::{CanvasEdge, CanvasNode};
     use uuid::Uuid;
 
     // 1. Verificer abstraktionerne for CanvasNode og CanvasEdge
@@ -1428,9 +1428,24 @@ fn test_task_012_unified_diagram_canvas_and_concept_studio_layout() {
     assert!(CanvasNode::contains(&concept_node, 110.0, 160.0));
     assert!(!CanvasNode::contains(&concept_node, 10.0, 10.0));
 
+    let edge = DiagramEdge::new(
+        concept_node.id(),
+        Uuid::new_v4(),
+        RelationKind::Generalization,
+    );
+    assert_eq!(CanvasEdge::kind(&edge), RelationKind::Generalization);
+
     let class_node = ClassDiagramNode::new(Uuid::new_v4(), 200.0, 250.0, 2);
     assert_eq!(CanvasNode::position(&class_node), (200.0, 250.0));
     assert!(CanvasNode::contains(&class_node, 220.0, 270.0));
+
+    let class_edge = ClassDiagramEdge::new(
+        class_node.id(),
+        Uuid::new_v4(),
+        RelationKind::Association,
+        Some("kunde".to_string()),
+    );
+    assert_eq!(CanvasEdge::label(&class_edge), Some("kunde"));
 
     // 2. Initialiser App og test Canvas Studio workflow for Begrebsmodellen (Fane 3)
     let mut app = App::new_with_path(None);
@@ -1440,6 +1455,7 @@ fn test_task_012_unified_diagram_canvas_and_concept_studio_layout() {
     let c2 = Concept::new("Faktura", "Et betalingskrav", BelongsToDomain::Yes);
     let c1_id = app.project_mut().add_concept(c1).unwrap();
     let c2_id = app.project_mut().add_concept(c2).unwrap();
+    assert!(app.project().get_concept(c2_id).is_some());
 
     // Verificer is_concept_on_diagram metoden
     let node_c1_id = app
@@ -1482,4 +1498,3 @@ fn test_task_012_unified_diagram_canvas_and_concept_studio_layout() {
         let _view = app.view();
     }
 }
-
