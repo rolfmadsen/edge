@@ -39,6 +39,36 @@
       "source": "Færdselsloven",
       "identifier": null,
       "derived_from": null
+    },
+    {
+      "id": "59e4b522-0adb-4808-bd88-786eaacf712d",
+      "preferred_term": "OrgPerson",
+      "definition": "En OrgPerson er en Person, som har en Identitet i en Organisation",
+      "belongs_to_domain": "Yes",
+      "accepted_term": null,
+      "deprecated_term": null,
+      "example": null,
+      "comment": null,
+      "application_note": null,
+      "legal_source": null,
+      "source": null,
+      "identifier": null,
+      "derived_from": null
+    },
+    {
+      "id": "f3e7d2a5-6369-490c-8e9b-7818eebaff81",
+      "preferred_term": "CprPerson",
+      "definition": "CprPerson er en Person med et dansk Cpr-nummer",
+      "belongs_to_domain": "Yes",
+      "accepted_term": null,
+      "deprecated_term": null,
+      "example": null,
+      "comment": null,
+      "application_note": null,
+      "legal_source": null,
+      "source": null,
+      "identifier": null,
+      "derived_from": null
     }
   ],
   "concept_graph": {
@@ -48,20 +78,40 @@
         "concept_id": "4a7d4c83-e17e-4157-8807-754821a6a5d4",
         "label": "Person",
         "is_local": true,
-        "x": 191.54688,
-        "y": 92.07031,
-        "width": 170.0,
-        "height": 70.0
+        "x": 160.0,
+        "y": 280.0,
+        "width": 180.0,
+        "height": 80.0
       },
       {
         "id": "02e4b5ff-1b17-40f7-a836-94db06b1ce18",
         "concept_id": "8938bd75-9444-4982-b946-82ed1d7a6799",
         "label": "Personbil",
         "is_local": true,
-        "x": 523.1875,
-        "y": 122.50781,
-        "width": 170.0,
-        "height": 70.0
+        "x": 160.0,
+        "y": 140.0,
+        "width": 180.0,
+        "height": 80.0
+      },
+      {
+        "id": "9f015618-1d47-4c28-ab66-5d8ab75495f8",
+        "concept_id": "59e4b522-0adb-4808-bd88-786eaacf712d",
+        "label": "OrgPerson",
+        "is_local": true,
+        "x": 280.0,
+        "y": 420.0,
+        "width": 180.0,
+        "height": 80.0
+      },
+      {
+        "id": "f311b075-bd05-47b6-8f41-daa1fb449e4a",
+        "concept_id": "f3e7d2a5-6369-490c-8e9b-7818eebaff81",
+        "label": "CprPerson",
+        "is_local": true,
+        "x": 40.0,
+        "y": 420.0,
+        "width": 180.0,
+        "height": 80.0
       }
     ],
     "edges": [
@@ -70,6 +120,52 @@
         "to": "02e4b5ff-1b17-40f7-a836-94db06b1ce18",
         "kind": "Association",
         "label": "ejer en"
+      },
+      {
+        "from": "9f015618-1d47-4c28-ab66-5d8ab75495f8",
+        "to": "5c5b482e-e482-4567-9b9f-305de2b97bc5",
+        "kind": "Generalization",
+        "label": null
+      },
+      {
+        "from": "f311b075-bd05-47b6-8f41-daa1fb449e4a",
+        "to": "5c5b482e-e482-4567-9b9f-305de2b97bc5",
+        "kind": "Generalization",
+        "label": null
+      }
+    ]
+  },
+  "information_model": {
+    "classes": [
+      {
+        "id": "d169939d-1d7a-4ff3-8ae0-4c5d391dfe74",
+        "name": "Person",
+        "description": null,
+        "concept_ids": [
+          "4a7d4c83-e17e-4157-8807-754821a6a5d4"
+        ],
+        "attributes": [
+          {
+            "id": "bb49b671-f030-4cde-b42b-53f45ae1a3bf",
+            "name": "fornavn",
+            "data_type": "CharacterString",
+            "multiplicity": {
+              "lower": 1,
+              "upper": 1
+            },
+            "concept_ids": []
+          },
+          {
+            "id": "f130b569-1cdb-463c-8c9b-e796b914ea20",
+            "name": "efternavn",
+            "data_type": "CharacterString",
+            "multiplicity": {
+              "lower": 1,
+              "upper": 1
+            },
+            "concept_ids": []
+          }
+        ]
       }
     ]
   }

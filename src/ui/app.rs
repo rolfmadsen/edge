@@ -177,7 +177,7 @@ pub enum Message {
     CanvasSpacePressed(bool),
     CanvasModifiersChanged(iced::keyboard::Modifiers),
 
-    // Informationsmodel (Task 010)
+    // Informationsmodel (Task 010 & 011)
     SelectInformationClass(Option<Uuid>),
     CreateInformationClass,
     CreateInformationClassFromConcept(ConceptOption),
@@ -194,6 +194,26 @@ pub enum Message {
     RemoveConceptFromAttribute(Uuid, Uuid, Uuid),
     DeleteAttribute(Uuid, Uuid),
     InformationClassSearchChanged(String),
+
+    // Informationsmodel Canvas & Studio (Task 011)
+    AddClassToDiagram(Uuid),
+    RemoveClassFromDiagram(NodeId),
+    UpdateClassNodePosition(NodeId, f32, f32),
+    SelectInfoGraphNode(Option<NodeId>),
+    AddClassRelation(NodeId, NodeId, RelationKind, Option<String>),
+    DeleteClassRelation(NodeId, NodeId),
+    InfoCanvasViewportChanged(crate::ui::graph_canvas::CanvasViewport),
+    ToggleInfoSnapToGrid,
+    InfoCanvasZoomIn,
+    InfoCanvasZoomOut,
+    InfoCanvasResetView,
+    OpenInfoRelationDialog,
+    CloseInfoRelationDialog,
+    InfoRelationFromChanged(NodeOption),
+    InfoRelationToChanged(NodeOption),
+    InfoRelationKindChanged(RelationKind),
+    InfoRelationLabelChanged(String),
+    InfoCreateRelation,
 }
 
 pub struct App {
@@ -213,7 +233,11 @@ pub struct App {
     snap_to_grid: bool,
     is_space_pressed: bool,
     selected_info_class_id: Option<Uuid>,
+    selected_info_graph_node_id: Option<NodeId>,
     info_class_search: String,
+    info_canvas_viewport: crate::ui::graph_canvas::CanvasViewport,
+    info_relation_dialog: Option<RelationDialogState>,
+    info_snap_to_grid: bool,
 }
 
 impl Default for App {
@@ -250,7 +274,11 @@ impl App {
                         snap_to_grid: true,
                         is_space_pressed: false,
                         selected_info_class_id: None,
+                        selected_info_graph_node_id: None,
                         info_class_search: String::new(),
+                        info_canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
+                        info_relation_dialog: None,
+                        info_snap_to_grid: true,
                     };
                 }
             }
@@ -278,7 +306,11 @@ impl App {
             snap_to_grid: true,
             is_space_pressed: false,
             selected_info_class_id: None,
+            selected_info_graph_node_id: None,
             info_class_search: String::new(),
+            info_canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
+            info_relation_dialog: None,
+            info_snap_to_grid: true,
         }
     }
 
@@ -814,14 +846,25 @@ impl App {
             }
             Message::CanvasModifiersChanged(_mods) => {}
 
-            // Informationsmodel (Task 010)
+            // Informationsmodel (Task 010 & 011)
             Message::SelectInformationClass(id) => {
                 self.selected_info_class_id = id;
+                if let Some(cid) = id {
+                    if let Some(node) = self.project.information_graph().find_node_by_class(cid) {
+                        self.selected_info_graph_node_id = Some(node.id());
+                    } else {
+                        self.selected_info_graph_node_id = None;
+                    }
+                } else {
+                    self.selected_info_graph_node_id = None;
+                }
             }
             Message::CreateInformationClass => {
                 let class = InformationClass::new("NyKlasse");
                 let id = self.project.information_model_mut().add_class(class);
+                let node_id = self.project.information_graph_mut().add_node(id, 0);
                 self.selected_info_class_id = Some(id);
+                self.selected_info_graph_node_id = Some(node_id);
                 self.trigger_autosave();
             }
             Message::CreateInformationClassFromConcept(opt) => {
@@ -830,7 +873,9 @@ impl App {
                         .project
                         .information_model_mut()
                         .create_class_from_concept(&concept);
+                    let node_id = self.project.information_graph_mut().add_node(id, 0);
                     self.selected_info_class_id = Some(id);
+                    self.selected_info_graph_node_id = Some(node_id);
                     self.trigger_autosave();
                 }
             }
@@ -863,9 +908,14 @@ impl App {
                 }
             }
             Message::DeleteInformationClass(class_id) => {
-                self.project.information_model_mut().remove_class(class_id);
+                self.project.remove_information_class(class_id);
                 if self.selected_info_class_id == Some(class_id) {
                     self.selected_info_class_id = None;
+                }
+                if let Some(nid) = self.selected_info_graph_node_id {
+                    if self.project.information_graph().find_node(nid).is_none() {
+                        self.selected_info_graph_node_id = None;
+                    }
                 }
                 self.trigger_autosave();
             }
@@ -877,6 +927,10 @@ impl App {
                         Multiplicity::exactly_one(),
                     );
                     class.add_attribute(attr);
+                    let attr_count = class.attributes().len();
+                    self.project
+                        .information_graph_mut()
+                        .update_class_dimensions(class_id, attr_count);
                     self.trigger_autosave();
                 }
             }
@@ -943,11 +997,163 @@ impl App {
             Message::DeleteAttribute(class_id, attr_id) => {
                 if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
                     class.remove_attribute(attr_id);
+                    let attr_count = class.attributes().len();
+                    self.project
+                        .information_graph_mut()
+                        .update_class_dimensions(class_id, attr_count);
                     self.trigger_autosave();
                 }
             }
             Message::InformationClassSearchChanged(q) => {
                 self.info_class_search = q;
+            }
+
+            // Informationsmodel Canvas & Studio (Task 011)
+            Message::AddClassToDiagram(class_id) => {
+                let attr_count = self
+                    .project
+                    .information_model()
+                    .get_class(class_id)
+                    .map(|c| c.attributes().len())
+                    .unwrap_or(0);
+                let node_id = self
+                    .project
+                    .information_graph_mut()
+                    .add_node(class_id, attr_count);
+                self.selected_info_class_id = Some(class_id);
+                self.selected_info_graph_node_id = Some(node_id);
+                self.trigger_autosave();
+            }
+            Message::RemoveClassFromDiagram(node_id) => {
+                self.project.information_graph_mut().remove_node(node_id);
+                if self.selected_info_graph_node_id == Some(node_id) {
+                    self.selected_info_graph_node_id = None;
+                }
+                self.trigger_autosave();
+            }
+            Message::UpdateClassNodePosition(node_id, x, y) => {
+                self.project
+                    .information_graph_mut()
+                    .update_node_position(node_id, x, y);
+                self.trigger_autosave();
+            }
+            Message::SelectInfoGraphNode(node_id_opt) => {
+                self.selected_info_graph_node_id = node_id_opt;
+                if let Some(nid) = node_id_opt {
+                    if let Some(node) = self.project.information_graph().find_node(nid) {
+                        self.selected_info_class_id = Some(node.class_id());
+                    }
+                }
+            }
+            Message::AddClassRelation(from, to, kind, label) => {
+                self.project
+                    .information_graph_mut()
+                    .add_relation(from, to, kind, label);
+                self.trigger_autosave();
+            }
+            Message::DeleteClassRelation(from, to) => {
+                self.project
+                    .information_graph_mut()
+                    .remove_relation(from, to);
+                self.trigger_autosave();
+            }
+            Message::InfoCanvasViewportChanged(vp) => {
+                self.info_canvas_viewport = vp;
+            }
+            Message::ToggleInfoSnapToGrid => {
+                self.info_snap_to_grid = !self.info_snap_to_grid;
+            }
+            Message::InfoCanvasZoomIn => {
+                self.info_canvas_viewport
+                    .zoom_at(Point::new(500.0, 400.0), 1.15);
+            }
+            Message::InfoCanvasZoomOut => {
+                self.info_canvas_viewport
+                    .zoom_at(Point::new(500.0, 400.0), 1.0 / 1.15);
+            }
+            Message::InfoCanvasResetView => {
+                self.info_canvas_viewport.reset();
+            }
+            Message::OpenInfoRelationDialog => {
+                let default_from = self.selected_info_graph_node_id.and_then(|id| {
+                    self.project.information_graph().find_node(id).map(|n| {
+                        let name = self
+                            .project
+                            .information_model()
+                            .get_class(n.class_id())
+                            .map(|c| c.name().to_string())
+                            .unwrap_or_else(|| "Klasse".to_string());
+                        NodeOption { id, label: name }
+                    })
+                });
+
+                self.info_relation_dialog = Some(RelationDialogState {
+                    from_node: default_from,
+                    to_node: None,
+                    kind: RelationKind::Generalization,
+                    label: String::new(),
+                    error: None,
+                });
+            }
+            Message::CloseInfoRelationDialog => {
+                self.info_relation_dialog = None;
+            }
+            Message::InfoRelationFromChanged(opt) => {
+                if let Some(dlg) = &mut self.info_relation_dialog {
+                    dlg.from_node = Some(opt);
+                    dlg.error = None;
+                }
+            }
+            Message::InfoRelationToChanged(opt) => {
+                if let Some(dlg) = &mut self.info_relation_dialog {
+                    dlg.to_node = Some(opt);
+                    dlg.error = None;
+                }
+            }
+            Message::InfoRelationKindChanged(kind) => {
+                if let Some(dlg) = &mut self.info_relation_dialog {
+                    dlg.kind = kind;
+                }
+            }
+            Message::InfoRelationLabelChanged(label) => {
+                if let Some(dlg) = &mut self.info_relation_dialog {
+                    dlg.label = label;
+                }
+            }
+            Message::InfoCreateRelation => {
+                if let Some(dlg) = &self.info_relation_dialog {
+                    match (&dlg.from_node, &dlg.to_node) {
+                        (Some(from), Some(to)) => {
+                            if from.id == to.id {
+                                if let Some(d) = &mut self.info_relation_dialog {
+                                    d.error = Some(
+                                        "En klasse kan ikke have en relation til sig selv"
+                                            .to_string(),
+                                    );
+                                }
+                            } else {
+                                let label = if dlg.label.trim().is_empty() {
+                                    None
+                                } else {
+                                    Some(dlg.label.trim().to_string())
+                                };
+                                self.project
+                                    .information_graph_mut()
+                                    .add_relation(from.id, to.id, dlg.kind, label);
+                                self.info_relation_dialog = None;
+                                self.trigger_autosave();
+                            }
+                        }
+                        _ => {
+                            if let Some(d) = &mut self.info_relation_dialog {
+                                d.error = Some(
+                                    "Vælg venligst både en kilde- og destinationsklasse"
+                                        .to_string(),
+                                );
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -1986,9 +2192,15 @@ impl App {
 
             Tab::InformationModel => information_model_view::view(
                 self.project.information_model(),
+                self.project.information_graph(),
                 self.project.concepts(),
                 self.selected_info_class_id,
+                self.selected_info_graph_node_id,
                 &self.info_class_search,
+                self.info_canvas_viewport,
+                self.info_snap_to_grid,
+                self.is_space_pressed,
+                self.info_relation_dialog.as_ref(),
             ),
         };
 

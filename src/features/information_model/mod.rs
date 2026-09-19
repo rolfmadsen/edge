@@ -1,3 +1,4 @@
+use crate::features::concept_model::{NodeId, RelationKind};
 use crate::features::concepts::Concept;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -356,5 +357,240 @@ impl InformationModel {
             }
         }
         results
+    }
+}
+
+pub const DEFAULT_CLASS_NODE_WIDTH: f32 = 220.0;
+pub const MIN_CLASS_NODE_HEIGHT: f32 = 80.0;
+pub const ATTR_LINE_HEIGHT: f32 = 20.0;
+
+pub fn calculate_class_node_height(attr_count: usize) -> f32 {
+    let header_height = 54.0;
+    let compartment_padding = 16.0;
+    let attrs_height = (attr_count as f32) * ATTR_LINE_HEIGHT;
+    (header_height + compartment_padding + attrs_height).max(MIN_CLASS_NODE_HEIGHT)
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ClassDiagramNode {
+    id: NodeId,
+    class_id: Uuid,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+}
+
+impl ClassDiagramNode {
+    pub fn new(class_id: Uuid, x: f32, y: f32, attr_count: usize) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            class_id,
+            x,
+            y,
+            width: DEFAULT_CLASS_NODE_WIDTH,
+            height: calculate_class_node_height(attr_count),
+        }
+    }
+
+    pub fn id(&self) -> NodeId {
+        self.id
+    }
+
+    pub fn class_id(&self) -> Uuid {
+        self.class_id
+    }
+
+    pub fn x(&self) -> f32 {
+        self.x
+    }
+
+    pub fn y(&self) -> f32 {
+        self.y
+    }
+
+    pub fn width(&self) -> f32 {
+        self.width
+    }
+
+    pub fn height(&self) -> f32 {
+        self.height
+    }
+
+    pub fn set_position(&mut self, x: f32, y: f32) {
+        self.x = x;
+        self.y = y;
+    }
+
+    pub fn update_dimensions(&mut self, attr_count: usize) {
+        self.height = calculate_class_node_height(attr_count);
+    }
+
+    pub fn center(&self) -> (f32, f32) {
+        (self.x + self.width / 2.0, self.y + self.height / 2.0)
+    }
+
+    pub fn contains(&self, px: f32, py: f32) -> bool {
+        px >= self.x && px <= self.x + self.width && py >= self.y && py <= self.y + self.height
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClassDiagramEdge {
+    from: NodeId,
+    to: NodeId,
+    kind: RelationKind,
+    label: Option<String>,
+}
+
+impl ClassDiagramEdge {
+    pub fn new(from: NodeId, to: NodeId, kind: RelationKind, label: Option<String>) -> Self {
+        Self {
+            from,
+            to,
+            kind,
+            label,
+        }
+    }
+
+    pub fn from(&self) -> NodeId {
+        self.from
+    }
+
+    pub fn to(&self) -> NodeId {
+        self.to
+    }
+
+    pub fn kind(&self) -> RelationKind {
+        self.kind
+    }
+
+    pub fn label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+
+    pub fn set_label(&mut self, label: Option<String>) {
+        self.label = label;
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ClassGraph {
+    nodes: Vec<ClassDiagramNode>,
+    edges: Vec<ClassDiagramEdge>,
+}
+
+impl ClassGraph {
+    pub fn new() -> Self {
+        Self {
+            nodes: Vec::new(),
+            edges: Vec::new(),
+        }
+    }
+
+    pub fn nodes(&self) -> &[ClassDiagramNode] {
+        &self.nodes
+    }
+
+    pub fn nodes_mut(&mut self) -> &mut Vec<ClassDiagramNode> {
+        &mut self.nodes
+    }
+
+    pub fn edges(&self) -> &[ClassDiagramEdge] {
+        &self.edges
+    }
+
+    pub fn edges_mut(&mut self) -> &mut Vec<ClassDiagramEdge> {
+        &mut self.edges
+    }
+
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
+
+    pub fn edge_count(&self) -> usize {
+        self.edges.len()
+    }
+
+    pub fn find_node(&self, id: NodeId) -> Option<&ClassDiagramNode> {
+        self.nodes.iter().find(|n| n.id() == id)
+    }
+
+    pub fn find_node_mut(&mut self, id: NodeId) -> Option<&mut ClassDiagramNode> {
+        self.nodes.iter_mut().find(|n| n.id() == id)
+    }
+
+    pub fn find_node_by_class(&self, class_id: Uuid) -> Option<&ClassDiagramNode> {
+        self.nodes.iter().find(|n| n.class_id() == class_id)
+    }
+
+    pub fn find_node_by_class_mut(&mut self, class_id: Uuid) -> Option<&mut ClassDiagramNode> {
+        self.nodes.iter_mut().find(|n| n.class_id() == class_id)
+    }
+
+    pub fn is_class_on_diagram(&self, class_id: Uuid) -> bool {
+        self.nodes.iter().any(|n| n.class_id() == class_id)
+    }
+
+    pub fn add_node(&mut self, class_id: Uuid, attr_count: usize) -> NodeId {
+        if let Some(existing) = self.find_node_by_class(class_id) {
+            return existing.id();
+        }
+        let node_count = self.nodes.len() as f32;
+        let x = 60.0 + (node_count % 3.0) * 260.0;
+        let y = 60.0 + (node_count / 3.0).floor() * 160.0;
+        let node = ClassDiagramNode::new(class_id, x, y, attr_count);
+        let id = node.id();
+        self.nodes.push(node);
+        id
+    }
+
+    pub fn remove_node(&mut self, node_id: NodeId) {
+        self.nodes.retain(|n| n.id() != node_id);
+        self.edges
+            .retain(|e| e.from() != node_id && e.to() != node_id);
+    }
+
+    pub fn remove_class_node(&mut self, class_id: Uuid) {
+        if let Some(node) = self.find_node_by_class(class_id) {
+            let node_id = node.id();
+            self.remove_node(node_id);
+        }
+    }
+
+    pub fn add_relation(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        kind: RelationKind,
+        label: Option<String>,
+    ) {
+        if from != to
+            && self.find_node(from).is_some()
+            && self.find_node(to).is_some()
+            && !self
+                .edges
+                .iter()
+                .any(|e| e.from() == from && e.to() == to && e.kind() == kind)
+        {
+            self.edges
+                .push(ClassDiagramEdge::new(from, to, kind, label));
+        }
+    }
+
+    pub fn remove_relation(&mut self, from: NodeId, to: NodeId) {
+        self.edges.retain(|e| !(e.from() == from && e.to() == to));
+    }
+
+    pub fn update_node_position(&mut self, id: NodeId, x: f32, y: f32) {
+        if let Some(node) = self.find_node_mut(id) {
+            node.set_position(x, y);
+        }
+    }
+
+    pub fn update_class_dimensions(&mut self, class_id: Uuid, attr_count: usize) {
+        if let Some(node) = self.find_node_by_class_mut(class_id) {
+            node.update_dimensions(attr_count);
+        }
     }
 }

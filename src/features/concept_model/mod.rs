@@ -11,6 +11,11 @@ pub enum RelationKind {
     Composition,
 }
 
+impl RelationKind {
+    pub const ALL: &'static [RelationKind] =
+        &[Self::Generalization, Self::Association, Self::Composition];
+}
+
 impl std::fmt::Display for RelationKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -63,6 +68,19 @@ impl DiagramNode {
             y,
             width: DEFAULT_NODE_WIDTH,
             height: DEFAULT_NODE_HEIGHT,
+        }
+    }
+
+    pub fn custom(id: NodeId, label: String, x: f32, y: f32, width: f32, height: f32) -> Self {
+        Self {
+            id,
+            concept_id: Uuid::nil(),
+            label,
+            is_local: true,
+            x,
+            y,
+            width,
+            height,
         }
     }
 

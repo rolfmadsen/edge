@@ -1,6 +1,6 @@
 use crate::features::concept_model::ConceptGraph;
 use crate::features::concepts::{Concept, ConceptValidator, ValidationError};
-use crate::features::information_model::InformationModel;
+use crate::features::information_model::{ClassGraph, InformationClass, InformationModel};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -92,6 +92,8 @@ pub struct ModelProject {
     concept_graph: ConceptGraph,
     #[serde(default)]
     information_model: InformationModel,
+    #[serde(default)]
+    information_graph: ClassGraph,
 }
 
 impl ModelProject {
@@ -101,6 +103,7 @@ impl ModelProject {
             concepts: Vec::new(),
             concept_graph: ConceptGraph::new(),
             information_model: InformationModel::new(),
+            information_graph: ClassGraph::new(),
         }
     }
 
@@ -134,6 +137,22 @@ impl ModelProject {
 
     pub fn information_model_mut(&mut self) -> &mut InformationModel {
         &mut self.information_model
+    }
+
+    pub fn information_graph(&self) -> &ClassGraph {
+        &self.information_graph
+    }
+
+    pub fn information_graph_mut(&mut self) -> &mut ClassGraph {
+        &mut self.information_graph
+    }
+
+    pub fn remove_information_class(&mut self, id: Uuid) -> Option<InformationClass> {
+        let removed = self.information_model.remove_class(id);
+        if removed.is_some() {
+            self.information_graph.remove_class_node(id);
+        }
+        removed
     }
 
     pub fn sync_concept_graph(&mut self) {
