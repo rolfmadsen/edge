@@ -164,7 +164,9 @@ impl ConceptEditorState {
         let title_row = row![
             text(title_text).size(20),
             Space::new().width(Length::Fill),
-            button(text("✕")).on_press(Message::CancelConceptEdit),
+            button(text("✕").size(14))
+                .style(button::secondary)
+                .on_press(Message::CancelConceptEdit),
         ]
         .align_y(Alignment::Center);
 
@@ -180,7 +182,16 @@ impl ConceptEditorState {
                     .spacing(8)
                     .align_y(Alignment::Center),
                 )
-                .padding(10),
+                .style(|_theme: &iced::Theme| container::Style {
+                    background: Some(iced::Background::Color(ThemeColors::ACCENT_RED_LIGHT)),
+                    border: iced::Border {
+                        color: ThemeColors::ACCENT_RED,
+                        width: 1.0,
+                        radius: 6.0.into(),
+                    },
+                    ..Default::default()
+                })
+                .padding([10, 14]),
             );
         }
 
@@ -250,7 +261,9 @@ impl ConceptEditorState {
             })
             .size(13),
         )
-        .on_press(Message::ToggleShowAllFields);
+        .style(button::secondary)
+        .on_press(Message::ToggleShowAllFields)
+        .padding([6, 12]);
 
         form = form.push(term_domain_row);
         form = form.push(definition_input);
@@ -331,9 +344,14 @@ impl ConceptEditorState {
 
         let action_bar = row![
             Space::new().width(Length::Fill),
-            button(text("Annuller").size(14)).on_press(Message::CancelConceptEdit),
+            button(text("Annuller").size(14))
+                .style(button::secondary)
+                .on_press(Message::CancelConceptEdit)
+                .padding([8, 16]),
             button(text(if is_edit { "Gem ændringer" } else { "Opret begreb" }).size(14))
-                .on_press(Message::SaveConcept),
+                .style(button::primary)
+                .on_press(Message::SaveConcept)
+                .padding([8, 18]),
         ]
         .spacing(12)
         .align_y(Alignment::Center);
@@ -342,7 +360,8 @@ impl ConceptEditorState {
         form = form.push(action_bar);
 
         container(scrollable(form).height(Length::Fill))
-            .padding(20)
+            .style(container::bordered_box)
+            .padding(24)
             .into()
     }
 }

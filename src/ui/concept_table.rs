@@ -31,6 +31,7 @@ pub fn view<'a>(
         ]
         .align_y(Alignment::Center),
     )
+    .style(button::primary)
     .on_press(Message::StartNewConcept)
     .padding([8, 16]);
 
@@ -127,29 +128,62 @@ pub fn view<'a>(
             // Emneområde kolonne - FDA Anbefalede Farver jf. Kapitel 7.3
             let domain_badge = match concept.belongs_to_domain() {
                 BelongsToDomain::Yes => container(
-                    text("Lokalt begreb")
+                    text("🏷️ Lokalt begreb")
                         .size(11)
                         .color(ThemeColors::TEXT_DARK),
                 )
-                .padding([3, 8]),
+                .style(|_theme: &iced::Theme| container::Style {
+                    background: Some(iced::Background::Color(ThemeColors::FDA_SAND)),
+                    border: iced::Border {
+                        color: ThemeColors::FDA_SAND_BORDER,
+                        width: 1.0,
+                        radius: 4.0.into(),
+                    },
+                    ..Default::default()
+                })
+                .padding([4, 8]),
                 BelongsToDomain::No => container(
-                    text("Indlånt / Ekstern")
+                    text("🌐 Indlånt begreb")
                         .size(11)
                         .color(ThemeColors::PRIMARY),
                 )
-                .padding([3, 8]),
+                .style(|_theme: &iced::Theme| container::Style {
+                    background: Some(iced::Background::Color(ThemeColors::FDA_BORROWED_BLUE_BG)),
+                    border: iced::Border {
+                        color: ThemeColors::FDA_BORROWED_BLUE,
+                        width: 1.0,
+                        radius: 4.0.into(),
+                    },
+                    ..Default::default()
+                })
+                .padding([4, 8]),
                 BelongsToDomain::ModelRef(model_uri) => container(
-                    text(format!("Indlånt: {}", model_uri))
+                    text(format!("🌐 {}", model_uri))
                         .size(11)
                         .color(ThemeColors::PRIMARY),
                 )
-                .padding([3, 8]),
+                .style(|_theme: &iced::Theme| container::Style {
+                    background: Some(iced::Background::Color(ThemeColors::FDA_BORROWED_BLUE_BG)),
+                    border: iced::Border {
+                        color: ThemeColors::FDA_BORROWED_BLUE,
+                        width: 1.0,
+                        radius: 4.0.into(),
+                    },
+                    ..Default::default()
+                })
+                .padding([4, 8]),
             };
 
             // Handlinger kolonne
             let actions = row![
-                button(text("Rediger").size(12)).on_press(Message::EditConcept(id)).padding([4, 8]),
-                button(text("Slet").size(12)).on_press(Message::DeleteConcept(id)).padding([4, 8]),
+                button(text("Rediger").size(12))
+                    .style(button::secondary)
+                    .on_press(Message::EditConcept(id))
+                    .padding([4, 10]),
+                button(text("Slet").size(12))
+                    .style(button::danger)
+                    .on_press(Message::DeleteConcept(id))
+                    .padding([4, 10]),
             ]
             .spacing(6)
             .align_y(Alignment::Center);
@@ -165,6 +199,7 @@ pub fn view<'a>(
                 .spacing(12)
                 .align_y(Alignment::Center),
             )
+            .style(container::bordered_box)
             .padding([12, 14])
             .width(Length::Fill);
 

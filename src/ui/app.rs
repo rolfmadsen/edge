@@ -167,21 +167,28 @@ impl App {
     pub fn view(&self) -> Element<'_, Message> {
         let tab_button = |tab: Tab, label: &'static str| {
             let is_active = self.active_tab == tab;
-            let label_text = if is_active {
-                text(format!("● {}", label)).size(13).color(ThemeColors::PRIMARY)
-            } else {
-                text(label).size(13)
-            };
-            button(label_text).on_press(Message::SelectTab(tab))
+            button(text(label).size(13))
+                .style(if is_active { button::primary } else { button::secondary })
+                .on_press(Message::SelectTab(tab))
+                .padding([6, 12])
         };
 
         let nav_bar = row![
             row![
                 text("edge")
-                    .size(22)
+                    .size(24)
                     .color(ThemeColors::PRIMARY),
-                Space::new().width(4),
+                Space::new().width(6),
                 container(text("FDA v2.1").size(10).color(ThemeColors::PRIMARY))
+                    .style(|_theme: &iced::Theme| container::Style {
+                        background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
+                        border: iced::Border {
+                            color: ThemeColors::PRIMARY,
+                            width: 1.0,
+                            radius: 4.0.into(),
+                        },
+                        ..Default::default()
+                    })
                     .padding([2, 6]),
             ]
             .align_y(Alignment::Center),
@@ -191,7 +198,10 @@ impl App {
             tab_button(Tab::ConceptModel, "3. Begrebsmodel (Graf)"),
             tab_button(Tab::InformationModel, "4. Informationsmodel"),
             Space::new().width(Length::Fill),
-            button(text("Nyt Projekt").size(12)).on_press(Message::NewProject),
+            button(text("Nyt Projekt").size(12))
+                .style(button::secondary)
+                .on_press(Message::NewProject)
+                .padding([6, 12]),
         ]
         .spacing(8)
         .align_y(Alignment::Center);
@@ -261,13 +271,14 @@ impl App {
             column![
                 nav_bar,
                 container(content)
+                    .style(container::bordered_box)
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .padding(16),
+                    .padding(20),
                 status_bar,
             ]
-            .spacing(12)
-            .padding(14),
+            .spacing(14)
+            .padding(16),
         )
         .width(Length::Fill)
         .height(Length::Fill)
