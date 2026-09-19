@@ -149,6 +149,9 @@ fn test_concept_list_ui_crud_cycle() {
     assert!(!app.is_editing_concept());
     assert_eq!(app.project().concepts().len(), 1);
 
+    // Verificer at view() renderer uden fejl for tabel med begreb
+    let _ = app.view();
+
     let id = {
         let saved = &app.project().concepts()[0];
         assert_eq!(saved.preferred_term(), "Personbil");
@@ -162,9 +165,11 @@ fn test_concept_list_ui_crud_cycle() {
     // 4. Søgning / filtrering
     app.update(Message::SearchQueryChanged("Person".to_string()));
     assert_eq!(app.filtered_concepts().len(), 1);
+    let _ = app.view();
 
     app.update(Message::SearchQueryChanged("Ukendt".to_string()));
     assert_eq!(app.filtered_concepts().len(), 0);
+    let _ = app.view();
 
     app.update(Message::SearchQueryChanged("".to_string()));
     assert_eq!(app.filtered_concepts().len(), 1);
@@ -172,6 +177,7 @@ fn test_concept_list_ui_crud_cycle() {
     // 5. Rediger begreb
     app.update(Message::EditConcept(id));
     assert!(app.is_editing_concept());
+    let _ = app.view();
     app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "Personbil (M1)".to_string()));
     app.update(Message::SaveConcept);
     assert_eq!(app.project().concepts()[0].preferred_term(), "Personbil (M1)");

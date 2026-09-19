@@ -95,35 +95,24 @@ pub fn view<'a>(
             let id = concept.id();
 
             // Foretrukken term kolonne
-            let term_content = column![
-                text(concept.preferred_term()).size(14),
-                if let Some(uri) = concept.identifier() {
-                    text(uri).size(11).color(ThemeColors::TEXT_MUTED)
-                } else {
-                    text("").size(0)
-                },
-            ]
-            .spacing(2);
+            let mut term_content = column![text(concept.preferred_term()).size(14)].spacing(2);
+            if let Some(uri) = concept.identifier() {
+                term_content = term_content.push(text(uri).size(11).color(ThemeColors::TEXT_MUTED));
+            }
 
             // Definition kolonne
             let def_content = text(concept.definition()).size(13);
 
             // Kilde kolonne
-            let sources_content = column![
-                if let Some(legal) = concept.legal_source() {
-                    text(format!("§ {}", legal)).size(11).color(ThemeColors::PRIMARY)
-                } else {
-                    text("").size(0)
-                },
-                if let Some(src) = concept.source() {
-                    text(src).size(11).color(ThemeColors::TEXT_MUTED)
-                } else if concept.legal_source().is_none() {
-                    text("Ingen kilde angivet").size(11).color(ThemeColors::TEXT_MUTED)
-                } else {
-                    text("").size(0)
-                },
-            ]
-            .spacing(2);
+            let mut sources_content = column![].spacing(2);
+            if let Some(legal) = concept.legal_source() {
+                sources_content = sources_content.push(text(format!("§ {}", legal)).size(11).color(ThemeColors::PRIMARY));
+            }
+            if let Some(src) = concept.source() {
+                sources_content = sources_content.push(text(src).size(11).color(ThemeColors::TEXT_MUTED));
+            } else if concept.legal_source().is_none() {
+                sources_content = sources_content.push(text("Ingen kilde angivet").size(11).color(ThemeColors::TEXT_MUTED));
+            }
 
             // Emneområde kolonne - FDA Anbefalede Farver jf. Kapitel 7.3
             let domain_badge = match concept.belongs_to_domain() {
