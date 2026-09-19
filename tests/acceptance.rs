@@ -1957,16 +1957,8 @@ fn test_edges_do_not_cross_unnecessarily_when_sorted_vertically() {
         node_person.id(),
         RelationKind::Generalization,
     );
-    let edge_bil = DiagramEdge::new(
-        node_bil.id(),
-        node_person.id(),
-        RelationKind::Association,
-    );
-    let edge_cpr = DiagramEdge::new(
-        node_cpr.id(),
-        node_person.id(),
-        RelationKind::Composition,
-    );
+    let edge_bil = DiagramEdge::new(node_bil.id(), node_person.id(), RelationKind::Association);
+    let edge_cpr = DiagramEdge::new(node_cpr.id(), node_person.id(), RelationKind::Composition);
 
     let edges = vec![edge_org, edge_bil, edge_cpr];
     let routes = EdgeRouter::route_edges(&nodes, &edges);
@@ -1980,4 +1972,3 @@ fn test_edges_do_not_cross_unnecessarily_when_sorted_vertically() {
         total_bridges
     );
 }
-

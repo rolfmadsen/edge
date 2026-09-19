@@ -166,29 +166,73 @@ impl EdgeRouter {
         }
 
         // Beregn slot offsets for hver side:
-        // Samme type deles om ankerpunktet (slot offset 0.0).
-        // Forskellige typer fordeles symmetrisk langs siden.
+        // Hvis alle tilknytninger er indgående generaliseringer til denne node, deles de om ankerpunktet (FDA Fig 7.1).
+        // Ellers sorteres tilknytningerne rumligt (spatial sorting) langs nodens kant, så parallelle relationer
+        // altid forsynes med porte i naturlig rækkefølge uden krydsninger.
         let mut slot_offsets: HashMap<(usize, bool), f32> = HashMap::new();
 
-        for ((_node_id, _side), attachments) in side_attachments {
-            // Find unikke RelationKinds på denne side
-            let mut distinct_kinds = Vec::new();
-            for &(_, kind, _) in &attachments {
-                if !distinct_kinds.contains(&kind) {
-                    distinct_kinds.push(kind);
-                }
-            }
+        for ((_node_id, side), attachments) in side_attachments {
+            let all_incoming_gen = !attachments.is_empty()
+                && attachments
+                    .iter()
+                    .all(|a| a.1 == RelationKind::Generalization && !a.2);
 
-            let kind_count = distinct_kinds.len();
-            for (edge_idx, kind, is_source) in attachments {
-                let offset = if kind_count <= 1 {
-                    0.0
+            if all_incoming_gen {
+                for (edge_idx, _, is_source) in attachments {
+                    slot_offsets.insert((edge_idx, is_source), 0.0);
+                }
+            } else {
+                let mut sorted_attachments = attachments;
+                sorted_attachments.sort_by(|a, b| {
+                    let other_id_a = if a.2 {
+                        edges[a.0].to()
+                    } else {
+                        edges[a.0].from()
+                    };
+                    let other_id_b = if b.2 {
+                        edges[b.0].to()
+                    } else {
+                        edges[b.0].from()
+                    };
+
+                    let coord_a = node_map
+                        .get(&other_id_a)
+                        .map(|n| {
+                            if side.is_vertical() {
+                                n.center().0
+                            } else {
+                                n.center().1
+                            }
+                        })
+                        .unwrap_or(0.0);
+                    let coord_b = node_map
+                        .get(&other_id_b)
+                        .map(|n| {
+                            if side.is_vertical() {
+                                n.center().0
+                            } else {
+                                n.center().1
+                            }
+                        })
+                        .unwrap_or(0.0);
+
+                    coord_a
+                        .partial_cmp(&coord_b)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+
+                let count = sorted_attachments.len();
+                if count <= 1 {
+                    if let Some(&(edge_idx, _, is_source)) = sorted_attachments.first() {
+                        slot_offsets.insert((edge_idx, is_source), 0.0);
+                    }
                 } else {
-                    let k_idx = distinct_kinds.iter().position(|&k| k == kind).unwrap_or(0);
-                    let mid = (kind_count as f32 - 1.0) / 2.0;
-                    (k_idx as f32 - mid) * SLOT_SPACING
-                };
-                slot_offsets.insert((edge_idx, is_source), offset);
+                    let mid = (count as f32 - 1.0) / 2.0;
+                    for (i, &(edge_idx, _, is_source)) in sorted_attachments.iter().enumerate() {
+                        let offset = (i as f32 - mid) * SLOT_SPACING;
+                        slot_offsets.insert((edge_idx, is_source), offset);
+                    }
+                }
             }
         }
 
