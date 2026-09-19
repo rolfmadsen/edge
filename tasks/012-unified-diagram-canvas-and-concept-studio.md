@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 012: Unified Diagram Canvas og Begrebsmodel Studio"
 description: "Unificering af graph_canvas.rs og information_canvas.rs til én fælles DiagramCanvas-komponent med pluggable node-rendering, samt harmonisering af Begrebsmodellen (Fane 3) til 3-delt Canvas Studio layout."
-status: active
+status: done
 generated: { by: process:xgauntlet-task-init, at: "2026-09-19T18:52:00Z" }
 tags: [task-lifecycle, intent, unified-canvas, concept-model, studio-layout, tdd, refactor]
 ---
 
 # Task 012: Unified Diagram Canvas og Begrebsmodel Studio
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🔄 ENHANCEMENT`
 **Oprettet**: `2026-09-19`
 

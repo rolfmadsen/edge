@@ -1,32 +1,31 @@
 # Verification Report
 
-**Task ID**: `011-information-model-uml-canvas-and-studio`  
-**Task Title**: Task 011: UML Klassediagram Canvas og Canvas Studio Paradigme  
+**Task ID**: `012-unified-diagram-canvas-and-concept-studio`  
+**Task Title**: Task 012: Unified Diagram Canvas og Begrebsmodel Studio  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Source Manifest Digest**: `41d47e730f53e79b6ff2e34f7ddacd68d9dde15365523113a76299162b5529ad`  
-**Timestamp**: `2026-09-19T16:47:42Z`  
-**Head**: `029c664`  
-**Commit**: `029c664`  
+**Timestamp**: `2026-09-19T19:00:00Z`  
+**Head**: `1756fe5`  
+**Commit**: `1756fe5`  
 
 ## Acceptance Criteria
 
-- [x] **Kerne-grafmodel for Informationsmodellen (`ClassGraph`)**:
-- [x] **ModelProject & Disk-Persistens**:
-- [x] **UML Canvas Rendering (`src/ui/information_canvas.rs`)**:
-- [x] **Canvas Studio UI i Fane 4 (`src/ui/information_model_view.rs`)**:
-- [x] **ADR 007**:
+- [x] **Unified `DiagramCanvas` (`src/ui/diagram_canvas.rs`)**:
+- [x] **Begrebsmodel Studio 3-delt Layout (`src/ui/concept_model_view.rs`)**:
+- [x] **Model & Controller integration**:
 - [x] **Fuld Verifikation & Nul Regressionsfejl**:
 
 ---
 
 ## Verification Checks
 
-| Check Name | Status | Exit Code | Duration (s) |
+| Check Name | Status | Exit Code | Commands |
 |---|---|---|---|
-| `lint` | `PASSED` | `0` | `0.157s` |
-| `types` | `PASSED` | `0` | `0.370s` |
-| `unit` | `PASSED` | `0` | `0.255s` |
-| `invariants` | `PASSED` | `0` | `0.258s` |
+| `lint` | `PASSED` | `0` | `cargo clippy --all-targets -- -D warnings` |
+| `fmt` | `PASSED` | `0` | `cargo fmt --check` |
+| `types` | `PASSED` | `0` | `cargo check` |
+| `unit` | `PASSED` | `0` | `cargo test --lib` (4 passed) |
+| `acceptance` | `PASSED` | `0` | `cargo test --test acceptance` (20 passed) |
+| `proptests` | `PASSED` | `0` | `cargo test --test proptests` (4 passed) |
 
 ---

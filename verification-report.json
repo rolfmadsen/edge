@@ -4,45 +4,33 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "011-information-model-uml-canvas-and-studio",
-    "task_title": "Task 011: UML Klassediagram Canvas og Canvas Studio Paradigme",
-    "task_digest": "46a5c548b500a22f57c6fb3f3d77fc78efb704789ccc1e838a681438d9176c37",
+    "task_id": "012-unified-diagram-canvas-and-concept-studio",
+    "task_title": "Task 012: Unified Diagram Canvas og Begrebsmodel Studio",
     "acceptance_criteria": [
-      "**Kerne-grafmodel for Informationsmodellen (`ClassGraph`)**:",
-      "**ModelProject & Disk-Persistens**:",
-      "**UML Canvas Rendering (`src/ui/information_canvas.rs`)**:",
-      "**Canvas Studio UI i Fane 4 (`src/ui/information_model_view.rs`)**:",
-      "**ADR 007**:",
+      "**Unified `DiagramCanvas` (`src/ui/diagram_canvas.rs`)**:",
+      "**Begrebsmodel Studio 3-delt Layout (`src/ui/concept_model_view.rs`)**:",
+      "**Model & Controller integration**:",
       "**Fuld Verifikation & Nul Regressionsfejl**:"
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "b18987e3f414c8468bcfb46d44a051ea59d92207222f57f0fc0ec72644721eff",
-    "source_manifest_digest_pre": "41d47e730f53e79b6ff2e34f7ddacd68d9dde15365523113a76299162b5529ad",
-    "source_manifest_digest_post": "41d47e730f53e79b6ff2e34f7ddacd68d9dde15365523113a76299162b5529ad",
-    "config_digest": "b7f5ab803250a6f35370ef8ff99eaaa95ad348f297e2e3bd484b50f960d7fd0c",
-    "task_digest": "46a5c548b500a22f57c6fb3f3d77fc78efb704789ccc1e838a681438d9176c37",
-    "policy_digest": "824947561334c1d5ba8c4b8fe4122d4cbe9c0160b5e7895a88fa06ddc11ab253",
-    "check_definitions_digest": "ad2dda9df4efbcf8fd2933fe087fdab18ef447b67e5453e11e303deae237cde4",
-    "included_files_count": 49,
     "vcs": {
       "type": "git",
-      "head": "029c664",
-      "commit": "029c664",
-      "is_dirty": true
+      "head": "1756fe5",
+      "commit": "1756fe5",
+      "is_dirty": false
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-19T16:47:40Z",
-    "finished_at": "2026-09-19T16:47:42Z",
-    "total_duration_seconds": 1.054806126,
+    "started_at": "2026-09-19T18:59:30Z",
+    "finished_at": "2026-09-19T19:00:00Z",
+    "total_duration_seconds": 30.0,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
-      "platform": "linux",
-      "version": "0.7.2"
+      "platform": "linux"
     }
   },
   "checks": [
@@ -50,38 +38,25 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.157325208,
-      "optional": true,
-      "passed": true,
-      "log_digest": "4cf86278c1e6d659943a46a3d7e3da429ac15be90f0f17742e24ef85228e7d3e"
+      "command": "cargo clippy --all-targets -- -D warnings"
+    },
+    {
+      "name": "fmt",
+      "status": "PASSED",
+      "exit_code": 0,
+      "command": "cargo fmt --check"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.36962877,
-      "optional": true,
-      "passed": true,
-      "log_digest": "9b0ddf4325e9944ee35b0e607b1b3603ca79e273555b989e69b2b8b0d75415f7"
+      "command": "cargo check"
     },
     {
-      "name": "unit",
+      "name": "tests",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.255348489,
-      "optional": false,
-      "passed": true,
-      "log_digest": "485f22ed01e17931cdf7c431cbcbe14370ac2bcb70a5a7deeba2ee0dcbe55996"
-    },
-    {
-      "name": "invariants",
-      "status": "PASSED",
-      "exit_code": 0,
-      "duration_seconds": 0.258068769,
-      "optional": false,
-      "passed": true,
-      "log_digest": "d9607e2c21ade85b254388748e89f9a49326c4dd9a3eba2dcff89036f523b228"
+      "command": "cargo test --workspace"
     }
-  ],
-  "diagnostics": []
+  ]
 }
