@@ -774,9 +774,15 @@ impl App {
                 } else {
                     (x, y)
                 };
-                self.project
-                    .concept_graph_mut()
-                    .update_node_position(node_id, final_x, final_y);
+                let cg = self.project.concept_graph_mut();
+                cg.update_node_position(node_id, final_x, final_y);
+
+                let nodes = cg.nodes().to_vec();
+                let edges = cg.edges().to_vec();
+                let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                for r in routes {
+                    cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                }
                 self.trigger_autosave();
             }
             Message::GraphOpenRelationDialog => {
@@ -1205,9 +1211,18 @@ impl App {
                 self.trigger_autosave();
             }
             Message::UpdateClassNodePosition(node_id, x, y) => {
-                self.project
-                    .information_graph_mut()
-                    .update_node_position(node_id, x, y);
+                let ig = self.project.information_graph_mut();
+                ig.update_node_position(node_id, x, y);
+
+                use crate::ui::diagram_canvas::{CanvasEdge, CanvasNode};
+                let d_nodes: Vec<crate::features::concept_model::DiagramNode> =
+                    ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
+                let d_edges: Vec<crate::features::concept_model::DiagramEdge> =
+                    ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
+                let routes = crate::ui::edge_router::EdgeRouter::route_edges(&d_nodes, &d_edges);
+                for r in routes {
+                    ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                }
                 self.trigger_autosave();
             }
             Message::SelectInfoGraphNode(node_id_opt) => {

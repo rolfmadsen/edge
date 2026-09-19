@@ -1,4 +1,4 @@
-use crate::features::concept_model::{NodeId, RelationKind, GRID_SIZE};
+use crate::features::concept_model::{NodeId, PortSide, RelationKind, GRID_SIZE};
 use crate::features::concepts::Concept;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -443,6 +443,10 @@ pub struct ClassDiagramEdge {
     to: NodeId,
     kind: RelationKind,
     label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_port: Option<PortSide>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    target_port: Option<PortSide>,
 }
 
 impl ClassDiagramEdge {
@@ -452,6 +456,26 @@ impl ClassDiagramEdge {
             to,
             kind,
             label,
+            source_port: None,
+            target_port: None,
+        }
+    }
+
+    pub fn with_ports(
+        from: NodeId,
+        to: NodeId,
+        kind: RelationKind,
+        label: Option<String>,
+        source_port: Option<PortSide>,
+        target_port: Option<PortSide>,
+    ) -> Self {
+        Self {
+            from,
+            to,
+            kind,
+            label,
+            source_port,
+            target_port,
         }
     }
 
@@ -477,6 +501,19 @@ impl ClassDiagramEdge {
 
     pub fn set_label(&mut self, label: Option<String>) {
         self.label = label;
+    }
+
+    pub fn source_port(&self) -> Option<PortSide> {
+        self.source_port
+    }
+
+    pub fn target_port(&self) -> Option<PortSide> {
+        self.target_port
+    }
+
+    pub fn set_ports(&mut self, source_port: Option<PortSide>, target_port: Option<PortSide>) {
+        self.source_port = source_port;
+        self.target_port = target_port;
     }
 }
 
@@ -610,6 +647,21 @@ impl ClassGraph {
     pub fn update_edge_label(&mut self, from: NodeId, to: NodeId, label: Option<String>) -> bool {
         if let Some(edge) = self.find_edge_mut(from, to) {
             edge.set_label(label);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update_edge_ports(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        source_port: Option<PortSide>,
+        target_port: Option<PortSide>,
+    ) -> bool {
+        if let Some(edge) = self.find_edge_mut(from, to) {
+            edge.set_ports(source_port, target_port);
             true
         } else {
             false

@@ -2012,7 +2012,8 @@ fn test_stateful_edge_port_hysteresis_and_persistence() {
 
     // 2. Hysterese-udløser: Flyt TestKlasse ind over den vertikale linje (x < person.right)
     // Person right er 100 + 180 = 280. Sæt TestKlasse x = 150 (direkte over Person)
-    let node_test_above = DiagramNode::new(&c_test, 150.0, 50.0);
+    let mut node_test_above = node_test.clone();
+    node_test_above.set_position(150.0, 50.0);
     let routes_above = EdgeRouter::route_edges(
         &[node_person.clone(), node_test_above, node_org.clone()],
         &[edge_test.clone(), edge_org.clone()],

@@ -1,4 +1,6 @@
-use crate::features::concept_model::{DiagramEdge, DiagramNode, NodeId, RelationKind, GRID_SIZE};
+use crate::features::concept_model::{
+    DiagramEdge, DiagramNode, NodeId, PortSide, RelationKind, GRID_SIZE,
+};
 use crate::features::information_model::{ClassDiagramEdge, ClassDiagramNode};
 use crate::ui::edge_router::EdgeRouter;
 use crate::ui::theme::ThemeColors;
@@ -122,12 +124,20 @@ pub trait CanvasEdge {
     fn to(&self) -> NodeId;
     fn kind(&self) -> RelationKind;
     fn label(&self) -> Option<&str>;
+    fn source_port(&self) -> Option<PortSide> {
+        None
+    }
+    fn target_port(&self) -> Option<PortSide> {
+        None
+    }
     fn to_diagram_edge(&self) -> DiagramEdge {
-        DiagramEdge::with_label(
+        DiagramEdge::with_ports(
             self.from(),
             self.to(),
             self.kind(),
             self.label().map(|s| s.to_string()),
+            self.source_port(),
+            self.target_port(),
         )
     }
 }
@@ -175,6 +185,12 @@ impl CanvasEdge for DiagramEdge {
     fn label(&self) -> Option<&str> {
         self.label()
     }
+    fn source_port(&self) -> Option<PortSide> {
+        self.source_port()
+    }
+    fn target_port(&self) -> Option<PortSide> {
+        self.target_port()
+    }
 }
 
 impl CanvasEdge for ClassDiagramEdge {
@@ -189,6 +205,12 @@ impl CanvasEdge for ClassDiagramEdge {
     }
     fn label(&self) -> Option<&str> {
         self.label()
+    }
+    fn source_port(&self) -> Option<PortSide> {
+        self.source_port()
+    }
+    fn target_port(&self) -> Option<PortSide> {
+        self.target_port()
     }
 }
 

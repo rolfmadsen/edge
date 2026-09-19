@@ -1,3 +1,4 @@
+pub use crate::features::concept_model::PortSide;
 use crate::features::concept_model::{DiagramEdge, DiagramNode, NodeId, RelationKind};
 use iced::Point;
 use std::collections::HashMap;
@@ -18,32 +19,6 @@ pub const SLOT_SPACING: f32 = 24.0;
 pub const CHANNEL_OFFSET: f32 = 14.0;
 /// Radius for line jump bridges over intersecting edges.
 pub const BRIDGE_RADIUS: f32 = 5.0;
-
-/// The four connection sides/ports of a rectangular diagram node.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum PortSide {
-    Top,
-    Right,
-    Bottom,
-    Left,
-}
-
-impl PortSide {
-    /// Outward unit normal vector for the port side.
-    pub fn normal(self) -> (f32, f32) {
-        match self {
-            Self::Top => (0.0, -1.0),
-            Self::Bottom => (0.0, 1.0),
-            Self::Left => (-1.0, 0.0),
-            Self::Right => (1.0, 0.0),
-        }
-    }
-
-    /// Whether this side connects vertically (Top or Bottom).
-    pub fn is_vertical(self) -> bool {
-        matches!(self, Self::Top | Self::Bottom)
-    }
-}
 
 /// Represents the geometric triangle of a UML arrowhead touching a node boundary.
 #[derive(Debug, Clone, PartialEq)]
@@ -83,6 +58,8 @@ pub struct RoutedEdge {
     pub arrow_head: Option<ArrowHead>,
     pub source_diamond: Option<Diamond>,
     pub bridges: Vec<BridgeHop>,
+    pub from_side: PortSide,
+    pub to_side: PortSide,
 }
 
 type SideAttachment = (usize, RelationKind, bool);
@@ -143,7 +120,13 @@ impl EdgeRouter {
                 continue;
             };
 
-            let (from_side, to_side) = Self::select_ports(from, to, edge.kind());
+            let (from_side, to_side) = Self::select_ports(
+                from,
+                to,
+                edge.kind(),
+                edge.source_port(),
+                edge.target_port(),
+            );
 
             side_attachments
                 .entry((from.id(), from_side))
@@ -262,84 +245,241 @@ impl EdgeRouter {
             .collect()
     }
 
-    fn select_ports(
+    pub fn select_ports(
         from: &DiagramNode,
         to: &DiagramNode,
         kind: RelationKind,
+        current_source_port: Option<PortSide>,
+        current_target_port: Option<PortSide>,
     ) -> (PortSide, PortSide) {
-        let (from_cx, from_cy) = from.center();
-        let (to_cx, to_cy) = to.center();
+        // 1. Evaluer source port (from_side) med hysterese hvis port allerede er sat
+        let from_side = if let Some(saved_from) = current_source_port {
+            Self::evaluate_source_hysteresis(from, to, saved_from)
+        } else {
+            Self::select_initial_source_port(from, to, kind)
+        };
 
-        let dx = to_cx - from_cx;
-        let dy = to_cy - from_cy;
+        // 2. Evaluer target port (to_side) med hysterese hvis port allerede er sat, ellers matching
+        let to_side = if let Some(saved_to) = current_target_port {
+            Self::evaluate_target_hysteresis(to, from, saved_to, from_side)
+        } else {
+            Self::select_matching_target_port(from, to, kind, from_side)
+        };
+
+        (from_side, to_side)
+    }
+
+    fn evaluate_source_hysteresis(
+        from: &DiagramNode,
+        to: &DiagramNode,
+        current_port: PortSide,
+    ) -> PortSide {
+        let from_right = from.x() + from.width();
+        let from_bottom = from.y() + from.height();
+        let from_left = from.x();
+        let from_top = from.y();
+
+        match current_port {
+            PortSide::Right => {
+                // Forbliver Right så længe to er til højre for kildens højre kant
+                if to.x() >= from_right - 5.0 {
+                    PortSide::Right
+                } else {
+                    // Krydset over den vertikale grænselinje mod venstre
+                    if to.center().1 > from.center().1 {
+                        PortSide::Bottom
+                    } else if to.center().1 < from.center().1 {
+                        PortSide::Top
+                    } else if to.x() + to.width() <= from_left {
+                        PortSide::Left
+                    } else {
+                        PortSide::Right
+                    }
+                }
+            }
+            PortSide::Bottom => {
+                // Forbliver Bottom så længe to er under kildens bundkant
+                if to.y() >= from_bottom - 5.0 {
+                    PortSide::Bottom
+                } else {
+                    // Krydset op over den horisontale grænselinje
+                    if to.center().0 > from.center().0 {
+                        PortSide::Right
+                    } else if to.center().0 < from.center().0 {
+                        PortSide::Left
+                    } else if to.y() + to.height() <= from_top {
+                        PortSide::Top
+                    } else {
+                        PortSide::Bottom
+                    }
+                }
+            }
+            PortSide::Left => {
+                // Forbliver Left så længe to er til venstre for kildens venstre kant
+                if to.x() + to.width() <= from_left + 5.0 {
+                    PortSide::Left
+                } else {
+                    // Krydset mod højre over den venstre grænselinje
+                    if to.center().1 > from.center().1 {
+                        PortSide::Bottom
+                    } else if to.center().1 < from.center().1 {
+                        PortSide::Top
+                    } else if to.x() >= from_right {
+                        PortSide::Right
+                    } else {
+                        PortSide::Left
+                    }
+                }
+            }
+            PortSide::Top => {
+                // Forbliver Top så længe to er over kildens topkant
+                if to.y() + to.height() <= from_top + 5.0 {
+                    PortSide::Top
+                } else {
+                    // Krydset ned over den øverste grænselinje
+                    if to.center().0 > from.center().0 {
+                        PortSide::Right
+                    } else if to.center().0 < from.center().0 {
+                        PortSide::Left
+                    } else if to.y() >= from_bottom {
+                        PortSide::Bottom
+                    } else {
+                        PortSide::Top
+                    }
+                }
+            }
+        }
+    }
+
+    fn evaluate_target_hysteresis(
+        to: &DiagramNode,
+        from: &DiagramNode,
+        current_to_port: PortSide,
+        from_side: PortSide,
+    ) -> PortSide {
+        let to_right = to.x() + to.width();
+        let to_bottom = to.y() + to.height();
+        let to_left = to.x();
+        let to_top = to.y();
+
+        let valid = match current_to_port {
+            PortSide::Right => from.x() >= to_right - 5.0,
+            PortSide::Bottom => from.y() >= to_bottom - 5.0,
+            PortSide::Left => from.x() + from.width() <= to_left + 5.0,
+            PortSide::Top => from.y() + from.height() <= to_top + 5.0,
+        };
+
+        if valid {
+            current_to_port
+        } else {
+            Self::select_matching_target_port(from, to, RelationKind::Association, from_side)
+        }
+    }
+
+    fn select_initial_source_port(
+        from: &DiagramNode,
+        to: &DiagramNode,
+        kind: RelationKind,
+    ) -> PortSide {
+        let from_right = from.x() + from.width();
+        let from_bottom = from.y() + from.height();
+        let from_left = from.x();
+        let from_top = from.y();
+
+        let to_right = to.x() + to.width();
+        let to_bottom = to.y() + to.height();
+        let to_left = to.x();
+        let to_top = to.y();
 
         if kind == RelationKind::Generalization {
-            // FDA Princip: Generaliseringspile peger opad mod superklassen
-            // superklasse = to, subklasse = from
+            // Generalisering: Subklasse er from, Superklasse er to
             let super_bottom = to.y() + to.height();
             let sub_top = from.y();
             let vert_clearance = sub_top - super_bottom;
 
-            if vert_clearance >= MIN_ARROW_CLEARANCE {
-                // Normaltilstand: Subklasse er under superklasse med god plads
-                (PortSide::Top, PortSide::Bottom)
+            // Hvis subklassen er til højre eller venstre for superklassen (uden X-overlap)
+            if from.x() >= to_right {
+                PortSide::Left
+            } else if from_right <= to_left {
+                PortSide::Right
+            } else if vert_clearance >= MIN_ARROW_CLEARANCE {
+                PortSide::Top
+            } else if from.y() + from.height() <= to.y() - MIN_ARROW_CLEARANCE {
+                PortSide::Bottom
             } else {
-                // Kritisk nærhed eller sideværts forskydning:
-                // Hvis subklassen er skubbet til venstre for superklassen
-                if from.x() + from.width() <= to.x() + 40.0 {
-                    (PortSide::Right, PortSide::Left)
-                } else if to.x() + to.width() <= from.x() + 40.0 {
-                    (PortSide::Left, PortSide::Right)
+                // Kritisk nærhed (< 36px) eller overlap: brug side-port så pilen ikke mastes
+                PortSide::Right
+            }
+        } else {
+            // Association & Komposition:
+            let horiz_clearance = if to_left > from_right {
+                to_left - from_right
+            } else if from_left > to_right {
+                from_left - to_right
+            } else {
+                0.0
+            };
+
+            let vert_clearance = if to_top > from_bottom {
+                to_top - from_bottom
+            } else if from_top > to_bottom {
+                from_top - to_bottom
+            } else {
+                0.0
+            };
+
+            let dx = to.center().0 - from.center().0;
+            let dy = to.center().1 - from.center().1;
+
+            if to_left >= from_right && horiz_clearance >= vert_clearance {
+                PortSide::Right
+            } else if to_right <= from_left && horiz_clearance >= vert_clearance {
+                PortSide::Left
+            } else if to_top >= from_bottom {
+                PortSide::Bottom
+            } else if to_bottom <= from_top {
+                PortSide::Top
+            } else if dx.abs() > dy.abs() {
+                if dx > 0.0 {
+                    PortSide::Right
                 } else {
-                    // Direkte over hinanden med < 36px lodret plads:
-                    // Skift til side-porte (højre til højre) via en C-løkke, så pilen ikke mastes
-                    (PortSide::Right, PortSide::Right)
+                    PortSide::Left
+                }
+            } else if dy > 0.0 {
+                PortSide::Bottom
+            } else {
+                PortSide::Top
+            }
+        }
+    }
+
+    fn select_matching_target_port(
+        from: &DiagramNode,
+        to: &DiagramNode,
+        kind: RelationKind,
+        from_side: PortSide,
+    ) -> PortSide {
+        if kind == RelationKind::Generalization {
+            let super_bottom = to.y() + to.height();
+            let sub_top = from.y();
+            let vert_clearance = sub_top - super_bottom;
+
+            if from_side == PortSide::Right
+                && from.x() < to.x() + to.width()
+                && vert_clearance < MIN_ARROW_CLEARANCE
+            {
+                // Kritisk nærhed: side-porte (højre til højre)
+                PortSide::Right
+            } else {
+                match from_side {
+                    PortSide::Left => PortSide::Right,
+                    PortSide::Right => PortSide::Left,
+                    PortSide::Top => PortSide::Bottom,
+                    PortSide::Bottom => PortSide::Top,
                 }
             }
         } else {
-            // Association & Komposition: Vælg modstående porte baseret på relativ retning og clearance
-            let horiz_clearance = if to.x() > from.x() + from.width() {
-                to.x() - (from.x() + from.width())
-            } else if from.x() > to.x() + to.width() {
-                from.x() - (to.x() + to.width())
-            } else {
-                0.0
-            };
-
-            let vert_clearance = if to.y() > from.y() + from.height() {
-                to.y() - (from.y() + from.height())
-            } else if from.y() > to.y() + to.height() {
-                from.y() - (to.y() + to.height())
-            } else {
-                0.0
-            };
-
-            if horiz_clearance >= vert_clearance && horiz_clearance >= MIN_ARROW_CLEARANCE {
-                if dx > 0.0 {
-                    (PortSide::Right, PortSide::Left)
-                } else {
-                    (PortSide::Left, PortSide::Right)
-                }
-            } else if vert_clearance >= MIN_ARROW_CLEARANCE {
-                if dy > 0.0 {
-                    (PortSide::Bottom, PortSide::Top)
-                } else {
-                    (PortSide::Top, PortSide::Bottom)
-                }
-            } else {
-                // Meget tæt på hinanden: vælg side-porte
-                if dx.abs() > dy.abs() {
-                    if dx > 0.0 {
-                        (PortSide::Right, PortSide::Left)
-                    } else {
-                        (PortSide::Left, PortSide::Right)
-                    }
-                } else if dy > 0.0 {
-                    (PortSide::Bottom, PortSide::Top)
-                } else {
-                    (PortSide::Top, PortSide::Bottom)
-                }
-            }
+            from_side.opposite()
         }
     }
 
@@ -419,6 +559,8 @@ impl EdgeRouter {
             arrow_head,
             source_diamond,
             bridges: Vec::new(),
+            from_side: assign.from_side,
+            to_side: assign.to_side,
         }
     }
 

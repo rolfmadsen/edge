@@ -26,6 +26,42 @@ impl std::fmt::Display for RelationKind {
     }
 }
 
+/// De fire forbindelsesporte på en rektangulær diagram-node.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PortSide {
+    Top,
+    Right,
+    Bottom,
+    Left,
+}
+
+impl PortSide {
+    /// Udadgående enheds-normalvektor for portsiden.
+    pub fn normal(self) -> (f32, f32) {
+        match self {
+            Self::Top => (0.0, -1.0),
+            Self::Bottom => (0.0, 1.0),
+            Self::Left => (-1.0, 0.0),
+            Self::Right => (1.0, 0.0),
+        }
+    }
+
+    /// Hvorvidt denne port forbinder vertikalt (Top eller Bund).
+    pub fn is_vertical(self) -> bool {
+        matches!(self, Self::Top | Self::Bottom)
+    }
+
+    /// Modstående portside.
+    pub fn opposite(self) -> Self {
+        match self {
+            Self::Top => Self::Bottom,
+            Self::Bottom => Self::Top,
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+        }
+    }
+}
+
 pub const GRID_SIZE: f32 = 20.0;
 pub const DEFAULT_NODE_WIDTH: f32 = 180.0;
 pub const DEFAULT_NODE_HEIGHT: f32 = 80.0;
@@ -144,6 +180,10 @@ pub struct DiagramEdge {
     to: NodeId,
     kind: RelationKind,
     label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_port: Option<PortSide>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    target_port: Option<PortSide>,
 }
 
 impl DiagramEdge {
@@ -153,6 +193,8 @@ impl DiagramEdge {
             to,
             kind,
             label: None,
+            source_port: None,
+            target_port: None,
         }
     }
 
@@ -162,6 +204,26 @@ impl DiagramEdge {
             to,
             kind,
             label,
+            source_port: None,
+            target_port: None,
+        }
+    }
+
+    pub fn with_ports(
+        from: NodeId,
+        to: NodeId,
+        kind: RelationKind,
+        label: Option<String>,
+        source_port: Option<PortSide>,
+        target_port: Option<PortSide>,
+    ) -> Self {
+        Self {
+            from,
+            to,
+            kind,
+            label,
+            source_port,
+            target_port,
         }
     }
 
@@ -187,6 +249,19 @@ impl DiagramEdge {
 
     pub fn set_kind(&mut self, kind: RelationKind) {
         self.kind = kind;
+    }
+
+    pub fn source_port(&self) -> Option<PortSide> {
+        self.source_port
+    }
+
+    pub fn target_port(&self) -> Option<PortSide> {
+        self.target_port
+    }
+
+    pub fn set_ports(&mut self, source_port: Option<PortSide>, target_port: Option<PortSide>) {
+        self.source_port = source_port;
+        self.target_port = target_port;
     }
 }
 
@@ -318,6 +393,21 @@ impl ConceptGraph {
     pub fn update_edge_label(&mut self, from: NodeId, to: NodeId, label: Option<String>) -> bool {
         if let Some(edge) = self.find_edge_mut(from, to) {
             edge.set_label(label);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update_edge_ports(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        source_port: Option<PortSide>,
+        target_port: Option<PortSide>,
+    ) -> bool {
+        if let Some(edge) = self.find_edge_mut(from, to) {
+            edge.set_ports(source_port, target_port);
             true
         } else {
             false
