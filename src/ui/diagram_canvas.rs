@@ -758,55 +758,40 @@ where
             };
             let arrow_stroke_width = if is_selected_edge { 2.2 } else { 1.5 };
 
+            // 6a. Kompositions-diamant ved kilde-noden (solid sort diamant)
+            if let Some(ref diamond) = routed.source_diamond {
+                let diamond_path = Path::new(|b| {
+                    b.move_to(diamond.tip);
+                    b.line_to(diamond.left);
+                    b.line_to(diamond.back);
+                    b.line_to(diamond.right);
+                    b.close();
+                });
+                frame.fill(&diamond_path, arrow_stroke_color);
+                frame.stroke(
+                    &diamond_path,
+                    Stroke::default()
+                        .with_color(arrow_stroke_color)
+                        .with_width(arrow_stroke_width),
+                );
+            }
+
+            // 6b. Pilehoved ved mål-noden
             if let Some(ref arrow) = routed.arrow_head {
-                match routed.kind {
-                    RelationKind::Generalization => {
-                        let triangle = Path::new(|b| {
-                            b.move_to(arrow.tip);
-                            b.line_to(arrow.left);
-                            b.line_to(arrow.right);
-                            b.close();
-                        });
-                        frame.fill(&triangle, Color::WHITE);
-                        frame.stroke(
-                            &triangle,
-                            Stroke::default()
-                                .with_color(arrow_stroke_color)
-                                .with_width(arrow_stroke_width),
-                        );
-                    }
-                    RelationKind::Composition => {
-                        let (nx, ny) = arrow.direction.normal();
-                        let back_point =
-                            Point::new(arrow.tip.x - nx * 20.0, arrow.tip.y - ny * 20.0);
-                        let diamond_path = Path::new(|b| {
-                            b.move_to(arrow.tip);
-                            b.line_to(arrow.left);
-                            b.line_to(back_point);
-                            b.line_to(arrow.right);
-                            b.close();
-                        });
-                        frame.fill(&diamond_path, arrow_stroke_color);
-                        frame.stroke(
-                            &diamond_path,
-                            Stroke::default()
-                                .with_color(arrow_stroke_color)
-                                .with_width(arrow_stroke_width),
-                        );
-                    }
-                    RelationKind::Association => {
-                        let open_arrow = Path::new(|b| {
-                            b.move_to(arrow.left);
-                            b.line_to(arrow.tip);
-                            b.line_to(arrow.right);
-                        });
-                        frame.stroke(
-                            &open_arrow,
-                            Stroke::default()
-                                .with_color(arrow_stroke_color)
-                                .with_width(arrow_stroke_width),
-                        );
-                    }
+                if routed.kind == RelationKind::Generalization {
+                    let triangle = Path::new(|b| {
+                        b.move_to(arrow.tip);
+                        b.line_to(arrow.left);
+                        b.line_to(arrow.right);
+                        b.close();
+                    });
+                    frame.fill(&triangle, Color::WHITE);
+                    frame.stroke(
+                        &triangle,
+                        Stroke::default()
+                            .with_color(arrow_stroke_color)
+                            .with_width(arrow_stroke_width),
+                    );
                 }
             }
 

@@ -1927,4 +1927,3 @@ fn test_composition_edge_has_diamond_at_source_node() {
         "Diamantens bagerste spids skal pege ud i lærredet mod part-noden"
     );
 }
-

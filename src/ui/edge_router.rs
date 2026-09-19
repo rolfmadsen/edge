@@ -8,6 +8,10 @@ pub const MIN_ARROW_CLEARANCE: f32 = 36.0;
 pub const ARROW_HEAD_LENGTH: f32 = 14.0;
 /// Base width of the UML generalization arrowhead triangle.
 pub const ARROW_HEAD_WIDTH: f32 = 14.0;
+/// Length of the UML composition diamond from tip to back.
+pub const DIAMOND_LENGTH: f32 = 16.0;
+/// Width of the UML composition diamond between lateral vertices.
+pub const DIAMOND_WIDTH: f32 = 10.0;
 /// Horizontal/vertical spacing between multiple relation ports on the same node side.
 pub const SLOT_SPACING: f32 = 24.0;
 /// Channel offset between parallel orthogonal line segments.
@@ -50,6 +54,16 @@ pub struct ArrowHead {
     pub direction: PortSide,
 }
 
+/// Represents the geometric diamond of a UML composition touching the source node boundary.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Diamond {
+    pub tip: Point,
+    pub left: Point,
+    pub right: Point,
+    pub back: Point,
+    pub direction: PortSide,
+}
+
 /// A visual bridge (line jump) rendered where a horizontal segment crosses a vertical segment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BridgeHop {
@@ -67,6 +81,7 @@ pub struct RoutedEdge {
     pub label_pos: Option<Point>,
     pub points: Vec<Point>,
     pub arrow_head: Option<ArrowHead>,
+    pub source_diamond: Option<Diamond>,
     pub bridges: Vec<BridgeHop>,
 }
 
@@ -343,6 +358,13 @@ impl EdgeRouter {
             .as_ref()
             .and_then(|_| Self::compute_label_pos(&points));
 
+        // Beregn kildemarkør (f.eks. sort diamant for komposition)
+        let source_diamond = if assign.kind == RelationKind::Composition {
+            Some(Self::compute_diamond(start_pt, assign.from_side))
+        } else {
+            None
+        };
+
         RoutedEdge {
             from: from_node.id(),
             to: to_node.id(),
@@ -351,7 +373,45 @@ impl EdgeRouter {
             label_pos,
             points,
             arrow_head,
+            source_diamond,
             bridges: Vec::new(),
+        }
+    }
+
+    fn compute_diamond(source_boundary: Point, side: PortSide) -> Diamond {
+        let half_w = DIAMOND_WIDTH / 2.0;
+        let len = DIAMOND_LENGTH;
+        let half_len = len / 2.0;
+
+        match side {
+            PortSide::Right => Diamond {
+                tip: source_boundary,
+                left: Point::new(source_boundary.x + half_len, source_boundary.y - half_w),
+                right: Point::new(source_boundary.x + half_len, source_boundary.y + half_w),
+                back: Point::new(source_boundary.x + len, source_boundary.y),
+                direction: PortSide::Right,
+            },
+            PortSide::Left => Diamond {
+                tip: source_boundary,
+                left: Point::new(source_boundary.x - half_len, source_boundary.y - half_w),
+                right: Point::new(source_boundary.x - half_len, source_boundary.y + half_w),
+                back: Point::new(source_boundary.x - len, source_boundary.y),
+                direction: PortSide::Left,
+            },
+            PortSide::Top => Diamond {
+                tip: source_boundary,
+                left: Point::new(source_boundary.x - half_w, source_boundary.y - half_len),
+                right: Point::new(source_boundary.x + half_w, source_boundary.y - half_len),
+                back: Point::new(source_boundary.x, source_boundary.y - len),
+                direction: PortSide::Top,
+            },
+            PortSide::Bottom => Diamond {
+                tip: source_boundary,
+                left: Point::new(source_boundary.x - half_w, source_boundary.y + half_len),
+                right: Point::new(source_boundary.x + half_w, source_boundary.y + half_len),
+                back: Point::new(source_boundary.x, source_boundary.y + len),
+                direction: PortSide::Bottom,
+            },
         }
     }
 
