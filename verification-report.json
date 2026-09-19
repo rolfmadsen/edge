@@ -1,0 +1,87 @@
+{
+  "$schema": "https://xgauntlet.dev/schemas/v2/verification-report.json",
+  "schema_version": "2.0.0",
+  "execution_origin": "LOCAL",
+  "verdict": "PASSED",
+  "task_contract": {
+    "task_id": "001-bootstrap",
+    "task_title": "Task 001: Project Setup & Baseline Verification Gauntlet",
+    "task_digest": "06e1cf9e615c2f1cac102286b683ad5786c0f5a1a4d865461b43fd13ecb5fc8f",
+    "acceptance_criteria": [
+      "`gauntlet.toml` er konfigureret med de korrekte verifikationslag for projektets stack.",
+      "`Cargo.toml` og kildekodsstruktur (`src/lib.rs`, `src/main.rs`, `src/features/`) etableret med Iced desktop-skal og FDA domænemodel.",
+      "`CONTEXT.md` definerer projektets centrale forretnings- og domænebegreber jf. Aristoteles' formel.",
+      "`spec.md` indeholder overordnede arkitekturprincipper og systeminvarianter for FDA modellering.",
+      "`docs/adr/001-iced-architecture.md` dokumenterer arkitektur og UI/domæne-adskillelse.",
+      "Første verifikationskørsel gennemføres med succes (`xgauntlet verify`)."
+    ],
+    "unresolved_criteria": []
+  },
+  "workspace_state": {
+    "manifest_version": "1.0",
+    "source_content_digest": "97c7b33b6f3abe1bdc3a5d0b956db440b257a49a588d2634573a830e5c925e6a",
+    "source_manifest_digest_pre": "feff8c3432ae82385ec7c40031ea5569d2ba33d256de5ee3801a035e2c82eca8",
+    "source_manifest_digest_post": "feff8c3432ae82385ec7c40031ea5569d2ba33d256de5ee3801a035e2c82eca8",
+    "config_digest": "465c7c6ee3a07d4daeaad19b292a9dcc4df64b9cc2b072962208164523df38f8",
+    "task_digest": "06e1cf9e615c2f1cac102286b683ad5786c0f5a1a4d865461b43fd13ecb5fc8f",
+    "policy_digest": "c8ade85d8d123b82b3617348a43023c675f298e79796e22a4e26f06a40ddd084",
+    "check_definitions_digest": "ad2dda9df4efbcf8fd2933fe087fdab18ef447b67e5453e11e303deae237cde4",
+    "included_files_count": 23,
+    "vcs": {
+      "type": "git",
+      "head": "65a373b",
+      "commit": "65a373b",
+      "is_dirty": true
+    }
+  },
+  "execution_metadata": {
+    "started_at": "2026-09-19T09:10:09Z",
+    "finished_at": "2026-09-19T09:10:10Z",
+    "total_duration_seconds": 0.830566171,
+    "environment": {
+      "arch": "x86_64",
+      "engine": "xgauntlet-core",
+      "platform": "linux",
+      "version": "0.7.2"
+    }
+  },
+  "checks": [
+    {
+      "name": "lint",
+      "status": "PASSED",
+      "exit_code": 0,
+      "duration_seconds": 0.212721129,
+      "optional": true,
+      "passed": true,
+      "log_digest": "2b34696728dc82b03cbf6311d7e3a6a41658bbde097834c3010a78bc82842c1a"
+    },
+    {
+      "name": "types",
+      "status": "PASSED",
+      "exit_code": 0,
+      "duration_seconds": 0.153361094,
+      "optional": true,
+      "passed": true,
+      "log_digest": "a41051563a4cb5fc1b1bcdd9aa0ba28ca80f7736d629d90cc138218756e8e3a9"
+    },
+    {
+      "name": "unit",
+      "status": "PASSED",
+      "exit_code": 0,
+      "duration_seconds": 0.213279177,
+      "optional": false,
+      "passed": true,
+      "log_digest": "2b874343086a9accb752a9d3687a9c7fa43416a3a59e3645c41ae1ee87327e35"
+    },
+    {
+      "name": "invariants",
+      "status": "PASSED",
+      "exit_code": 0,
+      "duration_seconds": 0.23035866,
+      "optional": false,
+      "passed": true,
+      "log_digest": "0f94e3802b1c45124a523d3ed0d347ee819f86c569d1ff7b17f7ebb857bc1e88"
+    }
+  ],
+  "diagnostics": []
+}

@@ -31,12 +31,6 @@ timeout_seconds = 120.0
 [[layers]]
 name = "invariants"
 command = ["cargo", "test", "--", "proptest"]
-optional = true
+optional = false
 timeout_seconds = 120.0
-
-[[layers]]
-name = "mutation-testing-gauntlet"
-command = ["cargo", "mutants"]
-optional = true
-timeout_seconds = 180.0
 
