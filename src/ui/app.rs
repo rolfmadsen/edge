@@ -1,11 +1,13 @@
 use crate::features::concepts::Concept;
+use crate::features::model::storage::ProjectStorage;
 use crate::features::model::ModelProject;
 use crate::ui::concept_editor::ConceptEditorState;
 use crate::ui::concept_table;
 use crate::ui::theme::ThemeColors;
-use iced::widget::{button, column, container, row, text, Space};
+use iced::widget::{button, column, container, row, text, text_input, Space};
 use iced::{Alignment, Element, Length};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use uuid::Uuid;
 
 pub use crate::ui::concept_editor::ConceptFormField;
@@ -16,6 +18,20 @@ pub enum Tab {
     ConceptList,
     ConceptModel,
     InformationModel,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SaveStatus {
+    Saved(String),
+    Saving,
+    Unsaved,
+    Error(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileDialogMode {
+    Open,
+    SaveAs,
 }
 
 #[derive(Debug, Clone)]
@@ -32,6 +48,16 @@ pub enum Message {
     UpdateConceptField(ConceptFormField, String),
     SearchQueryChanged(String),
     ToggleShowAllFields,
+
+    // Persistens & Filhåndtering
+    SaveProject,
+    OpenProjectDialog,
+    SaveProjectAsDialog,
+    CloseFileDialog,
+    FileDialogInputChanged(String),
+    ConfirmFileDialog,
+    OpenProjectFile(PathBuf),
+    SaveProjectToFile(PathBuf),
 }
 
 pub struct App {
@@ -39,6 +65,10 @@ pub struct App {
     active_tab: Tab,
     editor_state: Option<ConceptEditorState>,
     search_query: String,
+    current_file_path: Option<PathBuf>,
+    save_status: SaveStatus,
+    file_dialog_mode: Option<FileDialogMode>,
+    file_dialog_input: String,
 }
 
 impl Default for App {
@@ -49,12 +79,59 @@ impl Default for App {
 
 impl App {
     pub fn new() -> Self {
+        let default_path = ProjectStorage::default_project_path();
+        if default_path.exists() {
+            match ProjectStorage::load_from_file(&default_path) {
+                Ok(proj) => Self {
+                    project: proj,
+                    active_tab: Tab::Metadata,
+                    editor_state: None,
+                    search_query: String::new(),
+                    current_file_path: Some(default_path.clone()),
+                    save_status: SaveStatus::Saved(default_path.display().to_string()),
+                    file_dialog_mode: None,
+                    file_dialog_input: String::new(),
+                },
+                Err(err) => Self {
+                    project: ModelProject::default(),
+                    active_tab: Tab::Metadata,
+                    editor_state: None,
+                    search_query: String::new(),
+                    current_file_path: Some(default_path),
+                    save_status: SaveStatus::Error(err.to_string()),
+                    file_dialog_mode: None,
+                    file_dialog_input: String::new(),
+                },
+            }
+        } else {
+            Self::new_with_path(Some(default_path))
+        }
+    }
+
+    pub fn new_with_path(path: Option<PathBuf>) -> Self {
+        let save_status = match &path {
+            Some(p) => SaveStatus::Saved(p.display().to_string()),
+            None => SaveStatus::Unsaved,
+        };
+
         Self {
             project: ModelProject::default(),
             active_tab: Tab::Metadata,
             editor_state: None,
             search_query: String::new(),
+            current_file_path: path,
+            save_status,
+            file_dialog_mode: None,
+            file_dialog_input: String::new(),
         }
+    }
+
+    pub fn current_file_path(&self) -> Option<&PathBuf> {
+        self.current_file_path.as_ref()
+    }
+
+    pub fn save_status(&self) -> &SaveStatus {
+        &self.save_status
     }
 
     pub fn theme(&self) -> iced::Theme {
@@ -71,6 +148,19 @@ impl App {
 
     pub fn is_editing_concept(&self) -> bool {
         self.editor_state.is_some()
+    }
+
+    pub fn trigger_autosave(&mut self) {
+        if let Some(path) = &self.current_file_path {
+            match ProjectStorage::save_to_file(&self.project, path) {
+                Ok(()) => {
+                    self.save_status = SaveStatus::Saved(path.display().to_string());
+                }
+                Err(err) => {
+                    self.save_status = SaveStatus::Error(err.to_string());
+                }
+            }
+        }
     }
 
     pub fn filtered_concepts(&self) -> Vec<&Concept> {
@@ -103,6 +193,7 @@ impl App {
                 self.active_tab = Tab::Metadata;
                 self.editor_state = None;
                 self.search_query.clear();
+                self.trigger_autosave();
             }
             Message::StartNewConcept => {
                 self.editor_state = Some(ConceptEditorState::new_empty());
@@ -119,6 +210,7 @@ impl App {
                         self.editor_state = None;
                     }
                 }
+                self.trigger_autosave();
             }
             Message::SaveConcept => {
                 if let Some(editor) = &mut self.editor_state {
@@ -133,6 +225,7 @@ impl App {
                             match result {
                                 Ok(()) => {
                                     self.editor_state = None;
+                                    self.trigger_autosave();
                                 }
                                 Err(err) => {
                                     editor.validation_error = Some(err.to_string());
@@ -161,6 +254,67 @@ impl App {
                     editor.show_supplementary = !editor.show_supplementary;
                 }
             }
+
+            // Persistens & Filhåndtering
+            Message::SaveProject => {
+                self.trigger_autosave();
+            }
+            Message::OpenProjectDialog => {
+                self.file_dialog_mode = Some(FileDialogMode::Open);
+                self.file_dialog_input = self
+                    .current_file_path
+                    .as_ref()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|| "model.edge.json".to_string());
+            }
+            Message::SaveProjectAsDialog => {
+                self.file_dialog_mode = Some(FileDialogMode::SaveAs);
+                self.file_dialog_input = self
+                    .current_file_path
+                    .as_ref()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|| "ny_model.edge.json".to_string());
+            }
+            Message::CloseFileDialog => {
+                self.file_dialog_mode = None;
+            }
+            Message::FileDialogInputChanged(path_str) => {
+                self.file_dialog_input = path_str;
+            }
+            Message::ConfirmFileDialog => {
+                if let Some(mode) = self.file_dialog_mode {
+                    let path = PathBuf::from(self.file_dialog_input.trim());
+                    if !self.file_dialog_input.trim().is_empty() {
+                        match mode {
+                            FileDialogMode::Open => {
+                                self.update(Message::OpenProjectFile(path));
+                            }
+                            FileDialogMode::SaveAs => {
+                                self.update(Message::SaveProjectToFile(path));
+                            }
+                        }
+                    }
+                }
+                self.file_dialog_mode = None;
+            }
+            Message::OpenProjectFile(path) => match ProjectStorage::load_from_file(&path) {
+                Ok(proj) => {
+                    self.project = proj;
+                    let display = path.display().to_string();
+                    self.current_file_path = Some(path);
+                    self.save_status = SaveStatus::Saved(display);
+                    self.file_dialog_mode = None;
+                }
+                Err(err) => {
+                    self.save_status =
+                        SaveStatus::Error(format!("Kunne ikke åbne {}: {}", path.display(), err));
+                }
+            },
+            Message::SaveProjectToFile(path) => {
+                self.current_file_path = Some(path);
+                self.trigger_autosave();
+                self.file_dialog_mode = None;
+            }
         }
     }
 
@@ -168,16 +322,18 @@ impl App {
         let tab_button = |tab: Tab, label: &'static str| {
             let is_active = self.active_tab == tab;
             button(text(label).size(13))
-                .style(if is_active { button::primary } else { button::secondary })
+                .style(if is_active {
+                    button::primary
+                } else {
+                    button::secondary
+                })
                 .on_press(Message::SelectTab(tab))
                 .padding([6, 12])
         };
 
         let nav_bar = row![
             row![
-                text("edge")
-                    .size(24)
-                    .color(ThemeColors::PRIMARY),
+                text("edge").size(24).color(ThemeColors::PRIMARY),
                 Space::new().width(6),
                 container(text("FDA v2.1").size(10).color(ThemeColors::PRIMARY))
                     .style(|_theme: &iced::Theme| container::Style {
@@ -192,19 +348,59 @@ impl App {
                     .padding([2, 6]),
             ]
             .align_y(Alignment::Center),
-            Space::new().width(24),
+            Space::new().width(20),
             tab_button(Tab::Metadata, "1. Omslag & Metadata"),
             tab_button(Tab::ConceptList, "2. Begrebsliste (Bilag D & E)"),
             tab_button(Tab::ConceptModel, "3. Begrebsmodel (Graf)"),
             tab_button(Tab::InformationModel, "4. Informationsmodel"),
             Space::new().width(Length::Fill),
+            button(text("📁 Åbn...").size(12))
+                .style(button::secondary)
+                .on_press(Message::OpenProjectDialog)
+                .padding([6, 10]),
+            button(text("💾 Gem som...").size(12))
+                .style(button::secondary)
+                .on_press(Message::SaveProjectAsDialog)
+                .padding([6, 10]),
             button(text("Nyt Projekt").size(12))
                 .style(button::secondary)
                 .on_press(Message::NewProject)
-                .padding([6, 12]),
+                .padding([6, 10]),
         ]
         .spacing(8)
         .align_y(Alignment::Center);
+
+        // Valgfri fildialog banner (Open / Save As)
+        let file_dialog_banner: Option<Element<Message>> = self.file_dialog_mode.map(|mode| {
+            let (mode_label, confirm_label) = match mode {
+                FileDialogMode::Open => ("Åbn modelprojekt:", "Åbn"),
+                FileDialogMode::SaveAs => ("Gem modelprojekt som:", "Gem"),
+            };
+
+            container(
+                row![
+                    text(mode_label).size(13).color(ThemeColors::PRIMARY),
+                    text_input("Filsti (f.eks. model.edge.json)...", &self.file_dialog_input)
+                        .on_input(Message::FileDialogInputChanged)
+                        .padding(6)
+                        .width(Length::FillPortion(2)),
+                    button(text(confirm_label).size(12))
+                        .style(button::primary)
+                        .on_press(Message::ConfirmFileDialog)
+                        .padding([4, 12]),
+                    button(text("✕").size(12))
+                        .style(button::secondary)
+                        .on_press(Message::CloseFileDialog)
+                        .padding([4, 8]),
+                ]
+                .spacing(10)
+                .align_y(Alignment::Center),
+            )
+            .style(container::bordered_box)
+            .padding([8, 14])
+            .width(Length::Fill)
+            .into()
+        });
 
         let content: Element<Message> = match self.active_tab {
             Tab::Metadata => column![
@@ -252,6 +448,13 @@ impl App {
             .into(),
         };
 
+        let save_status_text = match &self.save_status {
+            SaveStatus::Saved(target) => format!("💾 Gemt i {}", target),
+            SaveStatus::Saving => "⏳ Gemmer...".to_string(),
+            SaveStatus::Unsaved => "⚠️ Ikke gemt til fil".to_string(),
+            SaveStatus::Error(msg) => format!("❌ Fejl ved gemning: {}", msg),
+        };
+
         let status_bar = row![
             text("FDA Modelregler v2.1 • Klar")
                 .size(12)
@@ -260,6 +463,13 @@ impl App {
             text(format!("• {} begreber i model", self.project.concepts().len()))
                 .size(12)
                 .color(ThemeColors::TEXT_MUTED),
+            Space::new().width(12),
+            text(format!("• {}", save_status_text))
+                .size(12)
+                .color(match &self.save_status {
+                    SaveStatus::Error(_) => ThemeColors::ACCENT_RED,
+                    _ => ThemeColors::TEXT_MUTED,
+                }),
             Space::new().width(Length::Fill),
             text(format!("Aktiv fane: {:?}", self.active_tab))
                 .size(12)
@@ -267,21 +477,26 @@ impl App {
         ]
         .align_y(Alignment::Center);
 
-        container(
-            column![
-                nav_bar,
-                container(content)
-                    .style(container::bordered_box)
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .padding(20),
-                status_bar,
-            ]
-            .spacing(14)
-            .padding(16),
-        )
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .into()
+        let mut main_col = column![nav_bar].spacing(12);
+
+        if let Some(dialog) = file_dialog_banner {
+            main_col = main_col.push(dialog);
+        }
+
+        main_col = main_col.push(
+            container(content)
+                .style(container::bordered_box)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .padding(20),
+        );
+
+        main_col = main_col.push(status_bar);
+
+        container(main_col)
+            .padding(16)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
     }
 }

@@ -2,6 +2,8 @@ use crate::features::concepts::{Concept, ConceptValidator, ValidationError};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+pub mod storage;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ModelStatus {
     Draft,

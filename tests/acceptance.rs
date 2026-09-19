@@ -190,7 +190,6 @@ fn test_concept_list_ui_crud_cycle() {
 #[test]
 fn test_project_storage_roundtrip_and_atomic_save() {
     use edge::features::model::storage::ProjectStorage;
-    use std::path::PathBuf;
 
     let temp_dir = std::env::temp_dir();
     let file_path = temp_dir.join(format!("test_edge_project_{}.edge.json", uuid::Uuid::new_v4()));

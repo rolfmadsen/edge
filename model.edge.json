@@ -1,0 +1,13 @@
+{
+  "metadata": {
+    "name": "Nyt FDA Modelprojekt",
+    "description": "Beskrivelse af modelprojektet",
+    "uri": "https://data.gov.dk/model/core/new-model",
+    "responsible_org": "Ansvarlig Myndighed",
+    "domain_area": "Emneområde",
+    "version": "0.1.0",
+    "status": "Draft",
+    "legal_source": null
+  },
+  "concepts": []
+}
