@@ -729,3 +729,87 @@ fn test_canvas_direct_concept_creation_and_node_editing() {
     let _ = std::fs::remove_file(file_path);
 }
 
+#[test]
+fn test_canvas_ergonomics_zoom_pan_grid() {
+    use edge::features::concepts::{BelongsToDomain, Concept};
+    use edge::features::concept_model::{DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, GRID_SIZE};
+    use edge::ui::graph_canvas::CanvasViewport;
+    use iced::Point;
+
+    // 1. Verificer nodedimensioner og gitter-alignment
+    assert_eq!(GRID_SIZE, 20.0, "Gitteret skal være 20px raster");
+    assert_eq!(DEFAULT_NODE_WIDTH, 180.0, "Bredde skal være 180px (9x20)");
+    assert_eq!(DEFAULT_NODE_HEIGHT, 80.0, "Højde skal være 80px (4x20)");
+    assert_eq!(DEFAULT_NODE_WIDTH % GRID_SIZE, 0.0, "Bredde skal være multiplum af gitter");
+    assert_eq!(DEFAULT_NODE_HEIGHT % GRID_SIZE, 0.0, "Højde skal være multiplum af gitter");
+
+    let mut app = App::default();
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+
+    // Opret et begreb i projektet og synkroniser til graf
+    let c = Concept::new("Vogn", "Rullende materiel", BelongsToDomain::Yes);
+    let _ = app.project_mut().add_concept(c);
+    app.project_mut().sync_concept_graph();
+
+    let node = &app.project().concept_graph().nodes()[0];
+    let node_id = node.id();
+    assert_eq!(node.width(), 180.0, "Nodebredde skal være 180px");
+    assert_eq!(node.height(), 80.0, "Nodehøjde skal være 80px");
+
+    // 2. Test CanvasViewport transformation og zoom-grænser
+    let mut viewport = CanvasViewport::default();
+    assert_eq!(viewport.zoom(), 1.0, "Default zoom skal være 1.0 (100%)");
+    assert_eq!(viewport.pan().x, 0.0);
+    assert_eq!(viewport.pan().y, 0.0);
+
+    // Test world-to-screen og screen-to-world
+    let pt = Point::new(100.0, 100.0);
+    assert_eq!(viewport.to_world(pt), pt);
+    assert_eq!(viewport.to_screen(pt), pt);
+
+    // Test zoom clamping (min 0.25, max 1.50)
+    viewport.set_zoom(0.10);
+    assert_eq!(viewport.zoom(), 0.25, "Zoom skal klemmes til min 0.25");
+    viewport.set_zoom(3.0);
+    assert_eq!(viewport.zoom(), 1.50, "Zoom skal klemmes til max 1.50");
+
+    // Test zoom_at forankring (punkt under cursor skal forblive uændret i verdenskoordinater)
+    viewport.set_zoom(1.0);
+    let cursor = Point::new(200.0, 200.0);
+    let world_before = viewport.to_world(cursor);
+    viewport.zoom_at(cursor, 1.2);
+    let world_after = viewport.to_world(cursor);
+    assert!((world_before.x - world_after.x).abs() < 0.001);
+    assert!((world_before.y - world_after.y).abs() < 0.001);
+
+    // 3. Test Magnetisk Snap-to-Grid i App
+    assert!(app.is_snap_to_grid_enabled(), "Snap to grid skal være slået til som default");
+
+    // Flyt node til arbitrære koordinater (137.4, 91.2) - skal snappe til (140.0, 100.0)
+    let _ = app.update(Message::GraphNodeMoved(node_id, 137.4, 91.2));
+    let moved_node = app.project().concept_graph().find_node(node_id).unwrap();
+    assert_eq!(moved_node.x(), 140.0, "Node x skal snappe til nærmeste multiplum af 20");
+    assert_eq!(moved_node.y(), 100.0, "Node y skal snappe til nærmeste multiplum af 20");
+
+    // Verificer at alle 4 hjørner rammer gitterpunkter
+    assert_eq!((moved_node.x() + moved_node.width()) % GRID_SIZE, 0.0, "Top-højre hjørne");
+    assert_eq!((moved_node.y() + moved_node.height()) % GRID_SIZE, 0.0, "Bund-venstre hjørne");
+    assert_eq!((moved_node.x() + moved_node.width()) % GRID_SIZE, 0.0, "Bund-højre x");
+    assert_eq!((moved_node.y() + moved_node.height()) % GRID_SIZE, 0.0, "Bund-højre y");
+
+    // Slå snapping fra og test at position ikke snappes
+    let _ = app.update(Message::ToggleSnapToGrid);
+    assert!(!app.is_snap_to_grid_enabled());
+    let _ = app.update(Message::GraphNodeMoved(node_id, 137.4, 91.2));
+    let unsnapped = app.project().concept_graph().find_node(node_id).unwrap();
+    assert_eq!(unsnapped.x(), 137.4);
+    assert_eq!(unsnapped.y(), 91.2);
+
+    // 4. Test Zoom-kontroller i App
+    assert_eq!(app.canvas_zoom(), 1.0);
+    let _ = app.update(Message::CanvasZoomIn);
+    assert!(app.canvas_zoom() > 1.0);
+    let _ = app.update(Message::CanvasResetView);
+    assert_eq!(app.canvas_zoom(), 1.0);
+}
+
