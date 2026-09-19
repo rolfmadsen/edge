@@ -1303,3 +1303,75 @@ fn test_information_model_ui_crud_and_concept_linking() {
     let _ = app.update(Message::DeleteInformationClass(class_id));
     assert_eq!(app.project().information_model().classes().len(), 0);
 }
+
+#[test]
+fn test_information_model_uml_canvas_and_studio_layout() {
+    let mut app = App::new_with_path(None);
+
+    // 1. Skift til Informationsmodel fanen
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    assert_eq!(app.active_tab(), Tab::InformationModel);
+
+    // 2. Opret to klasser i projektet
+    let _ = app.update(Message::CreateInformationClass);
+    let class_a_id = app.project().information_model().classes()[0].id();
+    let _ = app.update(Message::UpdateInformationClassName(class_a_id, "Køretøj".to_string()));
+
+    let _ = app.update(Message::CreateInformationClass);
+    let class_b_id = app.project().information_model().classes()[1].id();
+    let _ = app.update(Message::UpdateInformationClassName(class_b_id, "Personbil".to_string()));
+
+    // 3. Tilføj klasser til diagrammet (ClassGraph)
+    let _ = app.update(Message::AddClassToDiagram(class_a_id));
+    let _ = app.update(Message::AddClassToDiagram(class_b_id));
+
+    let graph = app.project().information_graph();
+    assert_eq!(graph.node_count(), 2, "Begge klasser skal være på canvas");
+
+    let node_a = graph.find_node_by_class(class_a_id).expect("Node A skal findes");
+    let node_b = graph.find_node_by_class(class_b_id).expect("Node B skal findes");
+    let initial_height_a = node_a.height();
+    assert!(initial_height_a >= 80.0, "UML node skal have en minimumshøjde");
+
+    // 4. Tilføj attributter til Klasse A og verificer at nodens højde vokser dynamisk
+    let _ = app.update(Message::AddAttributeToClass(class_a_id));
+    let attr_id = app.project().information_model().get_class(class_a_id).unwrap().attributes()[0].id();
+    let _ = app.update(Message::UpdateAttributeName(class_a_id, attr_id, "registreringsNummer".to_string()));
+
+    let node_a_updated = app.project().information_graph().find_node_by_class(class_a_id).unwrap();
+    assert!(
+        node_a_updated.height() > initial_height_a,
+        "UML node højde skal vokse dynamisk når attributter tilføjes"
+    );
+
+    // 5. Opret en generaliseringsrelation mellem Personbil -> Køretøj
+    let _ = app.update(Message::AddClassRelation(
+        node_b.id(),
+        node_a.id(),
+        RelationKind::Generalization,
+        None,
+    ));
+
+    assert_eq!(
+        app.project().information_graph().edge_count(),
+        1,
+        "Skal have oprettet 1 relation i informationsgrafen"
+    );
+
+    // 6. Flyt node på canvas og verificer position
+    let _ = app.update(Message::UpdateClassNodePosition(node_b.id(), 320.0, 240.0));
+    let node_b_moved = app.project().information_graph().find_node(node_b.id()).unwrap();
+    assert_eq!(node_b_moved.x(), 320.0);
+    assert_eq!(node_b_moved.y(), 240.0);
+
+    // 7. Verificer at Canvas Studio viewet renderer fejlfrit (Venstre palet, Canvas, Højre inspector)
+    {
+        let _view = app.view();
+    }
+
+    // 8. Slet Klasse A og verificer kaskadesletning i graf og relationer (Fail-Closed)
+    let _ = app.update(Message::DeleteInformationClass(class_a_id));
+    let graph = app.project().information_graph();
+    assert_eq!(graph.node_count(), 1, "Node A skal være kaskadeslettet");
+    assert_eq!(graph.edge_count(), 0, "Relationer til Node A skal være kaskadeslettet uden hængende kanter");
+}
