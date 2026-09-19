@@ -39,6 +39,14 @@ pub struct Diamond {
     pub direction: PortSide,
 }
 
+/// Represents a half arrow (single diagonal barb) for UML directed association.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HalfArrow {
+    pub tip: Point,
+    pub barb: Point,
+    pub direction: PortSide,
+}
+
 /// A visual bridge (line jump) rendered where a horizontal segment crosses a vertical segment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BridgeHop {
@@ -56,6 +64,7 @@ pub struct RoutedEdge {
     pub label_pos: Option<Point>,
     pub points: Vec<Point>,
     pub arrow_head: Option<ArrowHead>,
+    pub half_arrow: Option<HalfArrow>,
     pub source_diamond: Option<Diamond>,
     pub bridges: Vec<BridgeHop>,
     pub from_side: PortSide,
@@ -542,6 +551,13 @@ impl EdgeRouter {
             .as_ref()
             .and_then(|_| Self::compute_label_pos(&points));
 
+        // Beregn halv pil for rettet association
+        let half_arrow = if assign.kind == RelationKind::Association && edge.is_directed() {
+            Some(Self::compute_half_arrow(end_pt, assign.to_side))
+        } else {
+            None
+        };
+
         // Beregn kildemarkør (f.eks. sort diamant for komposition)
         let source_diamond = if assign.kind == RelationKind::Composition {
             Some(Self::compute_diamond(start_pt, assign.from_side))
@@ -557,10 +573,29 @@ impl EdgeRouter {
             label_pos,
             points,
             arrow_head,
+            half_arrow,
             source_diamond,
             bridges: Vec::new(),
             from_side: assign.from_side,
             to_side: assign.to_side,
+        }
+    }
+
+    fn compute_half_arrow(target_boundary: Point, side: PortSide) -> HalfArrow {
+        let len = 10.0;
+        let w = 6.0;
+
+        let barb = match side {
+            PortSide::Left => Point::new(target_boundary.x - len, target_boundary.y - w),
+            PortSide::Right => Point::new(target_boundary.x + len, target_boundary.y - w),
+            PortSide::Top => Point::new(target_boundary.x - w, target_boundary.y - len),
+            PortSide::Bottom => Point::new(target_boundary.x - w, target_boundary.y + len),
+        };
+
+        HalfArrow {
+            tip: target_boundary,
+            barb,
+            direction: side,
         }
     }
 

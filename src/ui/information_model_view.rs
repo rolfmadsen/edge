@@ -11,7 +11,7 @@ use crate::ui::theme::{
     pill_container_style, primary_button_style, secondary_button_style, ThemeColors,
 };
 use iced::widget::{
-    button, column, container, pick_list, row, scrollable, text, text_input, Space,
+    button, checkbox, column, container, pick_list, row, scrollable, text, text_input, Space,
 };
 use iced::{Alignment, Color, Element, Length};
 use uuid::Uuid;
@@ -30,8 +30,15 @@ pub fn view<'a>(
     is_space_pressed: bool,
     relation_dialog: Option<&'a RelationDialogState>,
 ) -> Element<'a, Message> {
+    let existing_class_names: std::collections::HashSet<String> = info_model
+        .classes()
+        .iter()
+        .map(|c| c.name().trim().to_lowercase())
+        .collect();
+
     let concept_options: Vec<ConceptOption> = concepts
         .iter()
+        .filter(|c| !existing_class_names.contains(&c.preferred_term().trim().to_lowercase()))
         .map(|c| ConceptOption {
             id: c.id(),
             term: c.preferred_term().to_string(),
@@ -432,9 +439,17 @@ pub fn view<'a>(
             .align_y(Alignment::Center);
 
             let nodes_info = column![
-                text(format!("{} ➔ {}", from_class, to_class))
-                    .size(13)
-                    .color(ThemeColors::SLATE_900),
+                row![
+                    text(format!("{} ➔ {}", from_class, to_class))
+                        .size(13)
+                        .color(ThemeColors::SLATE_900),
+                    Space::new().width(Length::Fill),
+                    button(text("⇄ Vend").size(11))
+                        .style(secondary_button_style)
+                        .on_press(Message::InfoReverseEdge(from_id, to_id))
+                        .padding([2, 6]),
+                ]
+                .align_y(Alignment::Center),
                 text("Rediger relationens egenskaber:")
                     .size(11)
                     .color(ThemeColors::TEXT_MUTED),
@@ -487,6 +502,24 @@ pub fn view<'a>(
             ]
             .spacing(4);
 
+            let directed_selector: Element<'a, Message> = if edge.kind()
+                == RelationKind::Association
+            {
+                column![
+                    text("Retning / Navigabilitet:")
+                        .size(11)
+                        .color(ThemeColors::SLATE_600),
+                    checkbox(edge.is_directed())
+                        .label("Halv pil (rettet)")
+                        .size(14)
+                        .on_toggle(move |val| Message::InfoToggleEdgeDirected(from_id, to_id, val)),
+                ]
+                .spacing(4)
+                .into()
+            } else {
+                Space::new().height(0).into()
+            };
+
             let label_input = column![
                 text("Associationsnavn (valgfri):")
                     .size(11)
@@ -506,8 +539,15 @@ pub fn view<'a>(
                 .padding([4, 10]),]
             .align_y(Alignment::Center);
 
-            let insp_col =
-                column![header, nodes_info, kind_selector, label_input, actions].spacing(12);
+            let insp_col = column![
+                header,
+                nodes_info,
+                kind_selector,
+                directed_selector,
+                label_input,
+                actions
+            ]
+            .spacing(12);
 
             container(scrollable(insp_col))
                 .style(card_container_style)

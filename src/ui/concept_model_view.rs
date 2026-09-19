@@ -8,7 +8,7 @@ use crate::ui::theme::{
     pill_container_style, primary_button_style, secondary_button_style, ThemeColors,
 };
 use iced::widget::{
-    button, column, container, pick_list, row, scrollable, text, text_input, Space,
+    button, checkbox, column, container, pick_list, row, scrollable, text, text_input, Space,
 };
 use iced::{Alignment, Color, Element, Length};
 
@@ -60,18 +60,10 @@ pub fn view<'a>(
             .style(modern_input_style)
             .on_input(Message::ConceptModelSearchChanged)
             .padding(5),
-        row![
-            button(text("+ Nyt").size(12))
-                .style(primary_button_style)
-                .on_press(Message::StartNewConcept)
-                .padding([4, 10]),
-            Space::new().width(4),
-            button(text("🔄 Synk").size(12))
-                .style(secondary_button_style)
-                .on_press(Message::GraphSyncNodes)
-                .padding([4, 8]),
-        ]
-        .align_y(Alignment::Center),
+        button(text("+ Nyt begreb").size(12))
+            .style(primary_button_style)
+            .on_press(Message::StartNewConcept)
+            .padding([4, 10]),
     ]
     .spacing(8);
 
@@ -388,9 +380,17 @@ pub fn view<'a>(
             .align_y(Alignment::Center);
 
             let nodes_info = column![
-                text(format!("{} ➔ {}", from_name, to_name))
-                    .size(13)
-                    .color(ThemeColors::SLATE_900),
+                row![
+                    text(format!("{} ➔ {}", from_name, to_name))
+                        .size(13)
+                        .color(ThemeColors::SLATE_900),
+                    Space::new().width(Length::Fill),
+                    button(text("⇄ Vend").size(11))
+                        .style(secondary_button_style)
+                        .on_press(Message::GraphReverseEdge(from_id, to_id))
+                        .padding([2, 6]),
+                ]
+                .align_y(Alignment::Center),
                 text("Rediger relationens egenskaber:")
                     .size(11)
                     .color(ThemeColors::TEXT_MUTED),
@@ -443,6 +443,25 @@ pub fn view<'a>(
             ]
             .spacing(4);
 
+            let directed_selector: Element<'a, Message> =
+                if edge.kind() == RelationKind::Association {
+                    column![
+                        text("Retning / Navigabilitet:")
+                            .size(11)
+                            .color(ThemeColors::SLATE_600),
+                        checkbox(edge.is_directed())
+                            .label("Halv pil (rettet)")
+                            .size(14)
+                            .on_toggle(move |val| Message::GraphToggleEdgeDirected(
+                                from_id, to_id, val
+                            )),
+                    ]
+                    .spacing(4)
+                    .into()
+                } else {
+                    Space::new().height(0).into()
+                };
+
             let label_input = column![
                 text("Associationsnavn (valgfri):")
                     .size(11)
@@ -462,8 +481,15 @@ pub fn view<'a>(
                 .padding([4, 10]),]
             .align_y(Alignment::Center);
 
-            let insp_col =
-                column![header, nodes_info, kind_selector, label_input, actions].spacing(12);
+            let insp_col = column![
+                header,
+                nodes_info,
+                kind_selector,
+                directed_selector,
+                label_input,
+                actions
+            ]
+            .spacing(12);
 
             container(scrollable(insp_col))
                 .style(card_container_style)

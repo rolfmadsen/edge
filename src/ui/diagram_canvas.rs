@@ -130,15 +130,20 @@ pub trait CanvasEdge {
     fn target_port(&self) -> Option<PortSide> {
         None
     }
+    fn is_directed(&self) -> bool {
+        true
+    }
     fn to_diagram_edge(&self) -> DiagramEdge {
-        DiagramEdge::with_ports(
+        let mut edge = DiagramEdge::with_ports(
             self.from(),
             self.to(),
             self.kind(),
             self.label().map(|s| s.to_string()),
             self.source_port(),
             self.target_port(),
-        )
+        );
+        edge.set_directed(self.is_directed());
+        edge
     }
 }
 
@@ -191,6 +196,9 @@ impl CanvasEdge for DiagramEdge {
     fn target_port(&self) -> Option<PortSide> {
         self.target_port()
     }
+    fn is_directed(&self) -> bool {
+        DiagramEdge::is_directed(self)
+    }
 }
 
 impl CanvasEdge for ClassDiagramEdge {
@@ -211,6 +219,9 @@ impl CanvasEdge for ClassDiagramEdge {
     }
     fn target_port(&self) -> Option<PortSide> {
         self.target_port()
+    }
+    fn is_directed(&self) -> bool {
+        ClassDiagramEdge::is_directed(self)
     }
 }
 
@@ -815,6 +826,17 @@ where
                             .with_width(arrow_stroke_width),
                     );
                 }
+            }
+
+            // 6c. Halv pil for rettet association ved mål-noden
+            if let Some(ref half_arrow) = routed.half_arrow {
+                let barb_line = Path::line(half_arrow.tip, half_arrow.barb);
+                frame.stroke(
+                    &barb_line,
+                    Stroke::default()
+                        .with_color(arrow_stroke_color)
+                        .with_width(arrow_stroke_width + 0.5),
+                );
             }
 
             if let (Some(label), Some(pos)) = (&routed.label, routed.label_pos) {

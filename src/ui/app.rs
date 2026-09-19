@@ -170,11 +170,13 @@ pub enum Message {
     QuickCreateCancel,
     GraphNodeDoubleClicked(NodeId),
 
-    // Begrebsmodel Edge Interaktivitet & Drag-to-Connect (Task 007)
+    // Begrebsmodel Edge Interaktivitet & Drag-to-Connect (Task 007 & 014)
     GraphEdgeSelected(Option<(NodeId, NodeId)>),
     GraphEdgeCreated(NodeId, NodeId),
     GraphUpdateEdgeKind(NodeId, NodeId, RelationKind),
     GraphUpdateEdgeLabel(NodeId, NodeId, String),
+    GraphToggleEdgeDirected(NodeId, NodeId, bool),
+    GraphReverseEdge(NodeId, NodeId),
     GraphDeleteSelected,
 
     // Canvas ergonomi, zoom, pan & grid (Task 008)
@@ -204,7 +206,7 @@ pub enum Message {
     DeleteAttribute(Uuid, Uuid),
     InformationClassSearchChanged(String),
 
-    // Informationsmodel Canvas & Studio (Task 011)
+    // Informationsmodel Canvas & Studio (Task 011 & 014)
     AddClassToDiagram(Uuid),
     RemoveClassFromDiagram(NodeId),
     UpdateClassNodePosition(NodeId, f32, f32),
@@ -227,6 +229,8 @@ pub enum Message {
     InfoEdgeCreated(NodeId, NodeId),
     InfoUpdateEdgeKind(NodeId, NodeId, RelationKind),
     InfoUpdateEdgeLabel(NodeId, NodeId, String),
+    InfoToggleEdgeDirected(NodeId, NodeId, bool),
+    InfoReverseEdge(NodeId, NodeId),
 }
 
 pub struct App {
@@ -737,6 +741,21 @@ impl App {
                     .concept_graph_mut()
                     .update_edge_label(from, to, lbl)
                 {
+                    self.trigger_autosave();
+                }
+            }
+            Message::GraphToggleEdgeDirected(from, to, directed) => {
+                if self
+                    .project
+                    .concept_graph_mut()
+                    .update_edge_directed(from, to, directed)
+                {
+                    self.trigger_autosave();
+                }
+            }
+            Message::GraphReverseEdge(from, to) => {
+                if self.project.concept_graph_mut().reverse_relation(from, to) {
+                    self.selected_edge = Some((to, from));
                     self.trigger_autosave();
                 }
             }
@@ -1284,6 +1303,25 @@ impl App {
                     .information_graph_mut()
                     .update_edge_label(from, to, lbl)
                 {
+                    self.trigger_autosave();
+                }
+            }
+            Message::InfoToggleEdgeDirected(from, to, directed) => {
+                if self
+                    .project
+                    .information_graph_mut()
+                    .update_edge_directed(from, to, directed)
+                {
+                    self.trigger_autosave();
+                }
+            }
+            Message::InfoReverseEdge(from, to) => {
+                if self
+                    .project
+                    .information_graph_mut()
+                    .reverse_relation(from, to)
+                {
+                    self.selected_info_edge = Some((to, from));
                     self.trigger_autosave();
                 }
             }

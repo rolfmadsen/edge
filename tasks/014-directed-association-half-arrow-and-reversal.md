@@ -20,14 +20,14 @@ tags: [task-lifecycle, intent, ui, canvas, graph, relations, directed-associatio
 4. Fjerne den forældede og overflødige "🔄 Synk" knap i Begreber-panelet.
 
 ## 📋 Acceptance Criteria
-- [ ] `DiagramEdge` og `ClassDiagramEdge` udvides med `directed: Option<bool>` (default `true` for Association; serialiseret med serde og fuld bagudkompatibilitet).
-- [ ] `EdgeRouter` genererer en halv pil (en diagonal streg/barb) helt ude ved målnodens kant for rettede associationer.
-- [ ] `DiagramCanvas` renderer den halve pil ved målnodens kant med korrekt vinkel og farve.
-- [ ] Relations-panelet indeholder en checkbox eller toggle-knap til at slå retningspilen til/fra på associationer.
-- [ ] Relations-panelet indeholder en "⇄ Vend retning" knap, der bytter `from` og `to` samt spejlvender `source_port` og `target_port`, og bevarer markeringen.
-- [ ] "+ Fra begreb..." dropdownen i Informationsmodellens venstre palet udelader begreber, der matcher et eksisterende klassenavn (case-insensitivt).
-- [ ] Den forældede "🔄 Synk" knap er fjernet fra Begreber-paletten i `concept_model_view.rs`.
-- [ ] 100% test pass rate på unit-, accept- og proptests samt clippy med 0 advarsler.
+- [x] `DiagramEdge` og `ClassDiagramEdge` udvides med `directed: Option<bool>` (default `true` for Association; serialiseret med serde og fuld bagudkompatibilitet).
+- [x] `EdgeRouter` genererer en halv pil (en diagonal streg/barb) helt ude ved målnodens kant for rettede associationer.
+- [x] `DiagramCanvas` renderer den halve pil ved målnodens kant med korrekt vinkel og farve.
+- [x] Relations-panelet indeholder en checkbox eller toggle-knap til at slå retningspilen til/fra på associationer.
+- [x] Relations-panelet indeholder en "⇄ Vend retning" knap, der bytter `from` og `to` samt spejlvender `source_port` og `target_port`, og bevarer markeringen.
+- [x] "+ Fra begreb..." dropdownen i Informationsmodellens venstre palet udelader begreber, der matcher et eksisterende klassenavn (case-insensitivt).
+- [x] Den forældede "🔄 Synk" knap er fjernet fra Begreber-paletten i `concept_model_view.rs`.
+- [x] 100% test pass rate på unit-, accept- og proptests samt clippy med 0 advarsler.
 
 ## 🚫 Must NOT
 - Må IKKE ændre visning af Generalisering (hvid trekant) eller Komposition (sort diamant).

@@ -2081,14 +2081,20 @@ fn test_directed_association_half_arrow_and_reversal() {
 
     // 1. Association er rettet som standard (directed == true)
     let edge_assoc = DiagramEdge::new(node_a.id(), node_b.id(), RelationKind::Association);
-    assert!(edge_assoc.is_directed(), "Association skal være rettet som standard");
+    assert!(
+        edge_assoc.is_directed(),
+        "Association skal være rettet som standard"
+    );
 
     let routes = EdgeRouter::route_edges(&[node_a.clone(), node_b.clone()], &[edge_assoc.clone()]);
     assert_eq!(routes.len(), 1);
     let route = &routes[0];
 
     // Skal have et half_arrow mod målnoden node_b (venstre port på node_b)
-    let half_arrow = route.half_arrow.as_ref().expect("Rettet association skal have en halv pil");
+    let half_arrow = route
+        .half_arrow
+        .as_ref()
+        .expect("Rettet association skal have en halv pil");
     assert_eq!(half_arrow.tip, Point::new(node_b.x(), node_b.center().1));
     assert_eq!(half_arrow.direction, PortSide::Left);
 
@@ -2096,14 +2102,23 @@ fn test_directed_association_half_arrow_and_reversal() {
     let mut edge_undirected = edge_assoc.clone();
     edge_undirected.set_directed(false);
     assert!(!edge_undirected.is_directed());
-    let routes_undirected = EdgeRouter::route_edges(&[node_a.clone(), node_b.clone()], &[edge_undirected]);
-    assert!(routes_undirected[0].half_arrow.is_none(), "Uorienteret association må ikke have en halv pil");
+    let routes_undirected =
+        EdgeRouter::route_edges(&[node_a.clone(), node_b.clone()], &[edge_undirected]);
+    assert!(
+        routes_undirected[0].half_arrow.is_none(),
+        "Uorienteret association må ikke have en halv pil"
+    );
 
     // 3. Retningsvending (reverse_relation) i ClassGraph / ConceptGraph
     let mut graph = ClassGraph::new();
     let n1 = graph.add_node(uuid::Uuid::new_v4(), 0);
     let n2 = graph.add_node(uuid::Uuid::new_v4(), 0);
-    graph.add_relation(n1, n2, RelationKind::Association, Some("forbinder".to_string()));
+    graph.add_relation(
+        n1,
+        n2,
+        RelationKind::Association,
+        Some("forbinder".to_string()),
+    );
     graph.update_edge_ports(n1, n2, Some(PortSide::Right), Some(PortSide::Left));
 
     assert!(graph.find_edge(n1, n2).is_some());
@@ -2111,12 +2126,119 @@ fn test_directed_association_half_arrow_and_reversal() {
 
     let reversed = graph.reverse_relation(n1, n2);
     assert!(reversed, "Skal kunne vende relation");
-    assert!(graph.find_edge(n1, n2).is_none(), "Gammel retning skal være fjernet");
-    let rev_edge = graph.find_edge(n2, n1).expect("Ny vendt relation skal findes");
+    assert!(
+        graph.find_edge(n1, n2).is_none(),
+        "Gammel retning skal være fjernet"
+    );
+    let rev_edge = graph
+        .find_edge(n2, n1)
+        .expect("Ny vendt relation skal findes");
     assert_eq!(rev_edge.from(), n2);
     assert_eq!(rev_edge.to(), n1);
-    assert_eq!(rev_edge.source_port(), Some(PortSide::Left), "Porte skal være spejlvendt");
-    assert_eq!(rev_edge.target_port(), Some(PortSide::Right), "Porte skal være spejlvendt");
+    assert_eq!(
+        rev_edge.source_port(),
+        Some(PortSide::Left),
+        "Porte skal være spejlvendt"
+    );
+    assert_eq!(
+        rev_edge.target_port(),
+        Some(PortSide::Right),
+        "Porte skal være spejlvendt"
+    );
     assert_eq!(rev_edge.label(), Some("forbinder"));
-}
 
+    // 4. ConceptGraph reversal og retning
+    use edge::features::concept_model::ConceptGraph;
+    let mut cgraph = ConceptGraph::new();
+    let cn1 = cgraph.add_node(&c_a);
+    let cn2 = cgraph.add_node(&c_b);
+    cgraph.add_relation(cn1, cn2, RelationKind::Association);
+    assert!(cgraph.find_edge(cn1, cn2).unwrap().is_directed());
+
+    cgraph.update_edge_directed(cn1, cn2, false);
+    assert!(!cgraph.find_edge(cn1, cn2).unwrap().is_directed());
+
+    let rev_c = cgraph.reverse_relation(cn1, cn2);
+    assert!(rev_c);
+    assert!(cgraph.find_edge(cn1, cn2).is_none());
+    assert!(cgraph.find_edge(cn2, cn1).is_some());
+
+    // 5. App Message håndtering
+    use edge::ui::app::{App, Message};
+    let mut app = App::new_with_path(None);
+    let app_n1 = app.project_mut().concept_graph_mut().add_node(&c_a);
+    let app_n2 = app.project_mut().concept_graph_mut().add_node(&c_b);
+    app.project_mut()
+        .concept_graph_mut()
+        .add_relation(app_n1, app_n2, RelationKind::Association);
+    let _ = app.update(Message::GraphEdgeSelected(Some((app_n1, app_n2))));
+
+    let _ = app.update(Message::GraphToggleEdgeDirected(app_n1, app_n2, false));
+    assert!(!app
+        .project()
+        .concept_graph()
+        .find_edge(app_n1, app_n2)
+        .unwrap()
+        .is_directed());
+
+    let _ = app.update(Message::GraphReverseEdge(app_n1, app_n2));
+    assert!(app
+        .project()
+        .concept_graph()
+        .find_edge(app_n2, app_n1)
+        .is_some());
+
+    // 6. Informationsmodel Message håndtering
+    use edge::features::information_model::InformationClass;
+    let cl_a = app
+        .project_mut()
+        .information_model_mut()
+        .add_class(InformationClass::new("KlasseA"));
+    let cl_b = app
+        .project_mut()
+        .information_model_mut()
+        .add_class(InformationClass::new("KlasseB"));
+    let info_n1 = app.project_mut().information_graph_mut().add_node(cl_a, 0);
+    let info_n2 = app.project_mut().information_graph_mut().add_node(cl_b, 0);
+    app.project_mut().information_graph_mut().add_relation(
+        info_n1,
+        info_n2,
+        RelationKind::Association,
+        None,
+    );
+    let _ = app.update(Message::InfoEdgeSelected(Some((info_n1, info_n2))));
+
+    let _ = app.update(Message::InfoToggleEdgeDirected(info_n1, info_n2, false));
+    assert!(!app
+        .project()
+        .information_graph()
+        .find_edge(info_n1, info_n2)
+        .unwrap()
+        .is_directed());
+
+    let _ = app.update(Message::InfoReverseEdge(info_n1, info_n2));
+    assert!(app
+        .project()
+        .information_graph()
+        .find_edge(info_n2, info_n1)
+        .is_some());
+
+    // 7. Filtrering af "+ Fra begreb..." når klasse med samme navn allerede findes
+    let c_c = Concept::new("KlasseC", "C", BelongsToDomain::Yes);
+    let concepts_list = vec![c_a.clone(), c_c.clone()];
+    let existing_class_names: std::collections::HashSet<String> = app
+        .project()
+        .information_model()
+        .classes()
+        .iter()
+        .map(|c| c.name().trim().to_lowercase())
+        .collect();
+
+    let filtered_concept_options: Vec<_> = concepts_list
+        .iter()
+        .filter(|c| !existing_class_names.contains(&c.preferred_term().trim().to_lowercase()))
+        .collect();
+
+    assert_eq!(filtered_concept_options.len(), 1);
+    assert_eq!(filtered_concept_options[0].preferred_term(), "KlasseC");
+}

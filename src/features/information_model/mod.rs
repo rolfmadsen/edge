@@ -447,6 +447,8 @@ pub struct ClassDiagramEdge {
     source_port: Option<PortSide>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     target_port: Option<PortSide>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    directed: Option<bool>,
 }
 
 impl ClassDiagramEdge {
@@ -458,6 +460,11 @@ impl ClassDiagramEdge {
             label,
             source_port: None,
             target_port: None,
+            directed: if kind == RelationKind::Association {
+                Some(true)
+            } else {
+                None
+            },
         }
     }
 
@@ -476,6 +483,31 @@ impl ClassDiagramEdge {
             label,
             source_port,
             target_port,
+            directed: if kind == RelationKind::Association {
+                Some(true)
+            } else {
+                None
+            },
+        }
+    }
+
+    pub fn with_all(
+        from: NodeId,
+        to: NodeId,
+        kind: RelationKind,
+        label: Option<String>,
+        source_port: Option<PortSide>,
+        target_port: Option<PortSide>,
+        directed: Option<bool>,
+    ) -> Self {
+        Self {
+            from,
+            to,
+            kind,
+            label,
+            source_port,
+            target_port,
+            directed,
         }
     }
 
@@ -493,6 +525,9 @@ impl ClassDiagramEdge {
 
     pub fn set_kind(&mut self, kind: RelationKind) {
         self.kind = kind;
+        if kind == RelationKind::Association && self.directed.is_none() {
+            self.directed = Some(true);
+        }
     }
 
     pub fn label(&self) -> Option<&str> {
@@ -514,6 +549,22 @@ impl ClassDiagramEdge {
     pub fn set_ports(&mut self, source_port: Option<PortSide>, target_port: Option<PortSide>) {
         self.source_port = source_port;
         self.target_port = target_port;
+    }
+
+    pub fn is_directed(&self) -> bool {
+        if self.kind == RelationKind::Association {
+            self.directed.unwrap_or(true)
+        } else {
+            false
+        }
+    }
+
+    pub fn directed(&self) -> Option<bool> {
+        self.directed
+    }
+
+    pub fn set_directed(&mut self, directed: bool) {
+        self.directed = Some(directed);
     }
 }
 
@@ -662,6 +713,39 @@ impl ClassGraph {
     ) -> bool {
         if let Some(edge) = self.find_edge_mut(from, to) {
             edge.set_ports(source_port, target_port);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update_edge_directed(&mut self, from: NodeId, to: NodeId, directed: bool) -> bool {
+        if let Some(edge) = self.find_edge_mut(from, to) {
+            edge.set_directed(directed);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn reverse_relation(&mut self, from: NodeId, to: NodeId) -> bool {
+        if let Some(pos) = self
+            .edges
+            .iter()
+            .position(|e| e.from() == from && e.to() == to)
+        {
+            let mut edge = self.edges.remove(pos);
+            let old_from = edge.from;
+            let old_to = edge.to;
+            let old_src_port = edge.source_port;
+            let old_tgt_port = edge.target_port;
+
+            edge.from = old_to;
+            edge.to = old_from;
+            edge.source_port = old_tgt_port;
+            edge.target_port = old_src_port;
+
+            self.edges.push(edge);
             true
         } else {
             false
