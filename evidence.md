@@ -1,22 +1,22 @@
 # Verification Report
 
-**Task ID**: `001-bootstrap`  
-**Task Title**: Task 001: Project Setup & Baseline Verification Gauntlet  
+**Task ID**: `002-concept-list-crud`  
+**Task Title**: Task 002: Begrebsliste Tabel & CRUD jf. FDA Bilag D & E  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Source Manifest Digest**: `feff8c3432ae82385ec7c40031ea5569d2ba33d256de5ee3801a035e2c82eca8`  
-**Timestamp**: `2026-09-19T09:10:10Z`  
-**Head**: `65a373b`  
-**Commit**: `65a373b`  
+**Source Manifest Digest**: `c4fce508d347c3f329c4b6f2b0940b79ee8da998a042d8c82f4037b2da6df3ff`  
+**Timestamp**: `2026-09-19T09:24:03Z`  
+**Head**: `74960a6`  
+**Commit**: `74960a6`  
 
 ## Acceptance Criteria
 
-- [x] `gauntlet.toml` er konfigureret med de korrekte verifikationslag for projektets stack.
-- [x] `Cargo.toml` og kildekodsstruktur (`src/lib.rs`, `src/main.rs`, `src/features/`) etableret med Iced desktop-skal og FDA domænemodel.
-- [x] `CONTEXT.md` definerer projektets centrale forretnings- og domænebegreber jf. Aristoteles' formel.
-- [x] `spec.md` indeholder overordnede arkitekturprincipper og systeminvarianter for FDA modellering.
-- [x] `docs/adr/001-iced-architecture.md` dokumenterer arkitektur og UI/domæne-adskillelse.
-- [x] Første verifikationskørsel gennemføres med succes (`xgauntlet verify`).
+- [x] `ModelProject` udvides med `concepts: Vec<Concept>` og fuld domæne-CRUD (`add_concept`, `update_concept`, `remove_concept`, `get_concept`) underlagt `ConceptValidator`.
+- [x] `Concept` og `BelongsToDomain` i `src/features/concepts/` understøtter samtlige felter fra FDA Bilag D & E samt hjælpemetoder til domænestatus.
+- [x] UI-tabelkomponenten i `src/ui/concept_table.rs` viser en responsiv og moderne tabel med kolonnerne Foretrukken term, Definition, Kilder, Emneområde (med FDA-badge) og Handlinger.
+- [x] UI-editorkomponenten i `src/ui/concept_editor.rs` tilbyder en struktureret formular til oprettelse og redigering af begreber med valideringsfeedback.
+- [x] `App` i `src/ui/app.rs` understøtter den fulde TEA CRUD-livscyklus, realtidssøgning/filtrering, samt integration med Iceds native `Theme::Light` og FDA-farvepalet.
+- [x] Samtlige accepttests, property-tests, clippy uden advarsler og gauntlet verifikation passerer 100%.
 
 ---
 
@@ -24,9 +24,9 @@
 
 | Check Name | Status | Exit Code | Duration (s) |
 |---|---|---|---|
-| `lint` | `PASSED` | `0` | `0.213s` |
-| `types` | `PASSED` | `0` | `0.153s` |
-| `unit` | `PASSED` | `0` | `0.213s` |
-| `invariants` | `PASSED` | `0` | `0.230s` |
+| `lint` | `PASSED` | `0` | `0.222s` |
+| `types` | `PASSED` | `0` | `0.169s` |
+| `unit` | `PASSED` | `0` | `0.224s` |
+| `invariants` | `PASSED` | `0` | `0.256s` |
 
 ---
