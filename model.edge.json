@@ -40,5 +40,37 @@
       "identifier": null,
       "derived_from": null
     }
-  ]
+  ],
+  "concept_graph": {
+    "nodes": [
+      {
+        "id": "5c5b482e-e482-4567-9b9f-305de2b97bc5",
+        "concept_id": "4a7d4c83-e17e-4157-8807-754821a6a5d4",
+        "label": "Person",
+        "is_local": true,
+        "x": 191.54688,
+        "y": 92.07031,
+        "width": 170.0,
+        "height": 70.0
+      },
+      {
+        "id": "02e4b5ff-1b17-40f7-a836-94db06b1ce18",
+        "concept_id": "8938bd75-9444-4982-b946-82ed1d7a6799",
+        "label": "Personbil",
+        "is_local": true,
+        "x": 523.1875,
+        "y": 122.50781,
+        "width": 170.0,
+        "height": 70.0
+      }
+    ],
+    "edges": [
+      {
+        "from": "5c5b482e-e482-4567-9b9f-305de2b97bc5",
+        "to": "02e4b5ff-1b17-40f7-a836-94db06b1ce18",
+        "kind": "Association",
+        "label": "ejer en"
+      }
+    ]
+  }
 }

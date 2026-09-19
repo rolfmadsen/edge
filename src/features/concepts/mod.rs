@@ -36,7 +36,6 @@ impl BelongsToDomain {
     }
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Concept {
     id: Uuid,
@@ -60,7 +59,12 @@ impl Concept {
         definition: impl Into<String>,
         belongs_to_domain: BelongsToDomain,
     ) -> Self {
-        Self::new_with_id(Uuid::new_v4(), preferred_term, definition, belongs_to_domain)
+        Self::new_with_id(
+            Uuid::new_v4(),
+            preferred_term,
+            definition,
+            belongs_to_domain,
+        )
     }
 
     pub fn new_with_id(
@@ -201,7 +205,9 @@ pub struct ConceptValidator;
 impl ConceptValidator {
     pub fn validate(concept: &Concept) -> Result<(), ValidationError> {
         if concept.preferred_term.trim().is_empty() {
-            return Err(ValidationError::MissingRequiredField("Foretrukken dansk term"));
+            return Err(ValidationError::MissingRequiredField(
+                "Foretrukken dansk term",
+            ));
         }
         if concept.definition.trim().is_empty() {
             return Err(ValidationError::MissingRequiredField("Definition"));

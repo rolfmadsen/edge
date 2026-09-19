@@ -86,7 +86,11 @@ pub struct Attribute {
 }
 
 impl Attribute {
-    pub fn new(name: impl Into<String>, data_type: PrimitiveType, multiplicity: Multiplicity) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        data_type: PrimitiveType,
+        multiplicity: Multiplicity,
+    ) -> Self {
         Self {
             name: name.into(),
             data_type,

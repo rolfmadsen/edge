@@ -1,5 +1,5 @@
-use edge::features::concepts::{BelongsToDomain, Concept, ConceptValidator};
 use edge::features::concept_model::{ConceptGraph, RelationKind};
+use edge::features::concepts::{BelongsToDomain, Concept, ConceptValidator};
 use edge::features::information_model::{Attribute, InformationClass, Multiplicity, PrimitiveType};
 use edge::features::model::{ModelMetadata, ModelProject, ModelStatus};
 use edge::ui::app::{App, Message, Tab};
@@ -32,22 +32,34 @@ fn test_fda_concept_validation_rules() {
     );
     valid_concept.set_accepted_term(Some("Transportmiddel".to_string()));
     valid_concept.set_source(Some("Færdselsloven § 2, stk. 1".to_string()));
-    valid_concept.set_identifier(Some("https://data.gov.dk/model/core/vehicle/Koeretoej".to_string()));
+    valid_concept.set_identifier(Some(
+        "https://data.gov.dk/model/core/vehicle/Koeretoej".to_string(),
+    ));
 
     let validation = ConceptValidator::validate(&valid_concept);
-    assert!(validation.is_ok(), "Gyldigt begreb skal bestå FDA validering");
+    assert!(
+        validation.is_ok(),
+        "Gyldigt begreb skal bestå FDA validering"
+    );
 
     // Ugyldigt begreb (mangler påkrævet definition)
     let invalid_concept = Concept::new("Ugyldigt", "", BelongsToDomain::Yes);
     let invalid_res = ConceptValidator::validate(&invalid_concept);
-    assert!(invalid_res.is_err(), "Begreb uden definition skal fejle validering");
+    assert!(
+        invalid_res.is_err(),
+        "Begreb uden definition skal fejle validering"
+    );
 }
 
 #[test]
 fn test_progression_from_concept_to_graph_and_information_model() {
     // 1. Opret begreber
     let c1 = Concept::new("Køretøj", "Transportmiddel...", BelongsToDomain::Yes);
-    let c2 = Concept::new("Personbil", "Køretøj indrettet til befordring af højst 9 personer...", BelongsToDomain::Yes);
+    let c2 = Concept::new(
+        "Personbil",
+        "Køretøj indrettet til befordring af højst 9 personer...",
+        BelongsToDomain::Yes,
+    );
 
     // 2. Begrebsmodel (Graf med generalisering)
     let mut graph = ConceptGraph::new();
@@ -68,7 +80,10 @@ fn test_progression_from_concept_to_graph_and_information_model() {
 
     assert_eq!(info_class.name(), "Personbil");
     assert_eq!(info_class.attributes().len(), 1);
-    assert_eq!(info_class.attributes()[0].multiplicity(), Multiplicity::new(1, Some(1)));
+    assert_eq!(
+        info_class.attributes()[0].multiplicity(),
+        Multiplicity::new(1, Some(1))
+    );
 }
 
 #[test]
@@ -100,9 +115,14 @@ fn test_fda_project_concept_crud() {
     c1.set_legal_source(Some("LBK nr 1324 af 21/11/2023".to_string()));
 
     // 1. Create (Add)
-    let id1 = project.add_concept(c1.clone()).expect("Gyldigt begreb skal tilføjes");
+    let id1 = project
+        .add_concept(c1.clone())
+        .expect("Gyldigt begreb skal tilføjes");
     assert_eq!(project.concepts().len(), 1);
-    assert_eq!(project.get_concept(id1).unwrap().preferred_term(), "Køretøj");
+    assert_eq!(
+        project.get_concept(id1).unwrap().preferred_term(),
+        "Køretøj"
+    );
 
     // 2. Reject Invalid Concept
     let invalid = Concept::new("", "Ugyldig uden term", BelongsToDomain::Yes);
@@ -111,7 +131,9 @@ fn test_fda_project_concept_crud() {
     // 3. Update
     let mut updated = project.get_concept(id1).unwrap().clone();
     updated.set_definition("Opdateret præcis definition af køretøj.");
-    project.update_concept(updated).expect("Opdatering skal lykkes");
+    project
+        .update_concept(updated)
+        .expect("Opdatering skal lykkes");
     assert_eq!(
         project.get_concept(id1).unwrap().definition(),
         "Opdateret præcis definition af køretøj."
@@ -135,14 +157,26 @@ fn test_concept_list_ui_crud_cycle() {
     assert!(app.is_editing_concept());
 
     // 2. Udfyld felter
-    let _ = app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "Personbil".to_string()));
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::PreferredTerm,
+        "Personbil".to_string(),
+    ));
     let _ = app.update(Message::UpdateConceptField(
         ConceptFormField::Definition,
         "Køretøj indrettet til befordring af højst 9 personer.".to_string(),
     ));
-    let _ = app.update(Message::UpdateConceptField(ConceptFormField::BelongsToDomain, "Ja".to_string()));
-    let _ = app.update(Message::UpdateConceptField(ConceptFormField::Source, "Færdselsloven".to_string()));
-    let _ = app.update(Message::UpdateConceptField(ConceptFormField::LegalSource, "LBK nr 1324".to_string()));
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::BelongsToDomain,
+        "Ja".to_string(),
+    ));
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::Source,
+        "Færdselsloven".to_string(),
+    ));
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::LegalSource,
+        "LBK nr 1324".to_string(),
+    ));
 
     // 3. Gem begreb
     let _ = app.update(Message::SaveConcept);
@@ -155,7 +189,10 @@ fn test_concept_list_ui_crud_cycle() {
     let id = {
         let saved = &app.project().concepts()[0];
         assert_eq!(saved.preferred_term(), "Personbil");
-        assert_eq!(saved.definition(), "Køretøj indrettet til befordring af højst 9 personer.");
+        assert_eq!(
+            saved.definition(),
+            "Køretøj indrettet til befordring af højst 9 personer."
+        );
         assert_eq!(saved.belongs_to_domain(), &BelongsToDomain::Yes);
         assert_eq!(saved.source(), Some("Færdselsloven"));
         assert_eq!(saved.legal_source(), Some("LBK nr 1324"));
@@ -178,9 +215,15 @@ fn test_concept_list_ui_crud_cycle() {
     let _ = app.update(Message::EditConcept(id));
     assert!(app.is_editing_concept());
     let _ = app.view();
-    let _ = app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "Personbil (M1)".to_string()));
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::PreferredTerm,
+        "Personbil (M1)".to_string(),
+    ));
     let _ = app.update(Message::SaveConcept);
-    assert_eq!(app.project().concepts()[0].preferred_term(), "Personbil (M1)");
+    assert_eq!(
+        app.project().concepts()[0].preferred_term(),
+        "Personbil (M1)"
+    );
 
     // 6. Slet begreb
     let _ = app.update(Message::DeleteConcept(id));
@@ -202,7 +245,9 @@ fn test_keyboard_navigation_and_shortcuts() {
     assert!(!app.is_editing_concept(), "Escape skal annullere editor");
 
     // Escape lukker også fildialog
-    let _ = app.update(Message::OpenInlineFileDialog(edge::ui::app::FileDialogMode::Open));
+    let _ = app.update(Message::OpenInlineFileDialog(
+        edge::ui::app::FileDialogMode::Open,
+    ));
     assert!(app.is_file_dialog_open());
     let _ = app.update(Message::EscapePressed);
     assert!(!app.is_file_dialog_open(), "Escape skal lukke fildialog");
@@ -210,19 +255,28 @@ fn test_keyboard_navigation_and_shortcuts() {
 
 #[test]
 fn test_new_project_does_not_overwrite_disk_file() {
-    use edge::ui::app::ConceptFormField;
     use edge::features::model::storage::ProjectStorage;
+    use edge::ui::app::ConceptFormField;
 
     let temp_dir = std::env::temp_dir();
-    let file_path = temp_dir.join(format!("test_edge_no_overwrite_{}.edge.json", uuid::Uuid::new_v4()));
+    let file_path = temp_dir.join(format!(
+        "test_edge_no_overwrite_{}.edge.json",
+        uuid::Uuid::new_v4()
+    ));
 
     let mut app = App::new_with_path(Some(file_path.clone()));
 
     // Opret et begreb så filen findes på disk med data
     let _ = app.update(Message::SelectTab(Tab::ConceptList));
     let _ = app.update(Message::StartNewConcept);
-    let _ = app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "TestTerm".to_string()));
-    let _ = app.update(Message::UpdateConceptField(ConceptFormField::Definition, "TestDefinition".to_string()));
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::PreferredTerm,
+        "TestTerm".to_string(),
+    ));
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::Definition,
+        "TestDefinition".to_string(),
+    ));
     let _ = app.update(Message::SaveConcept);
 
     let on_disk_before = ProjectStorage::load_from_file(&file_path).expect("Skal kunne læses");
@@ -231,11 +285,20 @@ fn test_new_project_does_not_overwrite_disk_file() {
     // Tryk "Nyt Projekt"
     let _ = app.update(Message::NewProject);
     assert!(app.project().concepts().is_empty());
-    assert_eq!(app.current_file_path(), None, "Nyt projekt skal nulstille aktiv filsti");
+    assert_eq!(
+        app.current_file_path(),
+        None,
+        "Nyt projekt skal nulstille aktiv filsti"
+    );
 
     // Verificer at filen på disken STADIG indeholder det oprindelige begreb!
-    let on_disk_after = ProjectStorage::load_from_file(&file_path).expect("Skal stadig kunne læses");
-    assert_eq!(on_disk_after.concepts().len(), 1, "Nyt projekt må IKKE slette eksisterende fil på disk");
+    let on_disk_after =
+        ProjectStorage::load_from_file(&file_path).expect("Skal stadig kunne læses");
+    assert_eq!(
+        on_disk_after.concepts().len(),
+        1,
+        "Nyt projekt må IKKE slette eksisterende fil på disk"
+    );
 
     let _ = std::fs::remove_file(file_path);
 }
@@ -245,10 +308,17 @@ fn test_project_storage_roundtrip_and_atomic_save() {
     use edge::features::model::storage::ProjectStorage;
 
     let temp_dir = std::env::temp_dir();
-    let file_path = temp_dir.join(format!("test_edge_project_{}.edge.json", uuid::Uuid::new_v4()));
+    let file_path = temp_dir.join(format!(
+        "test_edge_project_{}.edge.json",
+        uuid::Uuid::new_v4()
+    ));
 
     let mut project = ModelProject::default();
-    let mut c1 = Concept::new("Vej", "Færdselsareal for køretøjer og fodgængere.", BelongsToDomain::Yes);
+    let mut c1 = Concept::new(
+        "Vej",
+        "Færdselsareal for køretøjer og fodgængere.",
+        BelongsToDomain::Yes,
+    );
     c1.set_legal_source(Some("Vejloven § 3".to_string()));
     project.add_concept(c1).unwrap();
 
@@ -258,7 +328,8 @@ fn test_project_storage_roundtrip_and_atomic_save() {
     assert!(file_path.exists(), "Projektfil skal eksistere på disken");
 
     // 2. Indlæs fra fil
-    let loaded = ProjectStorage::load_from_file(&file_path).expect("Skal kunne indlæse gemt projektfil");
+    let loaded =
+        ProjectStorage::load_from_file(&file_path).expect("Skal kunne indlæse gemt projektfil");
     assert_eq!(loaded.metadata().name(), project.metadata().name());
     assert_eq!(loaded.concepts().len(), 1);
     assert_eq!(loaded.concepts()[0].preferred_term(), "Vej");
@@ -270,11 +341,14 @@ fn test_project_storage_roundtrip_and_atomic_save() {
 
 #[test]
 fn test_app_autosave_lifecycle() {
-    use edge::ui::app::ConceptFormField;
     use edge::features::model::storage::ProjectStorage;
+    use edge::ui::app::ConceptFormField;
 
     let temp_dir = std::env::temp_dir();
-    let file_path = temp_dir.join(format!("test_edge_autosave_{}.edge.json", uuid::Uuid::new_v4()));
+    let file_path = temp_dir.join(format!(
+        "test_edge_autosave_{}.edge.json",
+        uuid::Uuid::new_v4()
+    ));
 
     let mut app = App::new_with_path(Some(file_path.clone()));
     assert_eq!(app.current_file_path(), Some(&file_path));
@@ -282,12 +356,22 @@ fn test_app_autosave_lifecycle() {
     // 1. Opret begreb -> autosave skal opdatere filen på disken
     let _ = app.update(Message::SelectTab(Tab::ConceptList));
     let _ = app.update(Message::StartNewConcept);
-    let _ = app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "Cykelsti".to_string()));
-    let _ = app.update(Message::UpdateConceptField(ConceptFormField::Definition, "Færdselsareal forbeholdt cykler.".to_string()));
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::PreferredTerm,
+        "Cykelsti".to_string(),
+    ));
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::Definition,
+        "Færdselsareal forbeholdt cykler.".to_string(),
+    ));
     let _ = app.update(Message::SaveConcept);
 
-    assert!(file_path.exists(), "Autosave skal have oprettet filen på disken");
-    let on_disk = ProjectStorage::load_from_file(&file_path).expect("Skal kunne læse autosaved fil");
+    assert!(
+        file_path.exists(),
+        "Autosave skal have oprettet filen på disken"
+    );
+    let on_disk =
+        ProjectStorage::load_from_file(&file_path).expect("Skal kunne læse autosaved fil");
     assert_eq!(on_disk.concepts().len(), 1);
     assert_eq!(on_disk.concepts()[0].preferred_term(), "Cykelsti");
 
@@ -295,8 +379,12 @@ fn test_app_autosave_lifecycle() {
     let id = on_disk.concepts()[0].id();
     let _ = app.update(Message::DeleteConcept(id));
 
-    let on_disk_after_del = ProjectStorage::load_from_file(&file_path).expect("Skal kunne læse efter sletning");
-    assert!(on_disk_after_del.concepts().is_empty(), "Autosaved fil skal have 0 begreber efter sletning");
+    let on_disk_after_del =
+        ProjectStorage::load_from_file(&file_path).expect("Skal kunne læse efter sletning");
+    assert!(
+        on_disk_after_del.concepts().is_empty(),
+        "Autosaved fil skal have 0 begreber efter sletning"
+    );
 
     // Oprydning
     let _ = std::fs::remove_file(file_path);
@@ -308,7 +396,10 @@ fn test_concept_graph_lifecycle_and_persistence() {
     use edge::features::model::storage::ProjectStorage;
 
     let temp_dir = std::env::temp_dir();
-    let file_path = temp_dir.join(format!("test_edge_graph_{}.edge.json", uuid::Uuid::new_v4()));
+    let file_path = temp_dir.join(format!(
+        "test_edge_graph_{}.edge.json",
+        uuid::Uuid::new_v4()
+    ));
 
     let mut project = ModelProject::default();
 
@@ -316,7 +407,11 @@ fn test_concept_graph_lifecycle_and_persistence() {
     c1.set_legal_source(Some("Færdselsloven § 2".to_string()));
     let id1 = project.add_concept(c1).unwrap();
 
-    let c2 = Concept::new("Personbil", "Køretøj til højst 9 personer...", BelongsToDomain::Yes);
+    let c2 = Concept::new(
+        "Personbil",
+        "Køretøj til højst 9 personer...",
+        BelongsToDomain::Yes,
+    );
     let id2 = project.add_concept(c2).unwrap();
 
     let c3 = Concept::new("Person", "CPR-registreret person...", BelongsToDomain::No);
@@ -327,9 +422,15 @@ fn test_concept_graph_lifecycle_and_persistence() {
     let graph = project.concept_graph();
     assert_eq!(graph.node_count(), 3, "Skal have 3 noder i grafen");
 
-    let node1 = graph.find_node_by_concept(id1).expect("Skal finde node for Køretøj");
-    let node2 = graph.find_node_by_concept(id2).expect("Skal finde node for Personbil");
-    let node3 = graph.find_node_by_concept(id3).expect("Skal finde node for Person");
+    let node1 = graph
+        .find_node_by_concept(id1)
+        .expect("Skal finde node for Køretøj");
+    let node2 = graph
+        .find_node_by_concept(id2)
+        .expect("Skal finde node for Personbil");
+    let node3 = graph
+        .find_node_by_concept(id3)
+        .expect("Skal finde node for Person");
 
     assert_eq!(node1.label(), "Køretøj");
     assert!(node1.is_local(), "Køretøj er lokalt begreb (FDA sand)");
@@ -340,7 +441,9 @@ fn test_concept_graph_lifecycle_and_persistence() {
     let n3_id = node3.id();
 
     // 2. Opret UML relationer: Generalisering (Personbil -> Køretøj) og Association (Person -> Personbil)
-    project.concept_graph_mut().add_relation(n2_id, n1_id, RelationKind::Generalization);
+    project
+        .concept_graph_mut()
+        .add_relation(n2_id, n1_id, RelationKind::Generalization);
     project.concept_graph_mut().add_relation_with_label(
         n3_id,
         n2_id,
@@ -350,20 +453,26 @@ fn test_concept_graph_lifecycle_and_persistence() {
     assert_eq!(project.concept_graph().edge_count(), 2);
 
     // 3. Flyt node position (bruger trækker node på lærredet)
-    project.concept_graph_mut().update_node_position(n1_id, 320.0, 140.0);
+    project
+        .concept_graph_mut()
+        .update_node_position(n1_id, 320.0, 140.0);
     let moved_node = project.concept_graph().find_node(n1_id).unwrap();
     assert_eq!(moved_node.x(), 320.0);
     assert_eq!(moved_node.y(), 140.0);
 
     // 4. Persistens roundtrip: Gem til .edge.json og indlæs igen
     ProjectStorage::save_to_file(&project, &file_path).expect("Skal kunne gemme projekt med graf");
-    let loaded = ProjectStorage::load_from_file(&file_path).expect("Skal kunne indlæse projekt med graf");
+    let loaded =
+        ProjectStorage::load_from_file(&file_path).expect("Skal kunne indlæse projekt med graf");
 
     assert_eq!(loaded.concepts().len(), 3);
     assert_eq!(loaded.concept_graph().node_count(), 3);
     assert_eq!(loaded.concept_graph().edge_count(), 2);
 
-    let loaded_n1 = loaded.concept_graph().find_node(n1_id).expect("Node1 skal findes efter indlæsning");
+    let loaded_n1 = loaded
+        .concept_graph()
+        .find_node(n1_id)
+        .expect("Node1 skal findes efter indlæsning");
     assert_eq!(loaded_n1.x(), 320.0);
     assert_eq!(loaded_n1.y(), 140.0);
 
@@ -394,9 +503,8 @@ fn test_concept_graph_lifecycle_and_persistence() {
 #[test]
 fn test_ui_theme_tokens_and_widget_styles() {
     use edge::ui::theme::{
-        ThemeColors, card_container_style, pill_container_style,
-        primary_button_style, secondary_button_style, modern_input_style,
-        modal_backdrop_style, modal_card_style,
+        card_container_style, modal_backdrop_style, modal_card_style, modern_input_style,
+        pill_container_style, primary_button_style, secondary_button_style, ThemeColors,
     };
     use iced::Theme;
 
@@ -434,7 +542,10 @@ fn test_ui_theme_tokens_and_widget_styles() {
 
     // 4. Verificer input style
     let input_active = modern_input_style(&theme, iced::widget::text_input::Status::Active);
-    let input_focused = modern_input_style(&theme, iced::widget::text_input::Status::Focused { is_hovered: false });
+    let input_focused = modern_input_style(
+        &theme,
+        iced::widget::text_input::Status::Focused { is_hovered: false },
+    );
     assert_ne!(input_active.border.color, input_focused.border.color);
 }
 
@@ -443,7 +554,9 @@ fn test_app_modal_overlay_rendering() {
     let mut app = App::new_with_path(None);
 
     // 1. Åbn fildialog og verificer at modal view renderes uden panic
-    let _ = app.update(Message::OpenInlineFileDialog(edge::ui::app::FileDialogMode::SaveAs));
+    let _ = app.update(Message::OpenInlineFileDialog(
+        edge::ui::app::FileDialogMode::SaveAs,
+    ));
     assert!(app.is_file_dialog_open());
     let _ = app.view();
 
@@ -463,5 +576,3 @@ fn test_app_modal_overlay_rendering() {
     assert!(!app.is_relation_dialog_open());
     let _ = app.view();
 }
-
-

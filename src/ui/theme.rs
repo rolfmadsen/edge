@@ -268,7 +268,9 @@ pub fn danger_button_style(_theme: &iced::Theme, status: button::Status) -> butt
     }
 }
 
-pub fn segmented_tab_button(is_active: bool) -> impl Fn(&iced::Theme, button::Status) -> button::Style {
+pub fn segmented_tab_button(
+    is_active: bool,
+) -> impl Fn(&iced::Theme, button::Status) -> button::Style {
     move |_theme, status| {
         if is_active {
             button::Style {

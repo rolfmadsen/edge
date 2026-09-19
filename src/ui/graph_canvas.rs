@@ -124,13 +124,25 @@ impl<'a, Message> Program<Message, Theme, Renderer> for GraphCanvas<'a, Message>
                             let uy = dy / len;
 
                             // Træk spidsen tilbage til kanten af noden ca.
-                            let target_pt = Point::new(p2.x - ux * (to.width() * 0.35), p2.y - uy * (to.height() * 0.35));
+                            let target_pt = Point::new(
+                                p2.x - ux * (to.width() * 0.35),
+                                p2.y - uy * (to.height() * 0.35),
+                            );
                             let arrow_len = 16.0;
                             let arrow_width = 8.0;
 
-                            let base_pt = Point::new(target_pt.x - ux * arrow_len, target_pt.y - uy * arrow_len);
-                            let left_pt = Point::new(base_pt.x - uy * arrow_width, base_pt.y + ux * arrow_width);
-                            let right_pt = Point::new(base_pt.x + uy * arrow_width, base_pt.y - ux * arrow_width);
+                            let base_pt = Point::new(
+                                target_pt.x - ux * arrow_len,
+                                target_pt.y - uy * arrow_len,
+                            );
+                            let left_pt = Point::new(
+                                base_pt.x - uy * arrow_width,
+                                base_pt.y + ux * arrow_width,
+                            );
+                            let right_pt = Point::new(
+                                base_pt.x + uy * arrow_width,
+                                base_pt.y - ux * arrow_width,
+                            );
 
                             let triangle = Path::new(|b| {
                                 b.move_to(target_pt);
@@ -186,11 +198,8 @@ impl<'a, Message> Program<Message, Theme, Renderer> for GraphCanvas<'a, Message>
             let radius = 8.0;
 
             // Subtil skygge for dybdevirkning
-            let shadow_path = Path::rounded_rectangle(
-                Point::new(node.x(), node.y() + 2.0),
-                size,
-                radius.into(),
-            );
+            let shadow_path =
+                Path::rounded_rectangle(Point::new(node.x(), node.y() + 2.0), size, radius.into());
             frame.fill(&shadow_path, Color::from_rgba(0.05, 0.1, 0.2, 0.07));
 
             let node_path = Path::rounded_rectangle(top_left, size, radius.into());

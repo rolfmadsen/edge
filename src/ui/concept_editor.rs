@@ -127,7 +127,12 @@ impl ConceptEditorState {
             drop(val);
             // Concept::new genererer et nyt UUID, men ved update vil ModelProject opdatere efter id
             // Lad os tilføje en setter eller sikre id bevares
-            concept = Concept::new_with_id(id, &self.preferred_term, &self.definition, BelongsToDomain::from_str_loose(&self.belongs_to_domain));
+            concept = Concept::new_with_id(
+                id,
+                &self.preferred_term,
+                &self.definition,
+                BelongsToDomain::from_str_loose(&self.belongs_to_domain),
+            );
         }
 
         let opt = |s: &str| {
@@ -201,23 +206,34 @@ impl ConceptEditorState {
 
         // 1. Primære felter (Foretrukken term, Emneområde)
         let term_input = column![
-            text("Foretrukken dansk term *").size(13).color(ThemeColors::SLATE_800),
-            text_input("F.eks. Køretøj, Personbil, Myndighed...", &self.preferred_term)
-                .style(modern_input_style)
-                .on_input(|v| Message::UpdateConceptField(ConceptFormField::PreferredTerm, v))
-                .padding(8),
-            text("Den officielle primære sproglige betegnelse (§18, §19)").size(11).color(ThemeColors::SLATE_500),
+            text("Foretrukken dansk term *")
+                .size(13)
+                .color(ThemeColors::SLATE_800),
+            text_input(
+                "F.eks. Køretøj, Personbil, Myndighed...",
+                &self.preferred_term
+            )
+            .style(modern_input_style)
+            .on_input(|v| Message::UpdateConceptField(ConceptFormField::PreferredTerm, v))
+            .padding(8),
+            text("Den officielle primære sproglige betegnelse (§18, §19)")
+                .size(11)
+                .color(ThemeColors::SLATE_500),
         ]
         .spacing(4)
         .width(Length::FillPortion(2));
 
         let domain_input = column![
-            text("Tilhører emneområde *").size(13).color(ThemeColors::SLATE_800),
+            text("Tilhører emneområde *")
+                .size(13)
+                .color(ThemeColors::SLATE_800),
             text_input("Ja / Nej / URI...", &self.belongs_to_domain)
                 .style(modern_input_style)
                 .on_input(|v| Message::UpdateConceptField(ConceptFormField::BelongsToDomain, v))
                 .padding(8),
-            text("Angiv Ja (lokalt), Nej eller model-URI (§26)").size(11).color(ThemeColors::SLATE_500),
+            text("Angiv Ja (lokalt), Nej eller model-URI (§26)")
+                .size(11)
+                .color(ThemeColors::SLATE_500),
         ]
         .spacing(4)
         .width(Length::FillPortion(1));
@@ -242,7 +258,9 @@ impl ConceptEditorState {
 
         // 3. Kilder
         let legal_source_input = column![
-            text("Juridisk kilde (Lovhjemmel)").size(13).color(ThemeColors::SLATE_800),
+            text("Juridisk kilde (Lovhjemmel)")
+                .size(13)
+                .color(ThemeColors::SLATE_800),
             text_input("F.eks. LBK nr 1324 af 21/11/2023 § 2", &self.legal_source)
                 .style(modern_input_style)
                 .on_input(|v| Message::UpdateConceptField(ConceptFormField::LegalSource, v))
@@ -253,20 +271,24 @@ impl ConceptEditorState {
 
         let general_source_input = column![
             text("Kilde").size(13).color(ThemeColors::SLATE_800),
-            text_input("F.eks. Dansk Standard, ISO 10241, fagordbog...", &self.source)
-                .style(modern_input_style)
-                .on_input(|v| Message::UpdateConceptField(ConceptFormField::Source, v))
-                .padding(8),
+            text_input(
+                "F.eks. Dansk Standard, ISO 10241, fagordbog...",
+                &self.source
+            )
+            .style(modern_input_style)
+            .on_input(|v| Message::UpdateConceptField(ConceptFormField::Source, v))
+            .padding(8),
         ]
         .spacing(4)
         .width(Length::FillPortion(1));
 
         let sources_row = row![legal_source_input, general_source_input].spacing(16);
 
-        let primary_card = container(column![term_domain_row, definition_input, sources_row].spacing(14))
-            .style(card_container_style)
-            .padding(16)
-            .width(Length::Fill);
+        let primary_card =
+            container(column![term_domain_row, definition_input, sources_row].spacing(14))
+                .style(card_container_style)
+                .padding(16)
+                .width(Length::Fill);
 
         form = form.push(primary_card);
 
@@ -289,19 +311,29 @@ impl ConceptEditorState {
             let supplementary_content = column![
                 row![
                     column![
-                        text("Accepteret dansk term").size(13).color(ThemeColors::SLATE_700),
+                        text("Accepteret dansk term")
+                            .size(13)
+                            .color(ThemeColors::SLATE_700),
                         text_input("Synonym eller tilladt betegnelse...", &self.accepted_term)
                             .style(modern_input_style)
-                            .on_input(|v| Message::UpdateConceptField(ConceptFormField::AcceptedTerm, v))
+                            .on_input(|v| Message::UpdateConceptField(
+                                ConceptFormField::AcceptedTerm,
+                                v
+                            ))
                             .padding(8),
                     ]
                     .spacing(4)
                     .width(Length::FillPortion(1)),
                     column![
-                        text("Frarådet dansk term").size(13).color(ThemeColors::SLATE_700),
+                        text("Frarådet dansk term")
+                            .size(13)
+                            .color(ThemeColors::SLATE_700),
                         text_input("Betegnelse der ikke bør anvendes...", &self.deprecated_term)
                             .style(modern_input_style)
-                            .on_input(|v| Message::UpdateConceptField(ConceptFormField::DeprecatedTerm, v))
+                            .on_input(|v| Message::UpdateConceptField(
+                                ConceptFormField::DeprecatedTerm,
+                                v
+                            ))
                             .padding(8),
                     ]
                     .spacing(4)
@@ -330,20 +362,30 @@ impl ConceptEditorState {
                 ]
                 .spacing(16),
                 column![
-                    text("Anvendelsesnote").size(13).color(ThemeColors::SLATE_700),
-                    text_input("Note om specifik anvendelseskontekst...", &self.application_note)
-                        .style(modern_input_style)
-                        .on_input(|v| Message::UpdateConceptField(ConceptFormField::ApplicationNote, v))
-                        .padding(8),
+                    text("Anvendelsesnote")
+                        .size(13)
+                        .color(ThemeColors::SLATE_700),
+                    text_input(
+                        "Note om specifik anvendelseskontekst...",
+                        &self.application_note
+                    )
+                    .style(modern_input_style)
+                    .on_input(|v| Message::UpdateConceptField(ConceptFormField::ApplicationNote, v))
+                    .padding(8),
                 ]
                 .spacing(4),
                 row![
                     column![
-                        text("Identifikator (HTTP-URI)").size(13).color(ThemeColors::SLATE_700),
-                        text_input("https://data.gov.dk/model/core/domain/Term", &self.identifier)
-                            .style(modern_input_style)
-                            .on_input(|v| Message::UpdateConceptField(ConceptFormField::Identifier, v))
-                            .padding(8),
+                        text("Identifikator (HTTP-URI)")
+                            .size(13)
+                            .color(ThemeColors::SLATE_700),
+                        text_input(
+                            "https://data.gov.dk/model/core/domain/Term",
+                            &self.identifier
+                        )
+                        .style(modern_input_style)
+                        .on_input(|v| Message::UpdateConceptField(ConceptFormField::Identifier, v))
+                        .padding(8),
                     ]
                     .spacing(4)
                     .width(Length::FillPortion(1)),
@@ -351,7 +393,10 @@ impl ConceptEditorState {
                         text("Afledt af").size(13).color(ThemeColors::SLATE_700),
                         text_input("HTTP-URI på oprindeligt begreb...", &self.derived_from)
                             .style(modern_input_style)
-                            .on_input(|v| Message::UpdateConceptField(ConceptFormField::DerivedFrom, v))
+                            .on_input(|v| Message::UpdateConceptField(
+                                ConceptFormField::DerivedFrom,
+                                v
+                            ))
                             .padding(8),
                     ]
                     .spacing(4)
@@ -375,10 +420,17 @@ impl ConceptEditorState {
                 .style(secondary_button_style)
                 .on_press(Message::CancelConceptEdit)
                 .padding([8, 16]),
-            button(text(if is_edit { "Gem ændringer" } else { "Opret begreb" }).size(13))
-                .style(primary_button_style)
-                .on_press(Message::SaveConcept)
-                .padding([8, 20]),
+            button(
+                text(if is_edit {
+                    "Gem ændringer"
+                } else {
+                    "Opret begreb"
+                })
+                .size(13)
+            )
+            .style(primary_button_style)
+            .on_press(Message::SaveConcept)
+            .padding([8, 20]),
         ]
         .spacing(12)
         .align_y(Alignment::Center);

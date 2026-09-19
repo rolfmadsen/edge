@@ -189,7 +189,8 @@ impl ConceptGraph {
         kind: RelationKind,
         label: Option<String>,
     ) {
-        self.edges.push(DiagramEdge::with_label(from, to, kind, label));
+        self.edges
+            .push(DiagramEdge::with_label(from, to, kind, label));
     }
 
     pub fn node_count(&self) -> usize {

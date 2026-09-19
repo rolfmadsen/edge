@@ -151,7 +151,9 @@ impl ModelProject {
             self.sync_concept_graph();
             Ok(())
         } else {
-            Err(ValidationError::MissingRequiredField("Begreb ikke fundet i projekt"))
+            Err(ValidationError::MissingRequiredField(
+                "Begreb ikke fundet i projekt",
+            ))
         }
     }
 
@@ -179,4 +181,3 @@ impl Default for ModelProject {
         ))
     }
 }
-

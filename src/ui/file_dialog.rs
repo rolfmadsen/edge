@@ -70,7 +70,10 @@ pub fn scan_local_project_files(dir: &Path) -> Vec<PathBuf> {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() {
-                let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+                let filename = path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or_default();
                 if filename.ends_with(".edge.json") || filename.ends_with(".edge") {
                     files.push(path);
                 }

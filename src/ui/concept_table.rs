@@ -13,11 +13,14 @@ pub fn view<'a>(
     search_query: &'a str,
 ) -> Element<'a, Message> {
     // 1. Top bar: Søgning, statistik og "Opret"-knap
-    let search_bar = text_input("🔍 Søg i foretrukken term, definition eller kilder...", search_query)
-        .style(modern_input_style)
-        .on_input(Message::SearchQueryChanged)
-        .padding(9)
-        .width(Length::FillPortion(3));
+    let search_bar = text_input(
+        "🔍 Søg i foretrukken term, definition eller kilder...",
+        search_query,
+    )
+    .style(modern_input_style)
+    .on_input(Message::SearchQueryChanged)
+    .padding(9)
+    .width(Length::FillPortion(3));
 
     let count_badge = container(
         row![
@@ -51,14 +54,30 @@ pub fn view<'a>(
 
     // 2. Tabelhoved
     let header_row = row![
-        container(text("Foretrukken term").size(12).color(ThemeColors::SLATE_600))
-            .width(Length::FillPortion(2)),
-        container(text("Definition (FDA Bilag D & E)").size(12).color(ThemeColors::SLATE_600))
-            .width(Length::FillPortion(4)),
-        container(text("Kilder (Juridisk / Almen)").size(12).color(ThemeColors::SLATE_600))
-            .width(Length::FillPortion(2)),
-        container(text("Emneområde (§26)").size(12).color(ThemeColors::SLATE_600))
-            .width(Length::FillPortion(2)),
+        container(
+            text("Foretrukken term")
+                .size(12)
+                .color(ThemeColors::SLATE_600)
+        )
+        .width(Length::FillPortion(2)),
+        container(
+            text("Definition (FDA Bilag D & E)")
+                .size(12)
+                .color(ThemeColors::SLATE_600)
+        )
+        .width(Length::FillPortion(4)),
+        container(
+            text("Kilder (Juridisk / Almen)")
+                .size(12)
+                .color(ThemeColors::SLATE_600)
+        )
+        .width(Length::FillPortion(2)),
+        container(
+            text("Emneområde (§26)")
+                .size(12)
+                .color(ThemeColors::SLATE_600)
+        )
+        .width(Length::FillPortion(2)),
         container(text("Handlinger").size(12).color(ThemeColors::SLATE_600))
             .width(Length::FillPortion(2)),
     ]
@@ -117,35 +136,49 @@ pub fn view<'a>(
             let id = concept.id();
 
             // Foretrukken term kolonne
-            let mut term_content = column![text(concept.preferred_term()).size(14).color(ThemeColors::SLATE_900)].spacing(2);
+            let mut term_content = column![text(concept.preferred_term())
+                .size(14)
+                .color(ThemeColors::SLATE_900)]
+            .spacing(2);
             if let Some(uri) = concept.identifier() {
                 term_content = term_content.push(text(uri).size(11).color(ThemeColors::TEXT_MUTED));
             }
 
             // Definition kolonne
-            let def_content = text(concept.definition()).size(13).color(ThemeColors::SLATE_800);
+            let def_content = text(concept.definition())
+                .size(13)
+                .color(ThemeColors::SLATE_800);
 
             // Kilde kolonne
             let mut sources_content = column![].spacing(3);
             if let Some(legal) = concept.legal_source() {
                 sources_content = sources_content.push(
-                    container(text(format!("§ {}", legal)).size(11).color(ThemeColors::PRIMARY))
-                        .style(|_| container::Style {
-                            background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
-                            border: iced::Border {
-                                color: ThemeColors::PRIMARY,
-                                width: 0.5,
-                                radius: 4.0.into(),
-                            },
-                            ..Default::default()
-                        })
-                        .padding([2, 6])
+                    container(
+                        text(format!("§ {}", legal))
+                            .size(11)
+                            .color(ThemeColors::PRIMARY),
+                    )
+                    .style(|_| container::Style {
+                        background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
+                        border: iced::Border {
+                            color: ThemeColors::PRIMARY,
+                            width: 0.5,
+                            radius: 4.0.into(),
+                        },
+                        ..Default::default()
+                    })
+                    .padding([2, 6]),
                 );
             }
             if let Some(src) = concept.source() {
-                sources_content = sources_content.push(text(src).size(11).color(ThemeColors::SLATE_600));
+                sources_content =
+                    sources_content.push(text(src).size(11).color(ThemeColors::SLATE_600));
             } else if concept.legal_source().is_none() {
-                sources_content = sources_content.push(text("Ingen kilde angivet").size(11).color(ThemeColors::TEXT_MUTED));
+                sources_content = sources_content.push(
+                    text("Ingen kilde angivet")
+                        .size(11)
+                        .color(ThemeColors::TEXT_MUTED),
+                );
             }
 
             // Emneområde kolonne - FDA Anbefalede Farver jf. Kapitel 7.3
