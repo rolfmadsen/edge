@@ -73,16 +73,16 @@ fn test_progression_from_concept_to_graph_and_information_model() {
 
 #[test]
 fn test_ui_app_state_and_tab_switching() {
-    let mut app = App::new();
+    let mut app = App::new_with_path(None);
     assert_eq!(app.active_tab(), Tab::Metadata);
 
-    app.update(Message::SelectTab(Tab::ConceptList));
+    let _ = app.update(Message::SelectTab(Tab::ConceptList));
     assert_eq!(app.active_tab(), Tab::ConceptList);
 
-    app.update(Message::SelectTab(Tab::ConceptModel));
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
     assert_eq!(app.active_tab(), Tab::ConceptModel);
 
-    app.update(Message::SelectTab(Tab::InformationModel));
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
     assert_eq!(app.active_tab(), Tab::InformationModel);
 }
 
@@ -127,25 +127,25 @@ fn test_fda_project_concept_crud() {
 fn test_concept_list_ui_crud_cycle() {
     use edge::ui::app::ConceptFormField;
 
-    let mut app = App::new();
-    app.update(Message::SelectTab(Tab::ConceptList));
+    let mut app = App::new_with_path(None);
+    let _ = app.update(Message::SelectTab(Tab::ConceptList));
 
     // 1. Start nyt begreb
-    app.update(Message::StartNewConcept);
+    let _ = app.update(Message::StartNewConcept);
     assert!(app.is_editing_concept());
 
     // 2. Udfyld felter
-    app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "Personbil".to_string()));
-    app.update(Message::UpdateConceptField(
+    let _ = app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "Personbil".to_string()));
+    let _ = app.update(Message::UpdateConceptField(
         ConceptFormField::Definition,
         "Køretøj indrettet til befordring af højst 9 personer.".to_string(),
     ));
-    app.update(Message::UpdateConceptField(ConceptFormField::BelongsToDomain, "Ja".to_string()));
-    app.update(Message::UpdateConceptField(ConceptFormField::Source, "Færdselsloven".to_string()));
-    app.update(Message::UpdateConceptField(ConceptFormField::LegalSource, "LBK nr 1324".to_string()));
+    let _ = app.update(Message::UpdateConceptField(ConceptFormField::BelongsToDomain, "Ja".to_string()));
+    let _ = app.update(Message::UpdateConceptField(ConceptFormField::Source, "Færdselsloven".to_string()));
+    let _ = app.update(Message::UpdateConceptField(ConceptFormField::LegalSource, "LBK nr 1324".to_string()));
 
     // 3. Gem begreb
-    app.update(Message::SaveConcept);
+    let _ = app.update(Message::SaveConcept);
     assert!(!app.is_editing_concept());
     assert_eq!(app.project().concepts().len(), 1);
 
@@ -163,28 +163,49 @@ fn test_concept_list_ui_crud_cycle() {
     };
 
     // 4. Søgning / filtrering
-    app.update(Message::SearchQueryChanged("Person".to_string()));
+    let _ = app.update(Message::SearchQueryChanged("Person".to_string()));
     assert_eq!(app.filtered_concepts().len(), 1);
     let _ = app.view();
 
-    app.update(Message::SearchQueryChanged("Ukendt".to_string()));
+    let _ = app.update(Message::SearchQueryChanged("Ukendt".to_string()));
     assert_eq!(app.filtered_concepts().len(), 0);
     let _ = app.view();
 
-    app.update(Message::SearchQueryChanged("".to_string()));
+    let _ = app.update(Message::SearchQueryChanged("".to_string()));
     assert_eq!(app.filtered_concepts().len(), 1);
 
     // 5. Rediger begreb
-    app.update(Message::EditConcept(id));
+    let _ = app.update(Message::EditConcept(id));
     assert!(app.is_editing_concept());
     let _ = app.view();
-    app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "Personbil (M1)".to_string()));
-    app.update(Message::SaveConcept);
+    let _ = app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "Personbil (M1)".to_string()));
+    let _ = app.update(Message::SaveConcept);
     assert_eq!(app.project().concepts()[0].preferred_term(), "Personbil (M1)");
 
     // 6. Slet begreb
-    app.update(Message::DeleteConcept(id));
+    let _ = app.update(Message::DeleteConcept(id));
     assert!(app.project().concepts().is_empty());
+}
+
+#[test]
+fn test_keyboard_navigation_and_shortcuts() {
+    let mut app = App::new_with_path(None);
+
+    // FocusNext og FocusPrevious returnerer gyldige tasks
+    let _ = app.update(Message::FocusNext);
+    let _ = app.update(Message::FocusPrevious);
+
+    // Escape lukker editor
+    let _ = app.update(Message::StartNewConcept);
+    assert!(app.is_editing_concept());
+    let _ = app.update(Message::EscapePressed);
+    assert!(!app.is_editing_concept(), "Escape skal annullere editor");
+
+    // Escape lukker også fildialog
+    let _ = app.update(Message::OpenProjectDialog);
+    assert!(app.is_file_dialog_open());
+    let _ = app.update(Message::EscapePressed);
+    assert!(!app.is_file_dialog_open(), "Escape skal lukke fildialog");
 }
 
 #[test]
@@ -227,11 +248,11 @@ fn test_app_autosave_lifecycle() {
     assert_eq!(app.current_file_path(), Some(&file_path));
 
     // 1. Opret begreb -> autosave skal opdatere filen på disken
-    app.update(Message::SelectTab(Tab::ConceptList));
-    app.update(Message::StartNewConcept);
-    app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "Cykelsti".to_string()));
-    app.update(Message::UpdateConceptField(ConceptFormField::Definition, "Færdselsareal forbeholdt cykler.".to_string()));
-    app.update(Message::SaveConcept);
+    let _ = app.update(Message::SelectTab(Tab::ConceptList));
+    let _ = app.update(Message::StartNewConcept);
+    let _ = app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "Cykelsti".to_string()));
+    let _ = app.update(Message::UpdateConceptField(ConceptFormField::Definition, "Færdselsareal forbeholdt cykler.".to_string()));
+    let _ = app.update(Message::SaveConcept);
 
     assert!(file_path.exists(), "Autosave skal have oprettet filen på disken");
     let on_disk = ProjectStorage::load_from_file(&file_path).expect("Skal kunne læse autosaved fil");
@@ -240,7 +261,7 @@ fn test_app_autosave_lifecycle() {
 
     // 2. Slet begreb -> autosave skal genskrive filen på disken
     let id = on_disk.concepts()[0].id();
-    app.update(Message::DeleteConcept(id));
+    let _ = app.update(Message::DeleteConcept(id));
 
     let on_disk_after_del = ProjectStorage::load_from_file(&file_path).expect("Skal kunne læse efter sletning");
     assert!(on_disk_after_del.concepts().is_empty(), "Autosaved fil skal have 0 begreber efter sletning");

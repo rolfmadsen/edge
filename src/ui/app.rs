@@ -4,8 +4,11 @@ use crate::features::model::ModelProject;
 use crate::ui::concept_editor::ConceptEditorState;
 use crate::ui::concept_table;
 use crate::ui::theme::ThemeColors;
+use iced::event::{self, Event};
+use iced::keyboard::{self, key::Named, Key};
+use iced::widget::operation;
 use iced::widget::{button, column, container, row, text, text_input, Space};
-use iced::{Alignment, Element, Length};
+use iced::{Alignment, Element, Length, Subscription, Task};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -58,6 +61,11 @@ pub enum Message {
     ConfirmFileDialog,
     OpenProjectFile(PathBuf),
     SaveProjectToFile(PathBuf),
+
+    // Tastaturnavigation & genveje
+    FocusNext,
+    FocusPrevious,
+    EscapePressed,
 }
 
 pub struct App {
@@ -150,6 +158,10 @@ impl App {
         self.editor_state.is_some()
     }
 
+    pub fn is_file_dialog_open(&self) -> bool {
+        self.file_dialog_mode.is_some()
+    }
+
     pub fn trigger_autosave(&mut self) {
         if let Some(path) = &self.current_file_path {
             match ProjectStorage::save_to_file(&self.project, path) {
@@ -183,7 +195,7 @@ impl App {
         }
     }
 
-    pub fn update(&mut self, message: Message) {
+    pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::SelectTab(tab) => {
                 self.active_tab = tab;
@@ -285,14 +297,11 @@ impl App {
                 if let Some(mode) = self.file_dialog_mode {
                     let path = PathBuf::from(self.file_dialog_input.trim());
                     if !self.file_dialog_input.trim().is_empty() {
-                        match mode {
-                            FileDialogMode::Open => {
-                                self.update(Message::OpenProjectFile(path));
-                            }
-                            FileDialogMode::SaveAs => {
-                                self.update(Message::SaveProjectToFile(path));
-                            }
-                        }
+                        self.file_dialog_mode = None;
+                        return match mode {
+                            FileDialogMode::Open => self.update(Message::OpenProjectFile(path)),
+                            FileDialogMode::SaveAs => self.update(Message::SaveProjectToFile(path)),
+                        };
                     }
                 }
                 self.file_dialog_mode = None;
@@ -315,7 +324,50 @@ impl App {
                 self.trigger_autosave();
                 self.file_dialog_mode = None;
             }
+
+            // Tastaturnavigation & genveje
+            Message::FocusNext => {
+                return operation::focus_next();
+            }
+            Message::FocusPrevious => {
+                return operation::focus_previous();
+            }
+            Message::EscapePressed => {
+                if self.file_dialog_mode.is_some() {
+                    self.file_dialog_mode = None;
+                } else if self.editor_state.is_some() {
+                    self.editor_state = None;
+                }
+            }
         }
+
+        Task::none()
+    }
+
+    pub fn subscription(&self) -> Subscription<Message> {
+        event::listen_with(|event, _status, _window| {
+            if let Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) = event {
+                match key.as_ref() {
+                    Key::Named(Named::Tab) => {
+                        if modifiers.shift() {
+                            Some(Message::FocusPrevious)
+                        } else {
+                            Some(Message::FocusNext)
+                        }
+                    }
+                    Key::Named(Named::Escape) => Some(Message::EscapePressed),
+                    Key::Character(c)
+                        if (c == "s" || c == "S")
+                            && (modifiers.control() || modifiers.command()) =>
+                    {
+                        Some(Message::SaveProject)
+                    }
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        })
     }
 
     pub fn view(&self) -> Element<'_, Message> {
