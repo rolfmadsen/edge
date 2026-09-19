@@ -4,40 +4,40 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "002-concept-list-crud",
-    "task_title": "Task 002: Begrebsliste Tabel & CRUD jf. FDA Bilag D & E",
-    "task_digest": "236e71a61e2a90df8726f7d4fb6e5de092bbfd54117a98afe05fa45c965949b4",
+    "task_id": "003-project-persistence",
+    "task_title": "Task 003: Projektpersistens, Autosave & Git-Format",
+    "task_digest": "43565c2eea8709eb207a66106d4a0819d5a680266e7b944dd0ac91967433293f",
     "acceptance_criteria": [
-      "`ModelProject` udvides med `concepts: Vec<Concept>` og fuld domæne-CRUD (`add_concept`, `update_concept`, `remove_concept`, `get_concept`) underlagt `ConceptValidator`.",
-      "`Concept` og `BelongsToDomain` i `src/features/concepts/` understøtter samtlige felter fra FDA Bilag D & E samt hjælpemetoder til domænestatus.",
-      "UI-tabelkomponenten i `src/ui/concept_table.rs` viser en responsiv og moderne tabel med kolonnerne Foretrukken term, Definition, Kilder, Emneområde (med FDA-badge) og Handlinger.",
-      "UI-editorkomponenten i `src/ui/concept_editor.rs` tilbyder en struktureret formular til oprettelse og redigering af begreber med valideringsfeedback.",
-      "`App` i `src/ui/app.rs` understøtter den fulde TEA CRUD-livscyklus, realtidssøgning/filtrering, samt integration med Iceds native `Theme::Light` og FDA-farvepalet.",
-      "Samtlige accepttests, property-tests, clippy uden advarsler og gauntlet verifikation passerer 100%."
+      "`ProjectStorage` i `src/features/model/storage.rs` understøtter deterministisk serialisering (`save_to_file`) og deserialisering (`load_from_file`) med `serde_json` og fuld FDA-validering.",
+      "Atomisk filskrivning i `ProjectStorage` (skrivning til midlertidig fil `.tmp` efterfulgt af atomisk rename) forhindrer filkorruption.",
+      "`App` i `src/ui/app.rs` understøtter automatisk indlæsning af standard projektfil (`model.edge.json`) ved opstart, hvis den findes.",
+      "`App` udfører automatisk gemning (Autosave) til den aktive projektfil, når `ModelProject` muteres (ved oprettelse, redigering og sletning af begreber).",
+      "UI i `src/ui/app.rs` stiller knapper til rådighed for \"📁 Åbn...\", \"💾 Gem\", \"Gem som...\" samt viser diskret gemt-status i statusbaren.",
+      "100% test pass rate på unit-, persistens- og TEA-accepttests samt clippy med 0 advarsler."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "75fed5df05440fd463863d981965111e4e1b17e757eaaaf59c0716e5081397a5",
-    "source_manifest_digest_pre": "c4fce508d347c3f329c4b6f2b0940b79ee8da998a042d8c82f4037b2da6df3ff",
-    "source_manifest_digest_post": "c4fce508d347c3f329c4b6f2b0940b79ee8da998a042d8c82f4037b2da6df3ff",
+    "source_content_digest": "cffaac9f8c2c23ee7cbfe8771d22233f4956d6a9dc467383fc668dc7cd7fefdd",
+    "source_manifest_digest_pre": "4ee6e816b7d10f126004cc8696bbf913c0c0069754983b907217f5da34a41951",
+    "source_manifest_digest_post": "4ee6e816b7d10f126004cc8696bbf913c0c0069754983b907217f5da34a41951",
     "config_digest": "465c7c6ee3a07d4daeaad19b292a9dcc4df64b9cc2b072962208164523df38f8",
-    "task_digest": "236e71a61e2a90df8726f7d4fb6e5de092bbfd54117a98afe05fa45c965949b4",
-    "policy_digest": "3c4ca8194855a0b6f042bc15b2539a683fc04a5a0b49b0d5efee5779738274b6",
+    "task_digest": "43565c2eea8709eb207a66106d4a0819d5a680266e7b944dd0ac91967433293f",
+    "policy_digest": "81fb63c224f5235c4eddc73b37dfc4c7323ca1771af16482b3e8b673cdae5fea",
     "check_definitions_digest": "ad2dda9df4efbcf8fd2933fe087fdab18ef447b67e5453e11e303deae237cde4",
-    "included_files_count": 28,
+    "included_files_count": 31,
     "vcs": {
       "type": "git",
-      "head": "74960a6",
-      "commit": "74960a6",
+      "head": "0e37b8d",
+      "commit": "0e37b8d",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-19T09:24:02Z",
-    "finished_at": "2026-09-19T09:24:03Z",
-    "total_duration_seconds": 0.888760841,
+    "started_at": "2026-09-19T09:51:07Z",
+    "finished_at": "2026-09-19T09:51:08Z",
+    "total_duration_seconds": 0.852619509,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -50,37 +50,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.221896053,
-      "optional": true,
-      "passed": true,
-      "log_digest": "4f27ac380b22e1d975eee20ce727fa8cbc09061177f6253af0777fd4de7b7506"
-    },
-    {
-      "name": "types",
-      "status": "PASSED",
-      "exit_code": 0,
-      "duration_seconds": 0.168861075,
+      "duration_seconds": 0.181808382,
       "optional": true,
       "passed": true,
       "log_digest": "f0788aa36d1c86b6ccdfb7f4042a5574102d82061c046422a2d42e008a1e4710"
     },
     {
+      "name": "types",
+      "status": "PASSED",
+      "exit_code": 0,
+      "duration_seconds": 0.178594806,
+      "optional": true,
+      "passed": true,
+      "log_digest": "2b34696728dc82b03cbf6311d7e3a6a41658bbde097834c3010a78bc82842c1a"
+    },
+    {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.223746503,
+      "duration_seconds": 0.252101346,
       "optional": false,
       "passed": true,
-      "log_digest": "c562ad571835cc34dde1cd2d66f5cddb2afdb1ae701b9ddae2e3c503faaa7abf"
+      "log_digest": "daa384769783da12ebecb475ce6b7cb6ac4b78e8077ca5031291028a958fb025"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.255642808,
+      "duration_seconds": 0.226061332,
       "optional": false,
       "passed": true,
-      "log_digest": "bd85d780b7d8ec1fbd3f6cbcbba34be862327ec38f1edbcdf1b50528ec30dc36"
+      "log_digest": "e53850762001e41c4a1faf4b4b2d88b9b935d7e33f306f08142c27319f1c5eee"
     }
   ],
   "diagnostics": []
