@@ -26,6 +26,7 @@ Når en node vælges, vises et tydeligt forbindelseshåndtag (connect handle), h
 - [x] Relationer på canvaset kan klikkes og markeres direkte som et selvstændigt objekt (visuel fremhævning af linjen).
 - [x] Tastaturet (`Delete` eller `Backspace`) sletter det aktuelt markerede objekt (enten valgt relation eller valgt node).
 - [x] Dobbeltklik på en relations label eller klik på linjen åbner/aktiverer relations-inspektøren.
+- [x] Parallelle relationer mellem noder fordeler porte rumligt (spatial sorting) langs nodens kant, så unødige linjekrydsninger elimineres.
 - [x] 100% test pass rate på unit-, accept- og proptests samt clippy med 0 advarsler.
 
 ## 🚫 Must NOT
@@ -38,6 +39,7 @@ Når en node vælges, vises et tydeligt forbindelseshåndtag (connect handle), h
 ## 📝 Revisions
 - 2026-09-19: Task oprettet for interaktiv relation-håndtering og drag-to-connect.
 - 2026-09-19: Design afstemt: Connect-handle på valgt node (model 1b), drop på målnode opretter Association som default, relation som selvstændigt objekt, og egenskaber redigeres direkte i inspektørpanelet uden modaler.
+- 2026-09-19: Fejlrettelse: Rumlig sortering af forbindelsesporte langs nodens kant implementeret for at forhindre at parallelle relationer krydser hinanden unødigt.
 
 ## 🧪 Verifikation
 - `cargo test --tests`
