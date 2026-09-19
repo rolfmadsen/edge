@@ -2,13 +2,20 @@ use crate::features::concept_model::{DiagramEdge, DiagramNode, NodeId, RelationK
 use iced::Point;
 use std::collections::HashMap;
 
+/// Minimum clearance in pixels needed between node borders to draw direct facing arrows.
 pub const MIN_ARROW_CLEARANCE: f32 = 36.0;
+/// Length of the UML generalization arrowhead triangle.
 pub const ARROW_HEAD_LENGTH: f32 = 14.0;
+/// Base width of the UML generalization arrowhead triangle.
 pub const ARROW_HEAD_WIDTH: f32 = 14.0;
+/// Horizontal/vertical spacing between multiple relation ports on the same node side.
 pub const SLOT_SPACING: f32 = 24.0;
+/// Channel offset between parallel orthogonal line segments.
 pub const CHANNEL_OFFSET: f32 = 14.0;
+/// Radius for line jump bridges over intersecting edges.
 pub const BRIDGE_RADIUS: f32 = 5.0;
 
+/// The four connection sides/ports of a rectangular diagram node.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PortSide {
     Top,
@@ -18,6 +25,7 @@ pub enum PortSide {
 }
 
 impl PortSide {
+    /// Outward unit normal vector for the port side.
     pub fn normal(self) -> (f32, f32) {
         match self {
             Self::Top => (0.0, -1.0),
@@ -27,11 +35,13 @@ impl PortSide {
         }
     }
 
+    /// Whether this side connects vertically (Top or Bottom).
     pub fn is_vertical(self) -> bool {
         matches!(self, Self::Top | Self::Bottom)
     }
 }
 
+/// Represents the geometric triangle of a UML arrowhead touching a node boundary.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ArrowHead {
     pub tip: Point,
@@ -40,12 +50,14 @@ pub struct ArrowHead {
     pub direction: PortSide,
 }
 
+/// A visual bridge (line jump) rendered where a horizontal segment crosses a vertical segment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BridgeHop {
     pub center: Point,
     pub is_horizontal: bool,
 }
 
+/// Fully computed 90-degree orthogonal route for a diagram edge.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RoutedEdge {
     pub from: NodeId,
