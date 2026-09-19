@@ -5,13 +5,17 @@ use crate::features::model::ModelProject;
 use crate::ui::concept_editor::ConceptEditorState;
 use crate::ui::concept_table;
 use crate::ui::graph_canvas::GraphCanvas;
-use crate::ui::theme::ThemeColors;
+use crate::ui::theme::{
+    card_container_style, danger_button_style, modal_backdrop_style, modal_card_style,
+    modern_input_style, pill_container_style, primary_button_style, secondary_button_style,
+    segmented_tab_button, ThemeColors,
+};
 use iced::event::{self, Event};
 use iced::keyboard::{self, key::Named, Key};
-use iced::widget::canvas;
-use iced::widget::operation;
-use iced::widget::pick_list;
-use iced::widget::{button, column, container, row, scrollable, text, text_input, Space};
+use iced::widget::{
+    button, canvas, column, container, operation, pick_list, row, scrollable, stack, text,
+    text_input, Space,
+};
 use iced::{Alignment, Element, Length, Subscription, Task};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -201,6 +205,10 @@ impl App {
 
     pub fn is_file_dialog_open(&self) -> bool {
         self.file_dialog_mode.is_some()
+    }
+
+    pub fn is_relation_dialog_open(&self) -> bool {
+        self.relation_dialog.is_some()
     }
 
     pub fn selected_graph_node_id(&self) -> Option<NodeId> {
@@ -567,140 +575,333 @@ impl App {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        let tab_button = |tab: Tab, label: &'static str| {
-            let is_active = self.active_tab == tab;
-            button(text(label).size(13))
-                .style(if is_active {
-                    button::primary
-                } else {
-                    button::secondary
-                })
-                .on_press(Message::SelectTab(tab))
-                .padding([6, 12])
-        };
+        use iced::Color;
 
-        let nav_bar = row![
-            row![
-                text("Edge").size(24).color(ThemeColors::PRIMARY),
-                Space::new().width(6),
-                container(text("FDA v2.1").size(10).color(ThemeColors::PRIMARY))
-                    .style(|_theme: &iced::Theme| container::Style {
-                        background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
-                        border: iced::Border {
-                            color: ThemeColors::PRIMARY,
-                            width: 1.0,
-                            radius: 4.0.into(),
-                        },
-                        ..Default::default()
-                    })
-                    .padding([2, 6]),
-            ]
-            .align_y(Alignment::Center),
-            Space::new().width(20),
-            tab_button(Tab::Metadata, "1. Omslag & Metadata"),
-            tab_button(Tab::ConceptList, "2. Begrebsliste (Bilag D & E)"),
-            tab_button(Tab::ConceptModel, "3. Begrebsmodel (Graf)"),
-            tab_button(Tab::InformationModel, "4. Informationsmodel"),
-            Space::new().width(Length::Fill),
-            button(text("📁 Åbn...").size(12))
-                .style(button::secondary)
-                .on_press(Message::OpenProjectDialog)
-                .padding([6, 10]),
-            button(text("💾 Gem").size(12))
-                .style(button::secondary)
-                .on_press(Message::SaveProject)
-                .padding([6, 10]),
-            button(text("💾 Gem som...").size(12))
-                .style(button::secondary)
-                .on_press(Message::SaveProjectAsDialog)
-                .padding([6, 10]),
-            button(text("+ Nyt Projekt").size(12))
-                .style(button::secondary)
-                .on_press(Message::NewProject)
-                .padding([6, 10]),
+        // 1. Desktop Header Bar
+        let brand_section = row![
+            text("Edge").size(20).color(ThemeColors::PRIMARY),
+            Space::new().width(6),
+            container(text("FDA v2.1").size(10).color(ThemeColors::PRIMARY))
+                .style(|_theme: &iced::Theme| container::Style {
+                    background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
+                    border: iced::Border {
+                        color: ThemeColors::PRIMARY,
+                        width: 1.0,
+                        radius: 4.0.into(),
+                    },
+                    ..Default::default()
+                })
+                .padding([2, 6]),
         ]
-        .spacing(8)
         .align_y(Alignment::Center);
 
-        // Valgfri fildialog banner (Open / Save As)
-        let file_dialog_banner: Option<Element<Message>> = self.file_dialog_mode.map(|mode| {
-            let (mode_label, confirm_label) = match mode {
-                FileDialogMode::Open => ("Åbn modelprojekt:", "Åbn"),
-                FileDialogMode::SaveAs => ("Gem modelprojekt som:", "Gem"),
+        let tab_item = |tab: Tab, label: &'static str| {
+            let is_active = self.active_tab == tab;
+            button(text(label).size(12))
+                .style(segmented_tab_button(is_active))
+                .on_press(Message::SelectTab(tab))
+                .padding([5, 12])
+        };
+
+        let tab_pill_bar = container(
+            row![
+                tab_item(Tab::Metadata, "1. Omslag & Metadata"),
+                tab_item(Tab::ConceptList, "2. Begrebsliste (Bilag D & E)"),
+                tab_item(Tab::ConceptModel, "3. Begrebsmodel (Graf)"),
+                tab_item(Tab::InformationModel, "4. Informationsmodel"),
+            ]
+            .spacing(2)
+            .align_y(Alignment::Center),
+        )
+        .style(pill_container_style)
+        .padding(3);
+
+        let actions = row![
+            button(text("+ Nyt").size(12))
+                .style(secondary_button_style)
+                .on_press(Message::NewProject)
+                .padding([6, 12]),
+            button(text("📁 Åbn...").size(12))
+                .style(secondary_button_style)
+                .on_press(Message::OpenProjectDialog)
+                .padding([6, 12]),
+            button(text("💾 Gem").size(12))
+                .style(primary_button_style)
+                .on_press(Message::SaveProject)
+                .padding([6, 14]),
+            button(text("Gem som...").size(12))
+                .style(secondary_button_style)
+                .on_press(Message::SaveProjectAsDialog)
+                .padding([6, 12]),
+        ]
+        .spacing(6)
+        .align_y(Alignment::Center);
+
+        let header_bar = container(
+            row![
+                brand_section,
+                Space::new().width(Length::FillPortion(1)),
+                tab_pill_bar,
+                Space::new().width(Length::FillPortion(1)),
+                actions,
+            ]
+            .spacing(12)
+            .align_y(Alignment::Center),
+        )
+        .style(card_container_style)
+        .padding([8, 16])
+        .width(Length::Fill);
+
+        // 2. Modale dialoger (Stack Overlay)
+        let maybe_file_dialog_modal: Option<Element<Message>> = self.file_dialog_mode.map(|mode| {
+            let (mode_title, confirm_label) = match mode {
+                FileDialogMode::Open => ("Åbn FDA Modelprojekt", "Åbn"),
+                FileDialogMode::SaveAs => ("Gem Modelprojekt som...", "Gem"),
             };
 
-            let mut banner_col = column![row![
-                text(mode_label).size(13).color(ThemeColors::PRIMARY),
-                text_input("Filsti (f.eks. model.edge.json)...", &self.file_dialog_input)
-                    .on_input(Message::FileDialogInputChanged)
-                    .on_submit(Message::ConfirmFileDialog)
-                    .padding(6)
-                    .width(Length::FillPortion(2)),
-                button(text(confirm_label).size(12))
-                    .style(button::primary)
-                    .on_press(Message::ConfirmFileDialog)
-                    .padding([4, 12]),
-                button(text("🖥️ Gennemse...").size(12))
-                    .style(button::secondary)
-                    .on_press(match mode {
-                        FileDialogMode::Open => Message::OpenProjectDialog,
-                        FileDialogMode::SaveAs => Message::SaveProjectAsDialog,
-                    })
-                    .padding([4, 10]),
-                button(text("✕").size(12))
-                    .style(button::secondary)
-                    .on_press(Message::CloseFileDialog)
-                    .padding([4, 8]),
+            let mut dialog_body = column![
+                row![
+                    text(mode_title).size(16).color(ThemeColors::SLATE_900),
+                    Space::new().width(Length::Fill),
+                    button(text("✕").size(13))
+                        .style(secondary_button_style)
+                        .on_press(Message::CloseFileDialog)
+                        .padding([3, 7]),
+                ]
+                .align_y(Alignment::Center),
+                text("Angiv filsti eller gennemse filer på maskinen:")
+                    .size(12)
+                    .color(ThemeColors::TEXT_MUTED),
+                row![
+                    text_input("Filsti (f.eks. model.edge.json)...", &self.file_dialog_input)
+                        .style(modern_input_style)
+                        .on_input(Message::FileDialogInputChanged)
+                        .on_submit(Message::ConfirmFileDialog)
+                        .padding(8)
+                        .width(Length::Fill),
+                    button(text("🖥️ Gennemse...").size(12))
+                        .style(secondary_button_style)
+                        .on_press(match mode {
+                            FileDialogMode::Open => Message::OpenProjectDialog,
+                            FileDialogMode::SaveAs => Message::SaveProjectAsDialog,
+                        })
+                        .padding([8, 12]),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center),
             ]
-            .spacing(10)
-            .align_y(Alignment::Center)]
-            .spacing(8);
+            .spacing(12);
 
             if mode == FileDialogMode::Open {
                 let local_files = crate::ui::file_dialog::scan_local_project_files(&PathBuf::from("."));
                 if !local_files.is_empty() {
-                    let mut chips = row![text("Genveje i mappen:").size(11).color(ThemeColors::TEXT_MUTED)]
-                        .spacing(8)
-                        .align_y(Alignment::Center);
+                    let mut chips = column![
+                        text("Filer i projektmappen:").size(12).color(ThemeColors::TEXT_MUTED)
+                    ]
+                    .spacing(6);
+
+                    let mut chip_row = row![].spacing(6);
                     for f in local_files {
                         let name = f.file_name().and_then(|n| n.to_str()).unwrap_or("model.edge.json").to_string();
-                        chips = chips.push(
+                        chip_row = chip_row.push(
                             button(text(format!("📄 {}", name)).size(11))
-                                .style(button::secondary)
+                                .style(secondary_button_style)
                                 .on_press(Message::OpenProjectFile(f))
-                                .padding([2, 8]),
+                                .padding([3, 8]),
                         );
                     }
-                    banner_col = banner_col.push(chips);
+                    chips = chips.push(chip_row);
+                    dialog_body = dialog_body.push(chips);
                 }
             }
 
-            container(banner_col)
-                .style(container::bordered_box)
-                .padding([8, 14])
+            let actions_row = row![
+                Space::new().width(Length::Fill),
+                button(text("Annuller").size(12))
+                    .style(secondary_button_style)
+                    .on_press(Message::CloseFileDialog)
+                    .padding([6, 14]),
+                button(text(confirm_label).size(12))
+                    .style(primary_button_style)
+                    .on_press(Message::ConfirmFileDialog)
+                    .padding([6, 16]),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center);
+
+            dialog_body = dialog_body.push(actions_row);
+
+            let modal_card = container(dialog_body)
+                .style(modal_card_style)
+                .padding(24)
+                .width(Length::Fixed(520.0));
+
+            container(modal_card)
+                .style(modal_backdrop_style)
                 .width(Length::Fill)
+                .height(Length::Fill)
+                .center_x(Length::Fill)
+                .center_y(Length::Fill)
                 .into()
         });
 
-        let content: Element<Message> = match self.active_tab {
-            Tab::Metadata => column![
-                text(format!("Model: {}", self.project.metadata().name())).size(24),
-                text(format!("Emneområde: {}", self.project.metadata().domain_area()))
-                    .color(ThemeColors::TEXT_MUTED),
-                text(format!("Ansvarlig: {}", self.project.metadata().responsible_org()))
-                    .color(ThemeColors::TEXT_MUTED),
-                text(format!(
-                    "Version: {} ({:?})",
-                    self.project.metadata().version(),
-                    self.project.metadata().status()
-                ))
-                .color(ThemeColors::TEXT_MUTED),
-                text(format!("URI: {}", self.project.metadata().uri()))
-                    .color(ThemeColors::TEXT_MUTED),
-                text(format!("Beskrivelse: {}", self.project.metadata().description())),
+        let maybe_relation_modal: Option<Element<Message>> = self.relation_dialog.as_ref().map(|d| {
+            let node_options: Vec<NodeOption> = self
+                .project
+                .concept_graph()
+                .nodes()
+                .iter()
+                .map(|n| NodeOption {
+                    id: n.id(),
+                    label: n.label().to_string(),
+                })
+                .collect();
+
+            let kinds = [RelationKind::Generalization, RelationKind::Association];
+
+            let mut dialog_col = column![
+                row![
+                    text("Opret Ny Relation i Begrebsmodel").size(16).color(ThemeColors::SLATE_900),
+                    Space::new().width(Length::Fill),
+                    button(text("✕").size(13))
+                        .style(secondary_button_style)
+                        .on_press(Message::GraphCloseRelationDialog)
+                        .padding([3, 7]),
+                ]
+                .align_y(Alignment::Center),
             ]
-            .spacing(12)
-            .into(),
+            .spacing(12);
+
+            if let Some(err) = &d.error {
+                dialog_col = dialog_col.push(
+                    container(text(format!("⚠️ {}", err)).size(12).color(ThemeColors::ACCENT_RED))
+                        .style(|_theme| container::Style {
+                            background: Some(iced::Background::Color(ThemeColors::ACCENT_RED_LIGHT)),
+                            border: iced::Border {
+                                color: ThemeColors::ACCENT_RED,
+                                width: 1.0,
+                                radius: 6.0.into(),
+                            },
+                            ..Default::default()
+                        })
+                        .padding([6, 10])
+                        .width(Length::Fill),
+                );
+            }
+
+            let from_pick = pick_list(node_options.clone(), d.from_node.clone(), Message::GraphRelationFromChanged)
+                .placeholder("Vælg kilde...")
+                .padding(7)
+                .width(Length::Fixed(220.0));
+
+            let to_pick = pick_list(node_options, d.to_node.clone(), Message::GraphRelationToChanged)
+                .placeholder("Vælg mål...")
+                .padding(7)
+                .width(Length::Fixed(220.0));
+
+            let kind_pick = pick_list(kinds.to_vec(), Some(d.kind), Message::GraphRelationKindChanged)
+                .padding(7)
+                .width(Length::Fixed(220.0));
+
+            let fields = column![
+                row![
+                    column![text("Kildebegreb (fra):").size(12).color(ThemeColors::TEXT_MUTED), from_pick].spacing(4),
+                    column![text("Relationstype:").size(12).color(ThemeColors::TEXT_MUTED), kind_pick].spacing(4),
+                ].spacing(16),
+                row![
+                    column![text("Målbegreb (til):").size(12).color(ThemeColors::TEXT_MUTED), to_pick].spacing(4),
+                    if d.kind == RelationKind::Association {
+                        column![
+                            text("Associationsnavn (naturligt sprog):").size(12).color(ThemeColors::TEXT_MUTED),
+                            text_input("f.eks. ejer, anvender...", &d.label)
+                                .style(modern_input_style)
+                                .on_input(Message::GraphRelationLabelChanged)
+                                .padding(7)
+                                .width(Length::Fixed(220.0)),
+                        ].spacing(4)
+                    } else {
+                        column![
+                            text("Generaliseringsregel:").size(12).color(ThemeColors::TEXT_MUTED),
+                            text("Specialisering ➔ Superklasse (hvid pil)").size(11).color(ThemeColors::SLATE_600),
+                        ].spacing(4)
+                    },
+                ].spacing(16),
+            ].spacing(12);
+
+            dialog_col = dialog_col.push(fields);
+
+            let actions = row![
+                Space::new().width(Length::Fill),
+                button(text("Annuller").size(12))
+                    .style(secondary_button_style)
+                    .on_press(Message::GraphCloseRelationDialog)
+                    .padding([6, 14]),
+                button(text("Opret Relation").size(12))
+                    .style(primary_button_style)
+                    .on_press(Message::GraphCreateRelation)
+                    .padding([6, 16]),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center);
+
+            dialog_col = dialog_col.push(actions);
+
+            let modal_card = container(dialog_col)
+                .style(modal_card_style)
+                .padding(24)
+                .width(Length::Fixed(500.0));
+
+            container(modal_card)
+                .style(modal_backdrop_style)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .center_x(Length::Fill)
+                .center_y(Length::Fill)
+                .into()
+        });
+
+        // 3. Fane Indhold
+        let content: Element<Message> = match self.active_tab {
+            Tab::Metadata => {
+                let meta = self.project.metadata();
+                let meta_card = column![
+                    row![
+                        text(format!("Model: {}", meta.name())).size(22).color(ThemeColors::SLATE_900),
+                        Space::new().width(8),
+                        container(text(format!("{:?}", meta.status())).size(11).color(ThemeColors::PRIMARY))
+                            .style(|_| container::Style {
+                                background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
+                                border: iced::Border {
+                                    color: ThemeColors::PRIMARY,
+                                    width: 0.5,
+                                    radius: 4.0.into(),
+                                },
+                                ..Default::default()
+                            })
+                            .padding([2, 6]),
+                    ].align_y(Alignment::Center),
+                    Space::new().height(4),
+                    text(meta.description()).size(13).color(ThemeColors::SLATE_700),
+                    Space::new().height(8),
+                    row![
+                        column![
+                            text("Emneområde (§26):").size(12).color(ThemeColors::TEXT_MUTED),
+                            text(meta.domain_area()).size(13).color(ThemeColors::SLATE_800),
+                        ].spacing(2).width(Length::FillPortion(1)),
+                        column![
+                            text("Ansvarlig organisation:").size(12).color(ThemeColors::TEXT_MUTED),
+                            text(meta.responsible_org()).size(13).color(ThemeColors::SLATE_800),
+                        ].spacing(2).width(Length::FillPortion(1)),
+                        column![
+                            text("Model-URI:").size(12).color(ThemeColors::TEXT_MUTED),
+                            text(meta.uri()).size(13).color(ThemeColors::PRIMARY),
+                        ].spacing(2).width(Length::FillPortion(1)),
+                    ].spacing(16),
+                ]
+                .spacing(12);
+
+                meta_card.into()
+            }
 
             Tab::ConceptList => {
                 if let Some(editor) = &self.editor_state {
@@ -713,103 +914,35 @@ impl App {
 
             Tab::ConceptModel => {
                 let toolbar = row![
-                    text("Begrebsmodel (Graf)").size(20),
+                    row![
+                        text("Begrebsmodel").size(18).color(ThemeColors::SLATE_900),
+                        Space::new().width(8),
+                        container(text("Diagram").size(11).color(ThemeColors::SLATE_600))
+                            .style(pill_container_style)
+                            .padding([2, 8]),
+                    ].align_y(Alignment::Center),
                     Space::new().width(16),
                     button(text("+ Opret Relation").size(12))
-                        .style(button::primary)
+                        .style(primary_button_style)
                         .on_press(Message::GraphOpenRelationDialog)
                         .padding([6, 12]),
                     button(text("🔄 Synkroniser Begreber").size(12))
-                        .style(button::secondary)
+                        .style(secondary_button_style)
                         .on_press(Message::GraphSyncNodes)
-                        .padding([6, 10]),
+                        .padding([6, 12]),
                     Space::new().width(Length::Fill),
-                    text(format!(
-                        "Noder: {}  •  Relationer: {}",
-                        self.project.concept_graph().node_count(),
-                        self.project.concept_graph().edge_count()
-                    ))
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
+                    container(
+                        row![
+                            text(format!("Noder: {}", self.project.concept_graph().node_count())).size(12).color(ThemeColors::SLATE_700),
+                            text(" • ").size(12).color(ThemeColors::SLATE_400),
+                            text(format!("Relationer: {}", self.project.concept_graph().edge_count())).size(12).color(ThemeColors::SLATE_700),
+                        ].align_y(Alignment::Center)
+                    )
+                    .style(pill_container_style)
+                    .padding([4, 12]),
                 ]
                 .spacing(10)
                 .align_y(Alignment::Center);
-
-                let maybe_dialog_banner: Option<Element<Message>> = self.relation_dialog.as_ref().map(|d| {
-                    let node_options: Vec<NodeOption> = self
-                        .project
-                        .concept_graph()
-                        .nodes()
-                        .iter()
-                        .map(|n| NodeOption {
-                            id: n.id(),
-                            label: n.label().to_string(),
-                        })
-                        .collect();
-
-                    let kinds = [RelationKind::Generalization, RelationKind::Association];
-
-                    let mut dialog_col = column![
-                        text("Opret Relation").size(14).color(ThemeColors::PRIMARY),
-                    ]
-                    .spacing(8);
-
-                    if let Some(err) = &d.error {
-                        dialog_col = dialog_col.push(text(err).size(12).color(ThemeColors::ACCENT_RED));
-                    }
-
-                    let from_pick = pick_list(node_options.clone(), d.from_node.clone(), Message::GraphRelationFromChanged);
-                    let to_pick = pick_list(node_options, d.to_node.clone(), Message::GraphRelationToChanged);
-                    let kind_pick = pick_list(kinds.to_vec(), Some(d.kind), Message::GraphRelationKindChanged);
-
-                    let fields_row = row![
-                        column![text("Kilde (fra):").size(11).color(ThemeColors::TEXT_MUTED), from_pick].spacing(2),
-                        column![text("Mål (til):").size(11).color(ThemeColors::TEXT_MUTED), to_pick].spacing(2),
-                        column![text("Type:").size(11).color(ThemeColors::TEXT_MUTED), kind_pick].spacing(2),
-                    ]
-                    .spacing(12)
-                    .align_y(Alignment::Center);
-
-                    let action_row = if d.kind == RelationKind::Association {
-                        row![
-                            text_input("Rolle eller associationstekst (f.eks. ejer)...", &d.label)
-                                .on_input(Message::GraphRelationLabelChanged)
-                                .padding(6)
-                                .width(Length::FillPortion(2)),
-                            button(text("Gem relation").size(12))
-                                .style(button::primary)
-                                .on_press(Message::GraphCreateRelation)
-                                .padding([5, 12]),
-                            button(text("Annuller").size(12))
-                                .style(button::secondary)
-                                .on_press(Message::GraphCloseRelationDialog)
-                                .padding([5, 10]),
-                        ]
-                        .spacing(10)
-                        .align_y(Alignment::Center)
-                    } else {
-                        row![
-                            text("(Specialisering peger på superklasse med lukket hvid trekant)").size(11).color(ThemeColors::TEXT_MUTED),
-                            Space::new().width(Length::Fill),
-                            button(text("Gem relation").size(12))
-                                .style(button::primary)
-                                .on_press(Message::GraphCreateRelation)
-                                .padding([5, 12]),
-                            button(text("Annuller").size(12))
-                                .style(button::secondary)
-                                .on_press(Message::GraphCloseRelationDialog)
-                                .padding([5, 10]),
-                        ]
-                        .spacing(10)
-                        .align_y(Alignment::Center)
-                    };
-
-                    container(column![dialog_col, fields_row, action_row].spacing(10))
-                        .style(container::bordered_box)
-                        .padding(12)
-                        .width(Length::Fill)
-                        .into()
-                });
 
                 let canvas_widget = canvas(GraphCanvas::new(
                     self.project.concept_graph(),
@@ -826,70 +959,65 @@ impl App {
                         let title = node.label();
                         let is_local = node.is_local();
 
-                        let (domain_badge, badge_bg, badge_fg) = if is_local {
-                            ("Lokalt begreb (Sand farve)", ThemeColors::FDA_SAND, ThemeColors::TEXT_DARK)
+                        let (badge_text, badge_bg, badge_border) = if is_local {
+                            ("Lokalt begreb", ThemeColors::FDA_SAND, ThemeColors::FDA_SAND_BORDER)
                         } else {
-                            ("Lånt begreb / ModelRef (Blå farve)", ThemeColors::FDA_BORROWED_BLUE, ThemeColors::TEXT_DARK)
+                            ("Indlånt begreb", ThemeColors::FDA_BORROWED_BLUE_BG, ThemeColors::FDA_BORROWED_BLUE)
                         };
+
+                        let badge = container(text(badge_text).size(11).color(ThemeColors::SLATE_800))
+                            .style(move |_| container::Style {
+                                background: Some(iced::Background::Color(badge_bg)),
+                                border: iced::Border {
+                                    color: badge_border,
+                                    width: 1.0,
+                                    radius: 4.0.into(),
+                                },
+                                ..Default::default()
+                            })
+                            .padding([3, 8]);
 
                         let mut insp = column![
                             row![
-                                text(title).size(18),
+                                text("Inspector").size(11).color(ThemeColors::TEXT_MUTED),
                                 Space::new().width(Length::Fill),
+                                badge,
                                 button(text("✕").size(11))
-                                    .style(button::secondary)
+                                    .style(secondary_button_style)
                                     .on_press(Message::GraphNodeSelected(None))
-                                    .padding([2, 6]),
-                            ]
-                            .align_y(Alignment::Center),
-                            container(text(domain_badge).size(11).color(badge_fg))
-                                .style(move |_| container::Style {
-                                    background: Some(iced::Background::Color(badge_bg)),
-                                    border: iced::Border {
-                                        color: ThemeColors::BORDER_COLOR,
-                                        width: 1.0,
-                                        radius: 4.0.into(),
-                                    },
-                                    ..Default::default()
-                                })
-                                .padding([3, 8]),
-                        ]
-                        .spacing(8);
+                                    .padding([2, 5]),
+                            ].align_y(Alignment::Center),
+                            text(title).size(18).color(ThemeColors::SLATE_900),
+                        ].spacing(8);
 
                         if let Some(c) = concept {
                             insp = insp.push(
-                                column![
-                                    text("Definition:").size(11).color(ThemeColors::TEXT_MUTED),
-                                    text(c.definition()).size(12),
-                                ]
-                                .spacing(2),
+                                container(
+                                    column![
+                                        text("Definition (FDA):").size(11).color(ThemeColors::TEXT_MUTED),
+                                        text(c.definition()).size(12).color(ThemeColors::SLATE_800),
+                                    ].spacing(3)
+                                )
+                                .style(card_container_style)
+                                .padding(10)
+                                .width(Length::Fill)
                             );
 
                             if let Some(src) = c.source() {
                                 insp = insp.push(
-                                    column![
+                                    row![
                                         text("Kilde:").size(11).color(ThemeColors::TEXT_MUTED),
-                                        text(src).size(12),
-                                    ]
-                                    .spacing(2),
-                                );
-                            }
-
-                            if let Some(legal) = c.legal_source() {
-                                insp = insp.push(
-                                    column![
-                                        text("Retsgrundlag:").size(11).color(ThemeColors::TEXT_MUTED),
-                                        text(legal).size(12),
-                                    ]
-                                    .spacing(2),
+                                        Space::new().width(4),
+                                        text(src).size(11).color(ThemeColors::SLATE_700),
+                                    ].align_y(Alignment::Center)
                                 );
                             }
 
                             insp = insp.push(
                                 button(text("✏️ Rediger i Begrebsliste").size(12))
-                                    .style(button::secondary)
+                                    .style(secondary_button_style)
                                     .on_press(Message::EditConcept(c.id()))
-                                    .padding([4, 10]),
+                                    .padding([5, 10]),
                             );
                         }
 
@@ -902,7 +1030,7 @@ impl App {
                             .collect();
 
                         if !connected_edges.is_empty() {
-                            insp = insp.push(Space::new().height(6));
+                            insp = insp.push(Space::new().height(4));
                             insp = insp.push(
                                 text("Tilknyttede relationer:")
                                     .size(12)
@@ -929,9 +1057,9 @@ impl App {
                                 let edge_from = edge.from();
                                 let edge_to = edge.to();
                                 let edge_row = row![
-                                    text(desc).size(11).width(Length::Fill),
+                                    text(desc).size(11).color(ThemeColors::SLATE_800).width(Length::Fill),
                                     button(text("🗑️").size(11))
-                                        .style(button::secondary)
+                                        .style(danger_button_style)
                                         .on_press(Message::GraphDeleteRelation(edge_from, edge_to))
                                         .padding([2, 5]),
                                 ]
@@ -943,14 +1071,14 @@ impl App {
                         }
 
                         container(scrollable(insp.spacing(8)))
-                            .style(container::bordered_box)
+                            .style(card_container_style)
                             .padding(14)
-                            .width(Length::Fixed(280.0))
+                            .width(Length::Fixed(290.0))
                             .height(Length::Fill)
                             .into()
                     } else {
                         container(text("Ingen node valgt").size(12).color(ThemeColors::TEXT_MUTED))
-                            .width(Length::Fixed(280.0))
+                            .width(Length::Fixed(290.0))
                             .height(Length::Fill)
                             .into()
                     }
@@ -976,9 +1104,9 @@ impl App {
                         ]
                         .spacing(8),
                     )
-                    .style(container::bordered_box)
+                    .style(card_container_style)
                     .padding(14)
-                    .width(Length::Fixed(280.0))
+                    .width(Length::Fixed(290.0))
                     .height(Length::Fill)
                     .into()
                 };
@@ -986,13 +1114,11 @@ impl App {
                 let body = row![
                     container(canvas_widget)
                         .style(|_| container::Style {
-                            background: Some(iced::Background::Color(iced::Color::from_rgb(
-                                0.98, 0.98, 0.98
-                            ))),
+                            background: Some(iced::Background::Color(Color::from_rgb(0.985, 0.988, 0.992))),
                             border: iced::Border {
-                                color: ThemeColors::BORDER_COLOR,
+                                color: ThemeColors::SLATE_200,
                                 width: 1.0,
-                                radius: 4.0.into(),
+                                radius: 8.0.into(),
                             },
                             ..Default::default()
                         })
@@ -1003,24 +1129,26 @@ impl App {
                 .spacing(12)
                 .height(Length::Fill);
 
-                let mut graph_view = column![toolbar].spacing(10).height(Length::Fill);
-                if let Some(banner) = maybe_dialog_banner {
-                    graph_view = graph_view.push(banner);
-                }
-                graph_view = graph_view.push(body);
-
-                graph_view.into()
+                column![toolbar, body].spacing(10).height(Length::Fill).into()
             }
 
-            Tab::InformationModel => column![
-                text("Informationsmodel (UML Klasser)").size(22),
-                text("Informationsmodel med attributter, datatyper og multiplicitet etableres i Fase 4.")
-                    .color(ThemeColors::TEXT_MUTED),
-            ]
-            .spacing(10)
+            Tab::InformationModel => container(
+                column![
+                    text("Informationsmodel (UML Klasser)").size(20).color(ThemeColors::SLATE_900),
+                    Space::new().height(4),
+                    text("Informationsmodel med klasser, attributter, standard datatyper og multiplicitet etableres i Fase 4 jf. FDA Modelreglerne.")
+                        .size(13)
+                        .color(ThemeColors::TEXT_MUTED),
+                ]
+                .spacing(8)
+            )
+            .style(card_container_style)
+            .padding(24)
+            .width(Length::Fill)
             .into(),
         };
 
+        // 4. Status Bar
         let save_status_text = match &self.save_status {
             SaveStatus::Saved(target) => {
                 let full_path = std::fs::canonicalize(target).unwrap_or_else(|_| PathBuf::from(target));
@@ -1032,47 +1160,53 @@ impl App {
         };
 
         let status_bar = row![
-            text("FDA Modelregler v2.1 • Klar")
-                .size(12)
-                .color(ThemeColors::TEXT_MUTED),
+            text("FDA Modelregler v2.1 • Klar").size(12).color(ThemeColors::SLATE_500),
             Space::new().width(12),
-            text(format!("• {} begreber i model", self.project.concepts().len()))
-                .size(12)
-                .color(ThemeColors::TEXT_MUTED),
+            text(format!("• {} begreber", self.project.concepts().len())).size(12).color(ThemeColors::SLATE_600),
             Space::new().width(12),
             text(format!("• {}", save_status_text))
                 .size(12)
                 .color(match &self.save_status {
                     SaveStatus::Error(_) => ThemeColors::ACCENT_RED,
-                    _ => ThemeColors::TEXT_MUTED,
+                    SaveStatus::Saved(_) => ThemeColors::ACCENT_GREEN,
+                    _ => ThemeColors::SLATE_600,
                 }),
             Space::new().width(Length::Fill),
-            text(format!("Aktiv fane: {:?}", self.active_tab))
-                .size(12)
-                .color(ThemeColors::TEXT_MUTED),
+            text(format!("Aktiv fane: {:?}", self.active_tab)).size(12).color(ThemeColors::SLATE_500),
         ]
+        .padding([2, 4])
         .align_y(Alignment::Center);
 
-        let mut main_col = column![nav_bar].spacing(12);
-
-        if let Some(dialog) = file_dialog_banner {
-            main_col = main_col.push(dialog);
-        }
-
-        main_col = main_col.push(
+        // 5. Samlet layout med Stack Overlay
+        let main_col = column![
+            header_bar,
             container(content)
-                .style(container::bordered_box)
+                .style(card_container_style)
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .padding(20),
-        );
+                .padding(16),
+            status_bar,
+        ]
+        .spacing(12)
+        .width(Length::Fill)
+        .height(Length::Fill);
 
-        main_col = main_col.push(status_bar);
-
-        container(main_col)
+        let base_layout: Element<Message> = container(main_col)
+            .style(|_| container::Style {
+                background: Some(iced::Background::Color(ThemeColors::SURFACE_BG)),
+                ..Default::default()
+            })
             .padding(16)
             .width(Length::Fill)
             .height(Length::Fill)
-            .into()
+            .into();
+
+        if let Some(modal) = maybe_file_dialog_modal {
+            stack![base_layout, modal].into()
+        } else if let Some(modal) = maybe_relation_modal {
+            stack![base_layout, modal].into()
+        } else {
+            base_layout
+        }
     }
 }

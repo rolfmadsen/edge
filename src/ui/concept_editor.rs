@@ -154,6 +154,10 @@ impl ConceptEditorState {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
+        use crate::ui::theme::{
+            card_container_style, modern_input_style, primary_button_style, secondary_button_style,
+        };
+
         let is_edit = self.editing_id.is_some();
         let title_text = if is_edit {
             format!("Rediger Begreb: {}", self.preferred_term)
@@ -162,22 +166,22 @@ impl ConceptEditorState {
         };
 
         let title_row = row![
-            text(title_text).size(20),
+            text(title_text).size(20).color(ThemeColors::SLATE_900),
             Space::new().width(Length::Fill),
             button(text("✕").size(14))
-                .style(button::secondary)
+                .style(secondary_button_style)
                 .on_press(Message::CancelConceptEdit),
         ]
         .align_y(Alignment::Center);
 
-        let mut form = column![title_row].spacing(14);
+        let mut form = column![title_row].spacing(16);
 
         if let Some(err) = &self.validation_error {
             form = form.push(
                 container(
                     row![
                         text("⚠️ ").size(16),
-                        text(err).color(ThemeColors::ACCENT_RED).size(14),
+                        text(err).color(ThemeColors::ACCENT_RED).size(13),
                     ]
                     .spacing(8)
                     .align_y(Alignment::Center),
@@ -195,46 +199,52 @@ impl ConceptEditorState {
             );
         }
 
-        // Primære felter (Foretrukken term, Definition, Emneområde, Kilder)
+        // 1. Primære felter (Foretrukken term, Emneområde)
         let term_input = column![
-            text("Foretrukken dansk term *").size(13).color(ThemeColors::TEXT_DARK),
+            text("Foretrukken dansk term *").size(13).color(ThemeColors::SLATE_800),
             text_input("F.eks. Køretøj, Personbil, Myndighed...", &self.preferred_term)
+                .style(modern_input_style)
                 .on_input(|v| Message::UpdateConceptField(ConceptFormField::PreferredTerm, v))
                 .padding(8),
-            text("Den officielle primære sproglige betegnelse (§18, §19)").size(11).color(ThemeColors::TEXT_MUTED),
+            text("Den officielle primære sproglige betegnelse (§18, §19)").size(11).color(ThemeColors::SLATE_500),
         ]
         .spacing(4)
         .width(Length::FillPortion(2));
 
         let domain_input = column![
-            text("Tilhører emneområde *").size(13).color(ThemeColors::TEXT_DARK),
+            text("Tilhører emneområde *").size(13).color(ThemeColors::SLATE_800),
             text_input("Ja / Nej / URI...", &self.belongs_to_domain)
+                .style(modern_input_style)
                 .on_input(|v| Message::UpdateConceptField(ConceptFormField::BelongsToDomain, v))
                 .padding(8),
-            text("Angiv Ja (lokalt), Nej eller model-URI (§26)").size(11).color(ThemeColors::TEXT_MUTED),
+            text("Angiv Ja (lokalt), Nej eller model-URI (§26)").size(11).color(ThemeColors::SLATE_500),
         ]
         .spacing(4)
         .width(Length::FillPortion(1));
 
         let term_domain_row = row![term_input, domain_input].spacing(16);
 
+        // 2. Definition
         let definition_input = column![
-            text("Definition * (Aristoteles' formel)").size(13).color(ThemeColors::TEXT_DARK),
+            text("Definition * (Aristoteles' formel)").size(13).color(ThemeColors::SLATE_800),
             text_input(
                 "Genus proximum + differentia specifica (hvad er det, og hvad adskiller det)...",
                 &self.definition,
             )
+            .style(modern_input_style)
             .on_input(|v| Message::UpdateConceptField(ConceptFormField::Definition, v))
             .padding(10),
             text("Formuleret iht. Aristoteles' formel. Undgå cirkulære eller negative definitioner (§20-§22)")
                 .size(11)
-                .color(ThemeColors::TEXT_MUTED),
+                .color(ThemeColors::SLATE_500),
         ]
         .spacing(4);
 
+        // 3. Kilder
         let legal_source_input = column![
-            text("Juridisk kilde (Lovhjemmel)").size(13).color(ThemeColors::TEXT_DARK),
+            text("Juridisk kilde (Lovhjemmel)").size(13).color(ThemeColors::SLATE_800),
             text_input("F.eks. LBK nr 1324 af 21/11/2023 § 2", &self.legal_source)
+                .style(modern_input_style)
                 .on_input(|v| Message::UpdateConceptField(ConceptFormField::LegalSource, v))
                 .padding(8),
         ]
@@ -242,8 +252,9 @@ impl ConceptEditorState {
         .width(Length::FillPortion(1));
 
         let general_source_input = column![
-            text("Kilde").size(13).color(ThemeColors::TEXT_DARK),
+            text("Kilde").size(13).color(ThemeColors::SLATE_800),
             text_input("F.eks. Dansk Standard, ISO 10241, fagordbog...", &self.source)
+                .style(modern_input_style)
                 .on_input(|v| Message::UpdateConceptField(ConceptFormField::Source, v))
                 .padding(8),
         ]
@@ -251,6 +262,13 @@ impl ConceptEditorState {
         .width(Length::FillPortion(1));
 
         let sources_row = row![legal_source_input, general_source_input].spacing(16);
+
+        let primary_card = container(column![term_domain_row, definition_input, sources_row].spacing(14))
+            .style(card_container_style)
+            .padding(16)
+            .width(Length::Fill);
+
+        form = form.push(primary_card);
 
         // Foldbar sektion med supplerende felter
         let toggle_supplementary_btn = button(
@@ -261,29 +279,28 @@ impl ConceptEditorState {
             })
             .size(13),
         )
-        .style(button::secondary)
+        .style(secondary_button_style)
         .on_press(Message::ToggleShowAllFields)
-        .padding([6, 12]);
+        .padding([7, 14]);
 
-        form = form.push(term_domain_row);
-        form = form.push(definition_input);
-        form = form.push(sources_row);
         form = form.push(toggle_supplementary_btn);
 
         if self.show_supplementary {
             let supplementary_content = column![
                 row![
                     column![
-                        text("Accepteret dansk term").size(13),
+                        text("Accepteret dansk term").size(13).color(ThemeColors::SLATE_700),
                         text_input("Synonym eller tilladt betegnelse...", &self.accepted_term)
+                            .style(modern_input_style)
                             .on_input(|v| Message::UpdateConceptField(ConceptFormField::AcceptedTerm, v))
                             .padding(8),
                     ]
                     .spacing(4)
                     .width(Length::FillPortion(1)),
                     column![
-                        text("Frarådet dansk term").size(13),
+                        text("Frarådet dansk term").size(13).color(ThemeColors::SLATE_700),
                         text_input("Betegnelse der ikke bør anvendes...", &self.deprecated_term)
+                            .style(modern_input_style)
                             .on_input(|v| Message::UpdateConceptField(ConceptFormField::DeprecatedTerm, v))
                             .padding(8),
                     ]
@@ -293,16 +310,18 @@ impl ConceptEditorState {
                 .spacing(16),
                 row![
                     column![
-                        text("Eksempel").size(13),
+                        text("Eksempel").size(13).color(ThemeColors::SLATE_700),
                         text_input("Typisk tilfælde der illustrerer begrebet...", &self.example)
+                            .style(modern_input_style)
                             .on_input(|v| Message::UpdateConceptField(ConceptFormField::Example, v))
                             .padding(8),
                     ]
                     .spacing(4)
                     .width(Length::FillPortion(1)),
                     column![
-                        text("Kommentar").size(13),
+                        text("Kommentar").size(13).color(ThemeColors::SLATE_700),
                         text_input("Supplerende bemærkning...", &self.comment)
+                            .style(modern_input_style)
                             .on_input(|v| Message::UpdateConceptField(ConceptFormField::Comment, v))
                             .padding(8),
                     ]
@@ -311,24 +330,27 @@ impl ConceptEditorState {
                 ]
                 .spacing(16),
                 column![
-                    text("Anvendelsesnote").size(13),
+                    text("Anvendelsesnote").size(13).color(ThemeColors::SLATE_700),
                     text_input("Note om specifik anvendelseskontekst...", &self.application_note)
+                        .style(modern_input_style)
                         .on_input(|v| Message::UpdateConceptField(ConceptFormField::ApplicationNote, v))
                         .padding(8),
                 ]
                 .spacing(4),
                 row![
                     column![
-                        text("Identifikator (HTTP-URI)").size(13),
+                        text("Identifikator (HTTP-URI)").size(13).color(ThemeColors::SLATE_700),
                         text_input("https://data.gov.dk/model/core/domain/Term", &self.identifier)
+                            .style(modern_input_style)
                             .on_input(|v| Message::UpdateConceptField(ConceptFormField::Identifier, v))
                             .padding(8),
                     ]
                     .spacing(4)
                     .width(Length::FillPortion(1)),
                     column![
-                        text("Afledt af").size(13),
+                        text("Afledt af").size(13).color(ThemeColors::SLATE_700),
                         text_input("HTTP-URI på oprindeligt begreb...", &self.derived_from)
+                            .style(modern_input_style)
                             .on_input(|v| Message::UpdateConceptField(ConceptFormField::DerivedFrom, v))
                             .padding(8),
                     ]
@@ -337,31 +359,33 @@ impl ConceptEditorState {
                 ]
                 .spacing(16),
             ]
-            .spacing(12);
+            .spacing(14);
 
-            form = form.push(supplementary_content);
+            let supp_card = container(supplementary_content)
+                .style(card_container_style)
+                .padding(16)
+                .width(Length::Fill);
+
+            form = form.push(supp_card);
         }
 
         let action_bar = row![
             Space::new().width(Length::Fill),
-            button(text("Annuller").size(14))
-                .style(button::secondary)
+            button(text("Annuller").size(13))
+                .style(secondary_button_style)
                 .on_press(Message::CancelConceptEdit)
                 .padding([8, 16]),
-            button(text(if is_edit { "Gem ændringer" } else { "Opret begreb" }).size(14))
-                .style(button::primary)
+            button(text(if is_edit { "Gem ændringer" } else { "Opret begreb" }).size(13))
+                .style(primary_button_style)
                 .on_press(Message::SaveConcept)
-                .padding([8, 18]),
+                .padding([8, 20]),
         ]
         .spacing(12)
         .align_y(Alignment::Center);
 
-        form = form.push(Space::new().height(10));
+        form = form.push(Space::new().height(8));
         form = form.push(action_bar);
 
-        container(scrollable(form).height(Length::Fill))
-            .style(container::bordered_box)
-            .padding(24)
-            .into()
+        scrollable(form).height(Length::Fill).into()
     }
 }

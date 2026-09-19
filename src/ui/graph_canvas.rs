@@ -183,7 +183,17 @@ impl<'a, Message> Program<Message, Theme, Renderer> for GraphCanvas<'a, Message>
         for node in self.graph.nodes() {
             let top_left = Point::new(node.x(), node.y());
             let size = Size::new(node.width(), node.height());
-            let node_path = Path::rounded_rectangle(top_left, size, 6.0.into());
+            let radius = 8.0;
+
+            // Subtil skygge for dybdevirkning
+            let shadow_path = Path::rounded_rectangle(
+                Point::new(node.x(), node.y() + 2.0),
+                size,
+                radius.into(),
+            );
+            frame.fill(&shadow_path, Color::from_rgba(0.05, 0.1, 0.2, 0.07));
+
+            let node_path = Path::rounded_rectangle(top_left, size, radius.into());
 
             // Baggrundsfarve efter FDA-standard
             let fill_color = if node.is_local() {
@@ -198,8 +208,10 @@ impl<'a, Message> Program<Message, Theme, Renderer> for GraphCanvas<'a, Message>
             let is_selected = self.selected_node_id == Some(node.id());
             let (border_color, border_width) = if is_selected {
                 (ThemeColors::PRIMARY, 2.5)
+            } else if node.is_local() {
+                (ThemeColors::FDA_SAND_BORDER, 1.2)
             } else {
-                (Color::from_rgb(0.5, 0.5, 0.5), 1.2)
+                (Color::from_rgb(0.35, 0.65, 0.85), 1.2)
             };
 
             frame.stroke(
@@ -212,8 +224,8 @@ impl<'a, Message> Program<Message, Theme, Renderer> for GraphCanvas<'a, Message>
             // Centreret foretrukken term (titel)
             frame.fill_text(Text {
                 content: node.label().to_string(),
-                position: Point::new(node.x() + node.width() / 2.0, node.y() + 24.0),
-                color: Color::from_rgb(0.1, 0.1, 0.1),
+                position: Point::new(node.x() + node.width() / 2.0, node.y() + 25.0),
+                color: ThemeColors::SLATE_900,
                 size: 14.0.into(),
                 align_x: alignment::Horizontal::Center.into(),
                 align_y: alignment::Vertical::Center,
@@ -230,8 +242,8 @@ impl<'a, Message> Program<Message, Theme, Renderer> for GraphCanvas<'a, Message>
             frame.fill_text(Text {
                 content: badge_text.to_string(),
                 position: Point::new(node.x() + node.width() / 2.0, node.y() + 48.0),
-                color: Color::from_rgb(0.45, 0.45, 0.45),
-                size: 10.0.into(),
+                color: ThemeColors::SLATE_600,
+                size: 10.5.into(),
                 align_x: alignment::Horizontal::Center.into(),
                 align_y: alignment::Vertical::Center,
                 ..Default::default()
