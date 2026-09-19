@@ -187,3 +187,67 @@ fn test_concept_list_ui_crud_cycle() {
     assert!(app.project().concepts().is_empty());
 }
 
+#[test]
+fn test_project_storage_roundtrip_and_atomic_save() {
+    use edge::features::model::storage::ProjectStorage;
+    use std::path::PathBuf;
+
+    let temp_dir = std::env::temp_dir();
+    let file_path = temp_dir.join(format!("test_edge_project_{}.edge.json", uuid::Uuid::new_v4()));
+
+    let mut project = ModelProject::default();
+    let mut c1 = Concept::new("Vej", "Færdselsareal for køretøjer og fodgængere.", BelongsToDomain::Yes);
+    c1.set_legal_source(Some("Vejloven § 3".to_string()));
+    project.add_concept(c1).unwrap();
+
+    // 1. Gem til fil
+    let save_res = ProjectStorage::save_to_file(&project, &file_path);
+    assert!(save_res.is_ok(), "Skal kunne gemme projektfil atomisk");
+    assert!(file_path.exists(), "Projektfil skal eksistere på disken");
+
+    // 2. Indlæs fra fil
+    let loaded = ProjectStorage::load_from_file(&file_path).expect("Skal kunne indlæse gemt projektfil");
+    assert_eq!(loaded.metadata().name(), project.metadata().name());
+    assert_eq!(loaded.concepts().len(), 1);
+    assert_eq!(loaded.concepts()[0].preferred_term(), "Vej");
+    assert_eq!(loaded.concepts()[0].legal_source(), Some("Vejloven § 3"));
+
+    // Oprydning
+    let _ = std::fs::remove_file(file_path);
+}
+
+#[test]
+fn test_app_autosave_lifecycle() {
+    use edge::ui::app::ConceptFormField;
+    use edge::features::model::storage::ProjectStorage;
+
+    let temp_dir = std::env::temp_dir();
+    let file_path = temp_dir.join(format!("test_edge_autosave_{}.edge.json", uuid::Uuid::new_v4()));
+
+    let mut app = App::new_with_path(Some(file_path.clone()));
+    assert_eq!(app.current_file_path(), Some(&file_path));
+
+    // 1. Opret begreb -> autosave skal opdatere filen på disken
+    app.update(Message::SelectTab(Tab::ConceptList));
+    app.update(Message::StartNewConcept);
+    app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "Cykelsti".to_string()));
+    app.update(Message::UpdateConceptField(ConceptFormField::Definition, "Færdselsareal forbeholdt cykler.".to_string()));
+    app.update(Message::SaveConcept);
+
+    assert!(file_path.exists(), "Autosave skal have oprettet filen på disken");
+    let on_disk = ProjectStorage::load_from_file(&file_path).expect("Skal kunne læse autosaved fil");
+    assert_eq!(on_disk.concepts().len(), 1);
+    assert_eq!(on_disk.concepts()[0].preferred_term(), "Cykelsti");
+
+    // 2. Slet begreb -> autosave skal genskrive filen på disken
+    let id = on_disk.concepts()[0].id();
+    app.update(Message::DeleteConcept(id));
+
+    let on_disk_after_del = ProjectStorage::load_from_file(&file_path).expect("Skal kunne læse efter sletning");
+    assert!(on_disk_after_del.concepts().is_empty(), "Autosaved fil skal have 0 begreber efter sletning");
+
+    // Oprydning
+    let _ = std::fs::remove_file(file_path);
+}
+
+
