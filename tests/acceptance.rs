@@ -1,6 +1,8 @@
 use edge::features::concept_model::{ConceptGraph, RelationKind};
 use edge::features::concepts::{BelongsToDomain, Concept, ConceptValidator};
-use edge::features::information_model::{Attribute, InformationClass, Multiplicity, PrimitiveType};
+use edge::features::information_model::{
+    Attribute, InformationClass, InformationModel, Multiplicity, PrimitiveType,
+};
 use edge::features::model::{ModelMetadata, ModelProject, ModelStatus};
 use edge::ui::app::{App, Message, Tab};
 
@@ -1038,3 +1040,146 @@ fn test_orthogonal_edge_routing_and_ports() {
         "Når to ortogonale linjer krydser, skal der detekteres mindst én krydsningsbro"
     );
 }
+
+#[test]
+fn test_task_010_information_model_classes_attributes_and_concept_traceability() {
+    // 1. Opret kildebegreber i begrebsmodellen
+    let c_person = Concept::new(
+        "Person",
+        "En fysisk person i det danske samfund.",
+        BelongsToDomain::Yes,
+    );
+    let c_cpr = Concept::new(
+        "CprNummer",
+        "Et 10-cifret unikt personnummer udstedt af CPR-registret.",
+        BelongsToDomain::Yes,
+    );
+
+    // 2. Opret en Informationsklasse knyttet til begrebet Person
+    let mut person_class = InformationClass::from_concept(&c_person);
+    assert_eq!(person_class.name(), "Person");
+    assert_eq!(
+        person_class.description(),
+        Some("En fysisk person i det danske samfund.")
+    );
+    assert!(
+        person_class.concept_ids().contains(&c_person.id()),
+        "Klassen skal spore tilbage til person-begrebet"
+    );
+
+    // 3. Tilføj attribut med direkte begrebssporing (cprNummer -> c_cpr)
+    let attr_cpr = Attribute::new(
+        "cprNummer",
+        PrimitiveType::CharacterString,
+        Multiplicity::exactly_one(),
+    )
+    .with_concepts(vec![c_cpr.id()]);
+
+    assert_eq!(attr_cpr.name(), "cprNummer");
+    assert_eq!(attr_cpr.data_type(), PrimitiveType::CharacterString);
+    assert_eq!(attr_cpr.multiplicity(), Multiplicity::exactly_one());
+    assert!(
+        attr_cpr.concept_ids().contains(&c_cpr.id()),
+        "Attributten skal spore til CprNummer-begrebet"
+    );
+    person_class.add_attribute(attr_cpr);
+
+    // 4. Tilføj en selvstændig attribut uden begreb (f.eks. registreringsTidspunkt)
+    let attr_tid = Attribute::new(
+        "registreringsTidspunkt",
+        PrimitiveType::DateTime,
+        Multiplicity::zero_or_one(),
+    );
+    assert!(
+        attr_tid.concept_ids().is_empty(),
+        "Selvstændig attribut har ingen begrebsrelation"
+    );
+    person_class.add_attribute(attr_tid);
+
+    // 5. Opret en selvstændig teknisk klasse uden begrebsrelation
+    let mut audit_class = InformationClass::new("AuditLog");
+    audit_class.set_description(Some("Teknisk hændelseslog".to_string()));
+    assert!(
+        audit_class.concept_ids().is_empty(),
+        "Selvstændig klasse skal kunne oprettes uden begrebsrelation"
+    );
+
+    // 6. Test InformationModel container
+    let mut info_model = InformationModel::new();
+    let person_class_id = info_model.add_class(person_class);
+    let audit_class_id = info_model.add_class(audit_class);
+
+    assert_eq!(
+        info_model.classes().len(),
+        2,
+        "Informationsmodellen skal indeholde to klasser"
+    );
+
+    let retrieved = info_model
+        .get_class(person_class_id)
+        .expect("Klassen skal kunne hentes via id");
+    assert_eq!(retrieved.name(), "Person");
+    assert_eq!(retrieved.attributes().len(), 2);
+
+    // Test opslag via begreb
+    let classes_for_p = info_model.classes_for_concept(c_person.id());
+    assert_eq!(classes_for_p.len(), 1);
+    assert_eq!(classes_for_p[0].id(), person_class_id);
+
+    let attrs_for_cpr = info_model.attributes_for_concept(c_cpr.id());
+    assert_eq!(attrs_for_cpr.len(), 1);
+    assert_eq!(attrs_for_cpr[0].1.name(), "cprNummer");
+
+    // 7. Test integration i ModelProject og Disk-Persistens (Round-trip serialisering)
+    let mut project = ModelProject::default();
+    project.information_model_mut().add_class(
+        info_model
+            .get_class(person_class_id)
+            .cloned()
+            .expect("Skal have klasse"),
+    );
+    project.information_model_mut().add_class(
+        info_model
+            .get_class(audit_class_id)
+            .cloned()
+            .expect("Skal have klasse"),
+    );
+
+    let json = serde_json::to_string_pretty(&project).expect("Serialisering skal lykkes");
+    let loaded: ModelProject =
+        serde_json::from_str(&json).expect("Deserialisering skal genskabe ModelProject");
+
+    assert_eq!(
+        loaded.information_model().classes().len(),
+        2,
+        "De serialiserede klasser skal bevares intakt"
+    );
+
+    // 8. Test Bagudkompatibilitet: Deserialisering af projekt JSON uden 'information_model' felt
+    let legacy_json = r#"{
+        "metadata": {
+            "name": "Legacy Model",
+            "description": "Uden informationsmodel",
+            "uri": "https://data.gov.dk/model/core/legacy",
+            "responsible_org": "Myndighed",
+            "domain_area": "Test",
+            "version": "1.0.0",
+            "status": "Draft",
+            "legal_source": null
+        },
+        "concepts": [],
+        "concept_graph": {
+            "nodes": [],
+            "edges": []
+        }
+    }"#;
+
+    let legacy_project: ModelProject = serde_json::from_str(legacy_json)
+        .expect("Bagudkompatibilitet skal sikre at legacy JSON uden information_model kan indlæses");
+    assert_eq!(
+        legacy_project.information_model().classes().len(),
+        0,
+        "Legacy projekt skal initialisere en tom InformationModel via #[serde(default)]"
+    );
+}
+

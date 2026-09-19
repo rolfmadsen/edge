@@ -1,5 +1,6 @@
 use crate::features::concept_model::ConceptGraph;
 use crate::features::concepts::{Concept, ConceptValidator, ValidationError};
+use crate::features::information_model::InformationModel;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -89,6 +90,8 @@ pub struct ModelProject {
     concepts: Vec<Concept>,
     #[serde(default)]
     concept_graph: ConceptGraph,
+    #[serde(default)]
+    information_model: InformationModel,
 }
 
 impl ModelProject {
@@ -97,6 +100,7 @@ impl ModelProject {
             metadata,
             concepts: Vec::new(),
             concept_graph: ConceptGraph::new(),
+            information_model: InformationModel::new(),
         }
     }
 
@@ -122,6 +126,14 @@ impl ModelProject {
 
     pub fn concept_graph_mut(&mut self) -> &mut ConceptGraph {
         &mut self.concept_graph
+    }
+
+    pub fn information_model(&self) -> &InformationModel {
+        &self.information_model
+    }
+
+    pub fn information_model_mut(&mut self) -> &mut InformationModel {
+        &mut self.information_model
     }
 
     pub fn sync_concept_graph(&mut self) {
