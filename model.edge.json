@@ -175,6 +175,13 @@
           "59e4b522-0adb-4808-bd88-786eaacf712d"
         ],
         "attributes": []
+      },
+      {
+        "id": "daaa1b63-8dcd-489a-b16e-6358ffd378ee",
+        "name": "",
+        "description": null,
+        "concept_ids": [],
+        "attributes": []
       }
     ]
   },
@@ -193,6 +200,14 @@
         "class_id": "c389b6be-3336-4dd3-940b-411793567b03",
         "x": -200.0,
         "y": 360.0,
+        "width": 220.0,
+        "height": 80.0
+      },
+      {
+        "id": "314b0ea1-1b49-4b3b-a31a-4a719bf12b1f",
+        "class_id": "daaa1b63-8dcd-489a-b16e-6358ffd378ee",
+        "x": 580.0,
+        "y": 60.0,
         "width": 220.0,
         "height": 80.0
       }

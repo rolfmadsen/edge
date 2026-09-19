@@ -196,7 +196,7 @@ impl CanvasEdge for ClassDiagramEdge {
 pub struct DiagramCanvasState {
     pub dragging_node: Option<(NodeId, Vector)>,
     pub last_click: Option<ClickRecord>,
-    pub panning_start: Option<Point>,
+    pub panning_start: Option<(Point, Vector)>,
     pub is_panning_space: bool,
     pub space_pressed: bool,
     pub modifiers: iced::keyboard::Modifiers,
@@ -333,12 +333,12 @@ where
                 None
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Middle)) => {
-                state.panning_start = Some(cursor_pos);
+                state.panning_start = Some((cursor_pos, self.viewport.pan()));
                 Some(Action::capture())
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 if self.is_space_pressed || state.space_pressed {
-                    state.panning_start = Some(cursor_pos);
+                    state.panning_start = Some((cursor_pos, self.viewport.pan()));
                     state.is_panning_space = true;
                     return Some(Action::capture());
                 }
@@ -388,11 +388,10 @@ where
                 Some(Action::publish((self.on_node_selected)(None)).and_capture())
             }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
-                if let Some(pan_start) = state.panning_start {
-                    let delta = cursor_pos - pan_start;
+                if let Some((start_pos, initial_pan)) = state.panning_start {
+                    let total_delta = cursor_pos - start_pos;
                     let mut new_vp = self.viewport;
-                    new_vp.translate(delta);
-                    state.panning_start = Some(cursor_pos);
+                    new_vp.set_pan(initial_pan + total_delta);
                     return Some(Action::publish((self.on_viewport_changed)(new_vp)).and_capture());
                 }
 
@@ -838,5 +837,31 @@ mod tests {
         let snap_test = Point::new(23.4, 38.9);
         let snapped = CanvasViewport::snap_to_grid(snap_test, 20.0);
         assert_eq!(snapped, Point::new(20.0, 40.0));
+    }
+
+    #[test]
+    fn test_pan_drag_cursor_tracking_does_not_drift() {
+        let mut state = DiagramCanvasState::default();
+        let initial_pan = Vector::new(10.0, 20.0);
+        let click_pos = Point::new(100.0, 100.0);
+        state.panning_start = Some((click_pos, initial_pan));
+
+        // Simuler flere CursorMoved hændelser i samme frame
+        let moves = [
+            Point::new(120.0, 100.0),
+            Point::new(150.0, 100.0),
+            Point::new(200.0, 100.0),
+        ];
+
+        let mut last_pan = Vector::default();
+        for current_cursor in moves {
+            let (start_pos, init_pan) = state.panning_start.unwrap();
+            let total_delta = current_cursor - start_pos;
+            let current_pan = init_pan + total_delta;
+            last_pan = current_pan;
+        }
+
+        // Slutpositionen for pan skal svare nøjagtigt til total cursor-bevægelse (+100px i X)
+        assert_eq!(last_pan, Vector::new(110.0, 20.0));
     }
 }
