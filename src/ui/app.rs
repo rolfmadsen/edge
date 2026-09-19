@@ -56,6 +56,9 @@ pub enum Message {
     SaveProject,
     OpenProjectDialog,
     SaveProjectAsDialog,
+    OpenDialogCompleted(crate::ui::file_dialog::DialogResult),
+    SaveDialogCompleted(crate::ui::file_dialog::DialogResult),
+    OpenInlineFileDialog(FileDialogMode),
     CloseFileDialog,
     FileDialogInputChanged(String),
     ConfirmFileDialog,
@@ -205,7 +208,8 @@ impl App {
                 self.active_tab = Tab::Metadata;
                 self.editor_state = None;
                 self.search_query.clear();
-                self.trigger_autosave();
+                self.current_file_path = None;
+                self.save_status = SaveStatus::Unsaved;
             }
             Message::StartNewConcept => {
                 self.editor_state = Some(ConceptEditorState::new_empty());
@@ -269,23 +273,57 @@ impl App {
 
             // Persistens & Filhåndtering
             Message::SaveProject => {
-                self.trigger_autosave();
+                if self.current_file_path.is_some() {
+                    self.trigger_autosave();
+                } else {
+                    return self.update(Message::SaveProjectAsDialog);
+                }
             }
             Message::OpenProjectDialog => {
-                self.file_dialog_mode = Some(FileDialogMode::Open);
+                return Task::perform(
+                    async { crate::ui::file_dialog::pick_file_to_open() },
+                    Message::OpenDialogCompleted,
+                );
+            }
+            Message::OpenDialogCompleted(res) => match res {
+                crate::ui::file_dialog::DialogResult::Selected(path) => {
+                    return self.update(Message::OpenProjectFile(path));
+                }
+                crate::ui::file_dialog::DialogResult::Cancelled => {}
+                crate::ui::file_dialog::DialogResult::Unavailable => {
+                    return self.update(Message::OpenInlineFileDialog(FileDialogMode::Open));
+                }
+            },
+            Message::SaveProjectAsDialog => {
+                let default_name = self
+                    .current_file_path
+                    .as_ref()
+                    .and_then(|p| p.file_name())
+                    .and_then(|f| f.to_str())
+                    .unwrap_or("model.edge.json")
+                    .to_string();
+
+                return Task::perform(
+                    async move { crate::ui::file_dialog::pick_file_to_save(Some(&default_name)) },
+                    Message::SaveDialogCompleted,
+                );
+            }
+            Message::SaveDialogCompleted(res) => match res {
+                crate::ui::file_dialog::DialogResult::Selected(path) => {
+                    return self.update(Message::SaveProjectToFile(path));
+                }
+                crate::ui::file_dialog::DialogResult::Cancelled => {}
+                crate::ui::file_dialog::DialogResult::Unavailable => {
+                    return self.update(Message::OpenInlineFileDialog(FileDialogMode::SaveAs));
+                }
+            },
+            Message::OpenInlineFileDialog(mode) => {
+                self.file_dialog_mode = Some(mode);
                 self.file_dialog_input = self
                     .current_file_path
                     .as_ref()
                     .map(|p| p.display().to_string())
                     .unwrap_or_else(|| "model.edge.json".to_string());
-            }
-            Message::SaveProjectAsDialog => {
-                self.file_dialog_mode = Some(FileDialogMode::SaveAs);
-                self.file_dialog_input = self
-                    .current_file_path
-                    .as_ref()
-                    .map(|p| p.display().to_string())
-                    .unwrap_or_else(|| "ny_model.edge.json".to_string());
             }
             Message::CloseFileDialog => {
                 self.file_dialog_mode = None;
@@ -313,6 +351,9 @@ impl App {
                     self.current_file_path = Some(path);
                     self.save_status = SaveStatus::Saved(display);
                     self.file_dialog_mode = None;
+                    if !self.project.concepts().is_empty() {
+                        self.active_tab = Tab::ConceptList;
+                    }
                 }
                 Err(err) => {
                     self.save_status =
@@ -385,7 +426,7 @@ impl App {
 
         let nav_bar = row![
             row![
-                text("edge").size(24).color(ThemeColors::PRIMARY),
+                text("Edge").size(24).color(ThemeColors::PRIMARY),
                 Space::new().width(6),
                 container(text("FDA v2.1").size(10).color(ThemeColors::PRIMARY))
                     .style(|_theme: &iced::Theme| container::Style {
@@ -410,11 +451,15 @@ impl App {
                 .style(button::secondary)
                 .on_press(Message::OpenProjectDialog)
                 .padding([6, 10]),
+            button(text("💾 Gem").size(12))
+                .style(button::secondary)
+                .on_press(Message::SaveProject)
+                .padding([6, 10]),
             button(text("💾 Gem som...").size(12))
                 .style(button::secondary)
                 .on_press(Message::SaveProjectAsDialog)
                 .padding([6, 10]),
-            button(text("Nyt Projekt").size(12))
+            button(text("+ Nyt Projekt").size(12))
                 .style(button::secondary)
                 .on_press(Message::NewProject)
                 .padding([6, 10]),
@@ -429,30 +474,57 @@ impl App {
                 FileDialogMode::SaveAs => ("Gem modelprojekt som:", "Gem"),
             };
 
-            container(
-                row![
-                    text(mode_label).size(13).color(ThemeColors::PRIMARY),
-                    text_input("Filsti (f.eks. model.edge.json)...", &self.file_dialog_input)
-                        .on_input(Message::FileDialogInputChanged)
-                        .on_submit(Message::ConfirmFileDialog)
-                        .padding(6)
-                        .width(Length::FillPortion(2)),
-                    button(text(confirm_label).size(12))
-                        .style(button::primary)
-                        .on_press(Message::ConfirmFileDialog)
-                        .padding([4, 12]),
-                    button(text("✕").size(12))
-                        .style(button::secondary)
-                        .on_press(Message::CloseFileDialog)
-                        .padding([4, 8]),
-                ]
-                .spacing(10)
-                .align_y(Alignment::Center),
-            )
-            .style(container::bordered_box)
-            .padding([8, 14])
-            .width(Length::Fill)
-            .into()
+            let mut banner_col = column![row![
+                text(mode_label).size(13).color(ThemeColors::PRIMARY),
+                text_input("Filsti (f.eks. model.edge.json)...", &self.file_dialog_input)
+                    .on_input(Message::FileDialogInputChanged)
+                    .on_submit(Message::ConfirmFileDialog)
+                    .padding(6)
+                    .width(Length::FillPortion(2)),
+                button(text(confirm_label).size(12))
+                    .style(button::primary)
+                    .on_press(Message::ConfirmFileDialog)
+                    .padding([4, 12]),
+                button(text("🖥️ Gennemse...").size(12))
+                    .style(button::secondary)
+                    .on_press(match mode {
+                        FileDialogMode::Open => Message::OpenProjectDialog,
+                        FileDialogMode::SaveAs => Message::SaveProjectAsDialog,
+                    })
+                    .padding([4, 10]),
+                button(text("✕").size(12))
+                    .style(button::secondary)
+                    .on_press(Message::CloseFileDialog)
+                    .padding([4, 8]),
+            ]
+            .spacing(10)
+            .align_y(Alignment::Center)]
+            .spacing(8);
+
+            if mode == FileDialogMode::Open {
+                let local_files = crate::ui::file_dialog::scan_local_project_files(&PathBuf::from("."));
+                if !local_files.is_empty() {
+                    let mut chips = row![text("Genveje i mappen:").size(11).color(ThemeColors::TEXT_MUTED)]
+                        .spacing(8)
+                        .align_y(Alignment::Center);
+                    for f in local_files {
+                        let name = f.file_name().and_then(|n| n.to_str()).unwrap_or("model.edge.json").to_string();
+                        chips = chips.push(
+                            button(text(format!("📄 {}", name)).size(11))
+                                .style(button::secondary)
+                                .on_press(Message::OpenProjectFile(f))
+                                .padding([2, 8]),
+                        );
+                    }
+                    banner_col = banner_col.push(chips);
+                }
+            }
+
+            container(banner_col)
+                .style(container::bordered_box)
+                .padding([8, 14])
+                .width(Length::Fill)
+                .into()
         });
 
         let content: Element<Message> = match self.active_tab {
@@ -502,9 +574,12 @@ impl App {
         };
 
         let save_status_text = match &self.save_status {
-            SaveStatus::Saved(target) => format!("💾 Gemt i {}", target),
+            SaveStatus::Saved(target) => {
+                let full_path = std::fs::canonicalize(target).unwrap_or_else(|_| PathBuf::from(target));
+                format!("💾 Gemt: {}", full_path.display())
+            }
             SaveStatus::Saving => "⏳ Gemmer...".to_string(),
-            SaveStatus::Unsaved => "⚠️ Ikke gemt til fil".to_string(),
+            SaveStatus::Unsaved => "⚠️ Nyt projekt (ikke gemt til disk - tryk Gem)".to_string(),
             SaveStatus::Error(msg) => format!("❌ Fejl ved gemning: {}", msg),
         };
 

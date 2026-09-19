@@ -202,10 +202,42 @@ fn test_keyboard_navigation_and_shortcuts() {
     assert!(!app.is_editing_concept(), "Escape skal annullere editor");
 
     // Escape lukker også fildialog
-    let _ = app.update(Message::OpenProjectDialog);
+    let _ = app.update(Message::OpenInlineFileDialog(edge::ui::app::FileDialogMode::Open));
     assert!(app.is_file_dialog_open());
     let _ = app.update(Message::EscapePressed);
     assert!(!app.is_file_dialog_open(), "Escape skal lukke fildialog");
+}
+
+#[test]
+fn test_new_project_does_not_overwrite_disk_file() {
+    use edge::ui::app::ConceptFormField;
+    use edge::features::model::storage::ProjectStorage;
+
+    let temp_dir = std::env::temp_dir();
+    let file_path = temp_dir.join(format!("test_edge_no_overwrite_{}.edge.json", uuid::Uuid::new_v4()));
+
+    let mut app = App::new_with_path(Some(file_path.clone()));
+
+    // Opret et begreb så filen findes på disk med data
+    let _ = app.update(Message::SelectTab(Tab::ConceptList));
+    let _ = app.update(Message::StartNewConcept);
+    let _ = app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "TestTerm".to_string()));
+    let _ = app.update(Message::UpdateConceptField(ConceptFormField::Definition, "TestDefinition".to_string()));
+    let _ = app.update(Message::SaveConcept);
+
+    let on_disk_before = ProjectStorage::load_from_file(&file_path).expect("Skal kunne læses");
+    assert_eq!(on_disk_before.concepts().len(), 1);
+
+    // Tryk "Nyt Projekt"
+    let _ = app.update(Message::NewProject);
+    assert!(app.project().concepts().is_empty());
+    assert_eq!(app.current_file_path(), None, "Nyt projekt skal nulstille aktiv filsti");
+
+    // Verificer at filen på disken STADIG indeholder det oprindelige begreb!
+    let on_disk_after = ProjectStorage::load_from_file(&file_path).expect("Skal stadig kunne læses");
+    assert_eq!(on_disk_after.concepts().len(), 1, "Nyt projekt må IKKE slette eksisterende fil på disk");
+
+    let _ = std::fs::remove_file(file_path);
 }
 
 #[test]
