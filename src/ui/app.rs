@@ -892,7 +892,7 @@ impl App {
                 }
             }
             Message::CreateInformationClass => {
-                let class = InformationClass::new("NyKlasse");
+                let class = InformationClass::new("");
                 let id = self.project.information_model_mut().add_class(class);
                 let node_id = self.project.information_graph_mut().add_node(id, 0);
                 self.selected_info_class_id = Some(id);
@@ -922,7 +922,12 @@ impl App {
             }
             Message::UpdateInformationClassName(class_id, name) => {
                 if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
-                    class.set_name(name);
+                    let final_name = if class.name() == "NyKlasse" && name != "NyKlasse" {
+                        name.replace("NyKlasse", "")
+                    } else {
+                        name
+                    };
+                    class.set_name(final_name);
                     self.trigger_autosave();
                 }
             }
@@ -963,7 +968,7 @@ impl App {
             Message::AddAttributeToClass(class_id) => {
                 if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
                     let attr = Attribute::new(
-                        "nyAttribut",
+                        "",
                         PrimitiveType::CharacterString,
                         Multiplicity::exactly_one(),
                     );
@@ -982,7 +987,12 @@ impl App {
                         .iter_mut()
                         .find(|a| a.id() == attr_id)
                     {
-                        attr.set_name(name);
+                        let final_name = if attr.name() == "nyAttribut" && name != "nyAttribut" {
+                            name.replace("nyAttribut", "")
+                        } else {
+                            name
+                        };
+                        attr.set_name(final_name);
                         self.trigger_autosave();
                     }
                 }

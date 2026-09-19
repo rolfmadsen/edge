@@ -420,7 +420,7 @@ pub fn modern_input_style(_theme: &iced::Theme, status: text_input::Status) -> t
                 radius: 6.0.into(),
             },
             icon: ThemeColors::PRIMARY,
-            placeholder: ThemeColors::SLATE_400,
+            placeholder: Color::TRANSPARENT,
             value: ThemeColors::SLATE_900,
             selection: ThemeColors::PRIMARY_LIGHT,
         },

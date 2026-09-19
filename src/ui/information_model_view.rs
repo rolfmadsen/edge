@@ -113,10 +113,16 @@ pub fn view<'a>(
                 .into()
         };
 
+        let display_name = if class.name().trim().is_empty() {
+            "NyKlasse"
+        } else {
+            class.name()
+        };
+
         let item_btn = button(
             row![
                 column![
-                    text(class.name()).size(13).color(if is_selected {
+                    text(display_name).size(13).color(if is_selected {
                         ThemeColors::PRIMARY
                     } else {
                         ThemeColors::SLATE_900
@@ -204,14 +210,23 @@ pub fn view<'a>(
         is_space_pressed,
         |frame, node, is_selected, vp| {
             let class_opt = info_model.get_class(node.class_id());
-            let class_name = class_opt.map(|c| c.name()).unwrap_or("Ukendt Klasse");
+            let class_name = if class_opt.map(|c| c.name()).unwrap_or("").trim().is_empty() {
+                "NyKlasse"
+            } else {
+                class_opt.map(|c| c.name()).unwrap()
+            };
             let attributes: Vec<(String, String, String)> = class_opt
                 .map(|c| {
                     c.attributes()
                         .iter()
                         .map(|a| {
+                            let name = if a.name().trim().is_empty() {
+                                "nyAttribut"
+                            } else {
+                                a.name()
+                            };
                             (
-                                a.name().to_string(),
+                                name.to_string(),
                                 a.data_type().as_str().to_string(),
                                 a.multiplicity().to_string(),
                             )
@@ -394,13 +409,15 @@ pub fn view<'a>(
             // Klassenavn & beskrivelse
             let name_input = text_input("Klassenavn...", class.name())
                 .style(modern_input_style)
+                .size(13.0)
                 .on_input(move |s| Message::UpdateInformationClassName(class_id, s))
-                .padding(6);
+                .padding([4, 6]);
 
             let desc_input = text_input("Beskrivelse...", class.description().unwrap_or(""))
                 .style(modern_input_style)
+                .size(12.0)
                 .on_input(move |s| Message::UpdateInformationClassDescription(class_id, s))
-                .padding(6);
+                .padding([4, 6]);
 
             // Begrebssporing (FDA Traceability)
             let mut concept_badges_row = row![].spacing(4);
@@ -445,7 +462,8 @@ pub fn view<'a>(
                     Message::AddConceptToInformationClass(class_id, opt)
                 })
                 .placeholder("+ Knyt begreb...")
-                .padding(4)
+                .text_size(11.5)
+                .padding([3, 6])
                 .width(Length::Fill);
 
             // Attributter sektion
@@ -462,15 +480,16 @@ pub fn view<'a>(
                     row![
                         text_input("attributNavn", &name_val)
                             .style(modern_input_style)
+                            .size(12.0)
                             .on_input(move |s| {
                                 Message::UpdateAttributeName(class_id, attr_id, s)
                             })
-                            .padding(4)
+                            .padding([3, 6])
                             .width(Length::Fill),
                         button(text("✕").size(10))
                             .style(danger_button_style)
                             .on_press(Message::DeleteAttribute(class_id, attr_id))
-                            .padding([3, 6]),
+                            .padding([2, 5]),
                     ]
                     .spacing(4)
                     .align_y(Alignment::Center),
@@ -478,13 +497,15 @@ pub fn view<'a>(
                         pick_list(PrimitiveType::ALL, Some(type_val), move |t| {
                             Message::UpdateAttributeType(class_id, attr_id, t)
                         },)
-                        .padding(4)
-                        .width(Length::Fixed(120.0)),
+                        .text_size(11.0)
+                        .padding([3, 6])
+                        .width(Length::FillPortion(3)),
                         pick_list(Multiplicity::PRESETS, Some(mult_val), move |m| {
                             Message::UpdateAttributeMultiplicity(class_id, attr_id, m)
                         },)
-                        .padding(4)
-                        .width(Length::Fixed(80.0)),
+                        .text_size(11.0)
+                        .padding([3, 6])
+                        .width(Length::FillPortion(2)),
                     ]
                     .spacing(4)
                     .align_y(Alignment::Center),

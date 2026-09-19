@@ -681,16 +681,6 @@ pub fn render_concept_node(
             .with_width(border_width),
     );
 
-    frame.fill_text(Text {
-        content: node.label().to_string(),
-        position: Point::new(node.x() + node.width() / 2.0, node.y() + 28.0),
-        color: ThemeColors::SLATE_900,
-        size: 14.0.into(),
-        align_x: alignment::Horizontal::Center.into(),
-        align_y: alignment::Vertical::Center,
-        ..Default::default()
-    });
-
     let badge_text = if node.is_local() {
         "«lokalt begreb»"
     } else {
@@ -699,9 +689,19 @@ pub fn render_concept_node(
 
     frame.fill_text(Text {
         content: badge_text.to_string(),
-        position: Point::new(node.x() + node.width() / 2.0, node.y() + 54.0),
+        position: Point::new(node.x() + node.width() / 2.0, node.y() + 24.0),
         color: ThemeColors::SLATE_600,
         size: 10.5.into(),
+        align_x: alignment::Horizontal::Center.into(),
+        align_y: alignment::Vertical::Center,
+        ..Default::default()
+    });
+
+    frame.fill_text(Text {
+        content: node.label().to_string(),
+        position: Point::new(node.x() + node.width() / 2.0, node.y() + 48.0),
+        color: ThemeColors::SLATE_900,
+        size: 14.0.into(),
         align_x: alignment::Horizontal::Center.into(),
         align_y: alignment::Vertical::Center,
         ..Default::default()
