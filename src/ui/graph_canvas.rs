@@ -3,10 +3,18 @@ use crate::ui::theme::ThemeColors;
 use iced::mouse;
 use iced::widget::canvas::{Action, Event, Frame, Geometry, Path, Program, Stroke, Text};
 use iced::{alignment, Color, Point, Rectangle, Renderer, Size, Theme, Vector};
+use std::time::Instant;
+
+#[derive(Debug, Clone, Copy)]
+pub struct ClickRecord {
+    pub position: Point,
+    pub time: Instant,
+}
 
 #[derive(Debug, Default)]
 pub struct GraphCanvasState {
     dragging_node: Option<(NodeId, Vector)>,
+    last_click: Option<ClickRecord>,
 }
 
 pub struct GraphCanvas<'a, Message> {
@@ -14,6 +22,8 @@ pub struct GraphCanvas<'a, Message> {
     selected_node_id: Option<NodeId>,
     on_node_selected: Box<dyn Fn(Option<NodeId>) -> Message + 'a>,
     on_node_moved: Box<dyn Fn(NodeId, f32, f32) -> Message + 'a>,
+    on_canvas_double_clicked: Box<dyn Fn(f32, f32) -> Message + 'a>,
+    on_node_double_clicked: Box<dyn Fn(NodeId) -> Message + 'a>,
 }
 
 impl<'a, Message> GraphCanvas<'a, Message> {
@@ -22,12 +32,16 @@ impl<'a, Message> GraphCanvas<'a, Message> {
         selected_node_id: Option<NodeId>,
         on_node_selected: impl Fn(Option<NodeId>) -> Message + 'a,
         on_node_moved: impl Fn(NodeId, f32, f32) -> Message + 'a,
+        on_canvas_double_clicked: impl Fn(f32, f32) -> Message + 'a,
+        on_node_double_clicked: impl Fn(NodeId) -> Message + 'a,
     ) -> Self {
         Self {
             graph,
             selected_node_id,
             on_node_selected: Box::new(on_node_selected),
             on_node_moved: Box::new(on_node_moved),
+            on_canvas_double_clicked: Box::new(on_canvas_double_clicked),
+            on_node_double_clicked: Box::new(on_node_double_clicked),
         }
     }
 }
@@ -46,9 +60,35 @@ impl<'a, Message> Program<Message, Theme, Renderer> for GraphCanvas<'a, Message>
 
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
+                let now = Instant::now();
+                let is_double_click = if let Some(last) = state.last_click {
+                    let dx = last.position.x - cursor_pos.x;
+                    let dy = last.position.y - cursor_pos.y;
+                    let dist = (dx * dx + dy * dy).sqrt();
+                    dist < 6.0 && now.duration_since(last.time).as_millis() <= 350
+                } else {
+                    false
+                };
+
+                state.last_click = if is_double_click {
+                    None
+                } else {
+                    Some(ClickRecord {
+                        position: cursor_pos,
+                        time: now,
+                    })
+                };
+
                 // Tjek noder i omvendt rækkefølge (øverste node først)
                 for node in self.graph.nodes().iter().rev() {
                     if node.contains(cursor_pos.x, cursor_pos.y) {
+                        if is_double_click {
+                            state.dragging_node = None;
+                            return Some(
+                                Action::publish((self.on_node_double_clicked)(node.id()))
+                                    .and_capture(),
+                            );
+                        }
                         let offset = Vector::new(cursor_pos.x - node.x(), cursor_pos.y - node.y());
                         state.dragging_node = Some((node.id(), offset));
                         return Some(
@@ -56,6 +96,15 @@ impl<'a, Message> Program<Message, Theme, Renderer> for GraphCanvas<'a, Message>
                         );
                     }
                 }
+
+                if is_double_click {
+                    state.dragging_node = None;
+                    return Some(
+                        Action::publish((self.on_canvas_double_clicked)(cursor_pos.x, cursor_pos.y))
+                            .and_capture(),
+                    );
+                }
+
                 // Klik på tomt lærred fjerner markering
                 state.dragging_node = None;
                 Some(Action::publish((self.on_node_selected)(None)))
@@ -260,5 +309,62 @@ impl<'a, Message> Program<Message, Theme, Renderer> for GraphCanvas<'a, Message>
         }
 
         vec![frame.into_geometry()]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::features::concepts::{BelongsToDomain, Concept};
+
+    #[derive(Debug, Clone, PartialEq)]
+    enum TestMsg {
+        Selected(Option<NodeId>),
+        Moved(NodeId, f32, f32),
+        CanvasDoubleClicked(f32, f32),
+        NodeDoubleClicked(NodeId),
+    }
+
+    #[test]
+    fn test_graph_canvas_double_click_events() {
+        let mut graph = ConceptGraph::new();
+        let c = Concept::new("Test", "Def", BelongsToDomain::Yes);
+        let _node_id = graph.add_node(&c);
+
+        let canvas = GraphCanvas::new(
+            &graph,
+            None,
+            TestMsg::Selected,
+            TestMsg::Moved,
+            TestMsg::CanvasDoubleClicked,
+            TestMsg::NodeDoubleClicked,
+        );
+
+        let mut state = GraphCanvasState::default();
+        let bounds = Rectangle::new(Point::ORIGIN, Size::new(800.0, 600.0));
+
+        // 1. Dobbeltklik på tomt canvas (x: 400, y: 300)
+        let cursor = mouse::Cursor::Available(Point::new(400.0, 300.0));
+        let event = Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left));
+
+        // Første klik
+        let action1 = canvas.update(&mut state, &event, bounds, cursor);
+        assert!(action1.is_some());
+
+        // Andet klik hurtigt efter (dobbeltklik)
+        let action2 = canvas.update(&mut state, &event, bounds, cursor);
+        assert!(action2.is_some());
+
+        // 2. Dobbeltklik på node (x: 100, y: 80)
+        let mut node_state = GraphCanvasState::default();
+        let node_cursor = mouse::Cursor::Available(Point::new(100.0, 80.0));
+
+        // Første klik på node
+        let action_node1 = canvas.update(&mut node_state, &event, bounds, node_cursor);
+        assert!(action_node1.is_some());
+
+        // Andet klik på node (dobbeltklik)
+        let action_node2 = canvas.update(&mut node_state, &event, bounds, node_cursor);
+        assert!(action_node2.is_some());
     }
 }

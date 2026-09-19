@@ -1,5 +1,5 @@
 use crate::features::concept_model::{NodeId, RelationKind};
-use crate::features::concepts::Concept;
+use crate::features::concepts::{BelongsToDomain, Concept, ConceptValidator, ValidationError};
 use crate::features::model::storage::ProjectStorage;
 use crate::features::model::ModelProject;
 use crate::ui::concept_editor::ConceptEditorState;
@@ -40,6 +40,37 @@ pub struct RelationDialogState {
     pub kind: RelationKind,
     pub label: String,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct QuickCreateState {
+    pub position: (f32, f32),
+    pub preferred_term: String,
+    pub definition: String,
+    pub belongs_to_domain: BelongsToDomain,
+    pub validation_error: Option<String>,
+}
+
+impl QuickCreateState {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self {
+            position: (x, y),
+            preferred_term: String::new(),
+            definition: String::new(),
+            belongs_to_domain: BelongsToDomain::Yes,
+            validation_error: None,
+        }
+    }
+
+    pub fn build_concept(&self) -> Result<Concept, ValidationError> {
+        let concept = Concept::new(
+            self.preferred_term.trim(),
+            self.definition.trim(),
+            self.belongs_to_domain.clone(),
+        );
+        ConceptValidator::validate(&concept)?;
+        Ok(concept)
+    }
 }
 
 pub use crate::ui::concept_editor::ConceptFormField;
@@ -111,6 +142,15 @@ pub enum Message {
     GraphCreateRelation,
     GraphDeleteRelation(NodeId, NodeId),
     GraphSyncNodes,
+
+    // Lynoprettelse & Node-redigering på Canvas (Task 006)
+    CanvasDoubleClicked(f32, f32),
+    QuickCreateTermChanged(String),
+    QuickCreateDefinitionChanged(String),
+    QuickCreateDomainChanged(BelongsToDomain),
+    QuickCreateSubmit,
+    QuickCreateCancel,
+    GraphNodeDoubleClicked(NodeId),
 }
 
 pub struct App {
@@ -124,6 +164,8 @@ pub struct App {
     file_dialog_input: String,
     selected_graph_node_id: Option<NodeId>,
     relation_dialog: Option<RelationDialogState>,
+    quick_create: Option<QuickCreateState>,
+    is_inline_graph_editing: bool,
 }
 
 impl Default for App {
@@ -154,6 +196,8 @@ impl App {
                         file_dialog_input: String::new(),
                         selected_graph_node_id: None,
                         relation_dialog: None,
+                        quick_create: None,
+                        is_inline_graph_editing: false,
                     };
                 }
             }
@@ -175,6 +219,8 @@ impl App {
             file_dialog_input: String::new(),
             selected_graph_node_id: None,
             relation_dialog: None,
+            quick_create: None,
+            is_inline_graph_editing: false,
         }
     }
 
@@ -208,6 +254,14 @@ impl App {
 
     pub fn is_relation_dialog_open(&self) -> bool {
         self.relation_dialog.is_some()
+    }
+
+    pub fn is_quick_create_open(&self) -> bool {
+        self.quick_create.is_some()
+    }
+
+    pub fn is_node_editing(&self) -> bool {
+        self.is_inline_graph_editing && self.editor_state.is_some()
     }
 
     pub fn selected_graph_node_id(&self) -> Option<NodeId> {
@@ -262,19 +316,23 @@ impl App {
                 self.project = ModelProject::default();
                 self.active_tab = Tab::Metadata;
                 self.editor_state = None;
+                self.is_inline_graph_editing = false;
                 self.search_query.clear();
                 self.current_file_path = None;
                 self.save_status = SaveStatus::Unsaved;
                 self.selected_graph_node_id = None;
                 self.relation_dialog = None;
+                self.quick_create = None;
             }
             Message::StartNewConcept => {
                 self.editor_state = Some(ConceptEditorState::new_empty());
+                self.is_inline_graph_editing = false;
                 return operation::focus("preferred_term_input");
             }
             Message::EditConcept(id) => {
                 if let Some(concept) = self.project.get_concept(id) {
                     self.editor_state = Some(ConceptEditorState::from_concept(concept));
+                    self.is_inline_graph_editing = false;
                     self.active_tab = Tab::ConceptList;
                     return operation::focus("preferred_term_input");
                 }
@@ -284,6 +342,7 @@ impl App {
                 if let Some(editor) = &self.editor_state {
                     if editor.editing_id == Some(id) {
                         self.editor_state = None;
+                        self.is_inline_graph_editing = false;
                     }
                 }
                 self.trigger_autosave();
@@ -292,6 +351,10 @@ impl App {
                 if let Some(editor) = &mut self.editor_state {
                     match editor.build_concept() {
                         Ok(concept) => {
+                            let concept_id = concept.id();
+                            let pref_term = concept.preferred_term().to_string();
+                            let is_node_edit = self.is_inline_graph_editing;
+
                             let result = if editor.editing_id.is_some() {
                                 self.project.update_concept(concept)
                             } else {
@@ -301,6 +364,16 @@ impl App {
                             match result {
                                 Ok(()) => {
                                     self.editor_state = None;
+                                    self.is_inline_graph_editing = false;
+                                    if is_node_edit {
+                                        if let Some(node) = self
+                                            .project
+                                            .concept_graph_mut()
+                                            .find_node_by_concept_mut(concept_id)
+                                        {
+                                            node.set_label(pref_term);
+                                        }
+                                    }
                                     self.trigger_autosave();
                                 }
                                 Err(err) => {
@@ -316,6 +389,7 @@ impl App {
             }
             Message::CancelConceptEdit => {
                 self.editor_state = None;
+                self.is_inline_graph_editing = false;
             }
             Message::UpdateConceptField(field, value) => {
                 if let Some(editor) = &mut self.editor_state {
@@ -414,6 +488,8 @@ impl App {
                     self.file_dialog_mode = None;
                     self.selected_graph_node_id = None;
                     self.relation_dialog = None;
+                    self.quick_create = None;
+                    self.is_inline_graph_editing = false;
                     if !self.project.concepts().is_empty() {
                         self.active_tab = Tab::ConceptList;
                     }
@@ -437,10 +513,15 @@ impl App {
                 return operation::focus_previous();
             }
             Message::EscapePressed => {
-                if self.relation_dialog.is_some() {
+                if self.quick_create.is_some() {
+                    self.quick_create = None;
+                } else if self.relation_dialog.is_some() {
                     self.relation_dialog = None;
                 } else if self.file_dialog_mode.is_some() {
                     self.file_dialog_mode = None;
+                } else if self.is_inline_graph_editing {
+                    self.is_inline_graph_editing = false;
+                    self.editor_state = None;
                 } else if self.editor_state.is_some() {
                     self.editor_state = None;
                 } else if self.selected_graph_node_id.is_some() {
@@ -552,6 +633,77 @@ impl App {
             Message::GraphSyncNodes => {
                 self.project.sync_concept_graph();
                 self.trigger_autosave();
+            }
+
+            // Lynoprettelse & Node-redigering på Canvas (Task 006)
+            Message::CanvasDoubleClicked(x, y) => {
+                self.quick_create = Some(QuickCreateState::new(x, y));
+                return operation::focus("quick_create_term_input");
+            }
+            Message::QuickCreateTermChanged(term) => {
+                if let Some(qc) = &mut self.quick_create {
+                    qc.preferred_term = term;
+                    qc.validation_error = None;
+                }
+            }
+            Message::QuickCreateDefinitionChanged(def) => {
+                if let Some(qc) = &mut self.quick_create {
+                    qc.definition = def;
+                    qc.validation_error = None;
+                }
+            }
+            Message::QuickCreateDomainChanged(domain) => {
+                if let Some(qc) = &mut self.quick_create {
+                    qc.belongs_to_domain = domain;
+                }
+            }
+            Message::QuickCreateCancel => {
+                self.quick_create = None;
+            }
+            Message::QuickCreateSubmit => {
+                if let Some(qc) = &mut self.quick_create {
+                    match qc.build_concept() {
+                        Ok(concept) => {
+                            let (x, y) = qc.position;
+                            match self.project.add_concept(concept.clone()) {
+                                Ok(concept_id) => {
+                                    if let Some(node) = self
+                                        .project
+                                        .concept_graph_mut()
+                                        .find_node_by_concept_mut(concept_id)
+                                    {
+                                        node.set_position(x, y);
+                                    }
+                                    if let Some(node) = self
+                                        .project
+                                        .concept_graph()
+                                        .find_node_by_concept(concept_id)
+                                    {
+                                        self.selected_graph_node_id = Some(node.id());
+                                    }
+                                    self.quick_create = None;
+                                    self.trigger_autosave();
+                                }
+                                Err(err) => {
+                                    qc.validation_error = Some(err.to_string());
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            qc.validation_error = Some(err.to_string());
+                        }
+                    }
+                }
+            }
+            Message::GraphNodeDoubleClicked(node_id) => {
+                self.selected_graph_node_id = Some(node_id);
+                if let Some(node) = self.project.concept_graph().find_node(node_id) {
+                    if let Some(concept) = self.project.get_concept(node.concept_id()) {
+                        self.editor_state = Some(ConceptEditorState::from_concept(concept));
+                        self.is_inline_graph_editing = true;
+                        return operation::focus("preferred_term_input");
+                    }
+                }
             }
         }
 
@@ -926,6 +1078,142 @@ impl App {
                     .into()
             });
 
+        let maybe_quick_create_modal: Option<Element<Message>> =
+            self.quick_create.as_ref().map(|qc| {
+                let mut dialog_col = column![
+                    row![
+                        text("Nyt Begreb på Lærred")
+                            .size(16)
+                            .color(ThemeColors::SLATE_900),
+                        Space::new().width(Length::Fill),
+                        button(text("✕").size(13))
+                            .style(secondary_button_style)
+                            .on_press(Message::QuickCreateCancel)
+                            .padding([3, 7]),
+                    ]
+                    .align_y(Alignment::Center),
+                    text(format!(
+                        "Opretter begreb ved ({:.0}, {:.0}) på lærredet jf. FDA Modelreglerne:",
+                        qc.position.0, qc.position.1
+                    ))
+                    .size(12)
+                    .color(ThemeColors::TEXT_MUTED),
+                ]
+                .spacing(12);
+
+                if let Some(err) = &qc.validation_error {
+                    dialog_col = dialog_col.push(
+                        container(
+                            text(format!("⚠️ {}", err))
+                                .size(12)
+                                .color(ThemeColors::ACCENT_RED),
+                        )
+                        .style(|_theme| container::Style {
+                            background: Some(iced::Background::Color(
+                                ThemeColors::ACCENT_RED_LIGHT,
+                            )),
+                            border: iced::Border {
+                                color: ThemeColors::ACCENT_RED,
+                                width: 1.0,
+                                radius: 6.0.into(),
+                            },
+                            ..Default::default()
+                        })
+                        .padding([6, 10])
+                        .width(Length::Fill),
+                    );
+                }
+
+                let term_field = column![
+                    text("Foretrukken term *")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                    text_input(
+                        "Foretrukken term (f.eks. Godsvogn)...",
+                        &qc.preferred_term
+                    )
+                    .id("quick_create_term_input")
+                    .style(modern_input_style)
+                    .on_input(Message::QuickCreateTermChanged)
+                    .on_submit(Message::QuickCreateSubmit)
+                    .padding(8)
+                    .width(Length::Fill),
+                ]
+                .spacing(4);
+
+                let def_field = column![
+                    text("Definition (Aristoteles' formel) *")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                    text_input(
+                        "Overordnet begreb + adskillende egenskaber...",
+                        &qc.definition
+                    )
+                    .style(modern_input_style)
+                    .on_input(Message::QuickCreateDefinitionChanged)
+                    .on_submit(Message::QuickCreateSubmit)
+                    .padding(8)
+                    .width(Length::Fill),
+                ]
+                .spacing(4);
+
+                let is_local = qc.belongs_to_domain == BelongsToDomain::Yes;
+                let domain_row = row![
+                    text("Tilknytning:").size(12).color(ThemeColors::SLATE_700),
+                    button(text("Lokalt begreb (FDA Sand)").size(11))
+                        .style(if is_local {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        })
+                        .on_press(Message::QuickCreateDomainChanged(BelongsToDomain::Yes))
+                        .padding([4, 8]),
+                    button(text("Indlånt begreb (FDA Blå)").size(11))
+                        .style(if !is_local {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        })
+                        .on_press(Message::QuickCreateDomainChanged(BelongsToDomain::No))
+                        .padding([4, 8]),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center);
+
+                dialog_col = dialog_col.push(term_field);
+                dialog_col = dialog_col.push(def_field);
+                dialog_col = dialog_col.push(domain_row);
+
+                let actions = row![
+                    Space::new().width(Length::Fill),
+                    button(text("Annuller").size(12))
+                        .style(secondary_button_style)
+                        .on_press(Message::QuickCreateCancel)
+                        .padding([6, 14]),
+                    button(text("Opret Begreb").size(12))
+                        .style(primary_button_style)
+                        .on_press(Message::QuickCreateSubmit)
+                        .padding([6, 16]),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center);
+
+                dialog_col = dialog_col.push(actions);
+
+                let modal_card = container(dialog_col)
+                    .style(modal_card_style)
+                    .padding(24)
+                    .width(Length::Fixed(480.0));
+
+                container(modal_card)
+                    .style(modal_backdrop_style)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_x(Length::Fill)
+                    .center_y(Length::Fill)
+                    .into()
+            });
+
         // 3. Fane Indhold
         let content: Element<Message> = match self.active_tab {
             Tab::Metadata => {
@@ -1015,134 +1303,239 @@ impl App {
                     self.selected_graph_node_id,
                     Message::GraphNodeSelected,
                     Message::GraphNodeMoved,
+                    Message::CanvasDoubleClicked,
+                    Message::GraphNodeDoubleClicked,
                 ))
                 .width(Length::Fill)
                 .height(Length::Fill);
 
                 let inspector_panel: Element<Message> = if let Some(selected_id) = self.selected_graph_node_id {
                     if let Some(node) = self.project.concept_graph().find_node(selected_id) {
-                        let concept = self.project.get_concept(node.concept_id());
-                        let title = node.label();
-                        let is_local = node.is_local();
+                        match (self.is_inline_graph_editing, &self.editor_state) {
+                            (true, Some(editor)) => {
+                                let mut edit_col = column![
+                                    row![
+                                        text("Hurtigredigering").size(14).color(ThemeColors::PRIMARY),
+                                        Space::new().width(Length::Fill),
+                                        button(text("✕").size(11))
+                                            .style(secondary_button_style)
+                                            .on_press(Message::CancelConceptEdit)
+                                            .padding([2, 5]),
+                                    ]
+                                    .align_y(Alignment::Center),
+                                    text("Rediger nodens begreb direkte:")
+                                        .size(11)
+                                        .color(ThemeColors::TEXT_MUTED),
+                                ]
+                                .spacing(8);
 
-                        let (badge_text, badge_bg, badge_border) = if is_local {
-                            ("Lokalt begreb", ThemeColors::FDA_SAND, ThemeColors::FDA_SAND_BORDER)
-                        } else {
-                            ("Indlånt begreb", ThemeColors::FDA_BORROWED_BLUE_BG, ThemeColors::FDA_BORROWED_BLUE)
-                        };
+                                if let Some(err) = &editor.validation_error {
+                                    edit_col = edit_col.push(
+                                        container(
+                                            text(format!("⚠️ {}", err))
+                                                .size(11)
+                                                .color(ThemeColors::ACCENT_RED),
+                                        )
+                                        .style(card_container_style)
+                                        .padding(6)
+                                        .width(Length::Fill),
+                                    );
+                                }
 
-                        let badge = container(text(badge_text).size(11).color(ThemeColors::SLATE_800))
-                            .style(move |_| container::Style {
-                                background: Some(iced::Background::Color(badge_bg)),
-                                border: iced::Border {
-                                    color: badge_border,
-                                    width: 1.0,
-                                    radius: 4.0.into(),
-                                },
-                                ..Default::default()
-                            })
-                            .padding([3, 8]);
-
-                        let mut insp = column![
-                            row![
-                                text("Inspector").size(11).color(ThemeColors::TEXT_MUTED),
-                                Space::new().width(Length::Fill),
-                                badge,
-                                button(text("✕").size(11))
-                                    .style(secondary_button_style)
-                                    .on_press(Message::GraphNodeSelected(None))
-                                    .padding([2, 5]),
-                            ].align_y(Alignment::Center),
-                            text(title).size(18).color(ThemeColors::SLATE_900),
-                        ].spacing(8);
-
-                        if let Some(c) = concept {
-                            insp = insp.push(
-                                container(
+                                edit_col = edit_col.push(
                                     column![
-                                        text("Definition (FDA):").size(11).color(ThemeColors::TEXT_MUTED),
-                                        text(c.definition()).size(12).color(ThemeColors::SLATE_800),
-                                    ].spacing(3)
-                                )
-                                .style(card_container_style)
-                                .padding(10)
-                                .width(Length::Fill)
-                            );
+                                        text("Foretrukken term *")
+                                            .size(11)
+                                            .color(ThemeColors::SLATE_700),
+                                        text_input("Foretrukken term...", &editor.preferred_term)
+                                            .id("preferred_term_input")
+                                            .style(modern_input_style)
+                                            .on_input(|v| {
+                                                Message::UpdateConceptField(
+                                                    ConceptFormField::PreferredTerm,
+                                                    v,
+                                                )
+                                            })
+                                            .on_submit(Message::SaveConcept)
+                                            .padding(6)
+                                            .width(Length::Fill),
+                                    ]
+                                    .spacing(3),
+                                );
 
-                            if let Some(src) = c.source() {
+                                edit_col = edit_col.push(
+                                    column![
+                                        text("Definition (Aristoteles' formel) *")
+                                            .size(11)
+                                            .color(ThemeColors::SLATE_700),
+                                        text_input("Definition...", &editor.definition)
+                                            .style(modern_input_style)
+                                            .on_input(|v| {
+                                                Message::UpdateConceptField(
+                                                    ConceptFormField::Definition,
+                                                    v,
+                                                )
+                                            })
+                                            .on_submit(Message::SaveConcept)
+                                            .padding(6)
+                                            .width(Length::Fill),
+                                    ]
+                                    .spacing(3),
+                                );
+
+                                let edit_actions = row![
+                                    button(text("Annuller").size(11))
+                                        .style(secondary_button_style)
+                                        .on_press(Message::CancelConceptEdit)
+                                        .padding([5, 10]),
+                                    Space::new().width(Length::Fill),
+                                    button(text("Gem Begreb").size(11))
+                                        .style(primary_button_style)
+                                        .on_press(Message::SaveConcept)
+                                        .padding([5, 12]),
+                                ]
+                                .align_y(Alignment::Center);
+
+                                edit_col = edit_col.push(edit_actions);
+
+                                container(scrollable(edit_col.spacing(10)))
+                                    .style(card_container_style)
+                                    .padding(14)
+                                    .width(Length::Fixed(290.0))
+                                    .height(Length::Fill)
+                                    .into()
+                            }
+                            _ => {
+                                let concept = self.project.get_concept(node.concept_id());
+                                let title = node.label();
+                                let is_local = node.is_local();
+
+                            let (badge_text, badge_bg, badge_border) = if is_local {
+                                ("Lokalt begreb", ThemeColors::FDA_SAND, ThemeColors::FDA_SAND_BORDER)
+                            } else {
+                                ("Indlånt begreb", ThemeColors::FDA_BORROWED_BLUE_BG, ThemeColors::FDA_BORROWED_BLUE)
+                            };
+
+                            let badge = container(text(badge_text).size(11).color(ThemeColors::SLATE_800))
+                                .style(move |_| container::Style {
+                                    background: Some(iced::Background::Color(badge_bg)),
+                                    border: iced::Border {
+                                        color: badge_border,
+                                        width: 1.0,
+                                        radius: 4.0.into(),
+                                    },
+                                    ..Default::default()
+                                })
+                                .padding([3, 8]);
+
+                            let mut insp = column![
+                                row![
+                                    text("Inspector").size(11).color(ThemeColors::TEXT_MUTED),
+                                    Space::new().width(Length::Fill),
+                                    badge,
+                                    button(text("✕").size(11))
+                                        .style(secondary_button_style)
+                                        .on_press(Message::GraphNodeSelected(None))
+                                        .padding([2, 5]),
+                                ].align_y(Alignment::Center),
+                                text(title).size(18).color(ThemeColors::SLATE_900),
+                            ].spacing(8);
+
+                            if let Some(c) = concept {
+                                insp = insp.push(
+                                    container(
+                                        column![
+                                            text("Definition (FDA):").size(11).color(ThemeColors::TEXT_MUTED),
+                                            text(c.definition()).size(12).color(ThemeColors::SLATE_800),
+                                        ].spacing(3)
+                                    )
+                                    .style(card_container_style)
+                                    .padding(10)
+                                    .width(Length::Fill)
+                                );
+
+                                if let Some(src) = c.source() {
+                                    insp = insp.push(
+                                        row![
+                                            text("Kilde:").size(11).color(ThemeColors::TEXT_MUTED),
+                                            Space::new().width(4),
+                                            text(src).size(11).color(ThemeColors::SLATE_700),
+                                        ].align_y(Alignment::Center)
+                                    );
+                                }
+
                                 insp = insp.push(
                                     row![
-                                        text("Kilde:").size(11).color(ThemeColors::TEXT_MUTED),
-                                        Space::new().width(4),
-                                        text(src).size(11).color(ThemeColors::SLATE_700),
-                                    ].align_y(Alignment::Center)
+                                        button(text("✏️ Hurtigrediger").size(11))
+                                            .style(primary_button_style)
+                                            .on_press(Message::GraphNodeDoubleClicked(selected_id))
+                                            .padding([5, 8]),
+                                        button(text("Begrebsliste").size(11))
+                                            .style(secondary_button_style)
+                                            .on_press(Message::EditConcept(c.id()))
+                                            .padding([5, 8]),
+                                    ].spacing(6)
                                 );
                             }
 
-                            insp = insp.push(
-                                button(text("✏️ Rediger i Begrebsliste").size(12))
-                                    .style(secondary_button_style)
-                                    .on_press(Message::EditConcept(c.id()))
-                                    .padding([5, 10]),
-                            );
-                        }
+                            let connected_edges: Vec<_> = self
+                                .project
+                                .concept_graph()
+                                .edges()
+                                .iter()
+                                .filter(|e| e.from() == selected_id || e.to() == selected_id)
+                                .collect();
 
-                        let connected_edges: Vec<_> = self
-                            .project
-                            .concept_graph()
-                            .edges()
-                            .iter()
-                            .filter(|e| e.from() == selected_id || e.to() == selected_id)
-                            .collect();
+                            if !connected_edges.is_empty() {
+                                insp = insp.push(Space::new().height(4));
+                                insp = insp.push(
+                                    text("Tilknyttede relationer:")
+                                        .size(12)
+                                        .color(ThemeColors::PRIMARY),
+                                );
 
-                        if !connected_edges.is_empty() {
-                            insp = insp.push(Space::new().height(4));
-                            insp = insp.push(
-                                text("Tilknyttede relationer:")
-                                    .size(12)
-                                    .color(ThemeColors::PRIMARY),
-                            );
-
-                            for edge in connected_edges {
-                                let from_node = self.project.concept_graph().find_node(edge.from());
-                                let to_node = self.project.concept_graph().find_node(edge.to());
-                                let from_name = from_node.map(|n| n.label()).unwrap_or("?");
-                                let to_name = to_node.map(|n| n.label()).unwrap_or("?");
-                                let desc = match edge.kind() {
-                                    RelationKind::Generalization => format!("{} ⮞ {}", from_name, to_name),
-                                    RelationKind::Association => {
-                                        if let Some(lbl) = edge.label() {
-                                            format!("{} ──({})── {}", from_name, lbl, to_name)
-                                        } else {
-                                            format!("{} ── {}", from_name, to_name)
+                                for edge in connected_edges {
+                                    let from_node = self.project.concept_graph().find_node(edge.from());
+                                    let to_node = self.project.concept_graph().find_node(edge.to());
+                                    let from_name = from_node.map(|n| n.label()).unwrap_or("?");
+                                    let to_name = to_node.map(|n| n.label()).unwrap_or("?");
+                                    let desc = match edge.kind() {
+                                        RelationKind::Generalization => format!("{} ⮞ {}", from_name, to_name),
+                                        RelationKind::Association => {
+                                            if let Some(lbl) = edge.label() {
+                                                format!("{} ──({})── {}", from_name, lbl, to_name)
+                                            } else {
+                                                format!("{} ── {}", from_name, to_name)
+                                            }
                                         }
-                                    }
-                                    RelationKind::Composition => format!("{} ◆── {}", from_name, to_name),
-                                };
+                                        RelationKind::Composition => format!("{} ◆── {}", from_name, to_name),
+                                    };
 
-                                let edge_from = edge.from();
-                                let edge_to = edge.to();
-                                let edge_row = row![
-                                    text(desc).size(11).color(ThemeColors::SLATE_800).width(Length::Fill),
-                                    button(text("🗑️").size(11))
-                                        .style(danger_button_style)
-                                        .on_press(Message::GraphDeleteRelation(edge_from, edge_to))
-                                        .padding([2, 5]),
-                                ]
-                                .spacing(4)
-                                .align_y(Alignment::Center);
+                                    let edge_from = edge.from();
+                                    let edge_to = edge.to();
+                                    let edge_row = row![
+                                        text(desc).size(11).color(ThemeColors::SLATE_800).width(Length::Fill),
+                                        button(text("🗑️").size(11))
+                                            .style(danger_button_style)
+                                            .on_press(Message::GraphDeleteRelation(edge_from, edge_to))
+                                            .padding([2, 5]),
+                                    ]
+                                    .spacing(4)
+                                    .align_y(Alignment::Center);
 
-                                insp = insp.push(edge_row);
+                                    insp = insp.push(edge_row);
+                                }
                             }
-                        }
 
-                        container(scrollable(insp.spacing(8)))
-                            .style(card_container_style)
-                            .padding(14)
-                            .width(Length::Fixed(290.0))
-                            .height(Length::Fill)
-                            .into()
-                    } else {
+                            container(scrollable(insp.spacing(8)))
+                                .style(card_container_style)
+                                .padding(14)
+                                .width(Length::Fixed(290.0))
+                                .height(Length::Fill)
+                                .into()
+                        }
+                    }
+                } else {
                         container(text("Ingen node valgt").size(12).color(ThemeColors::TEXT_MUTED))
                             .width(Length::Fixed(290.0))
                             .height(Length::Fill)
@@ -1277,6 +1670,8 @@ impl App {
         if let Some(modal) = maybe_file_dialog_modal {
             stack![base_layout, modal].into()
         } else if let Some(modal) = maybe_relation_modal {
+            stack![base_layout, modal].into()
+        } else if let Some(modal) = maybe_quick_create_modal {
             stack![base_layout, modal].into()
         } else {
             base_layout

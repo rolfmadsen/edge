@@ -658,7 +658,7 @@ fn test_canvas_direct_concept_creation_and_node_editing() {
     assert_eq!(node.label(), "Godsvogn");
     assert_eq!(node.x(), 450.0, "Noden skal placeres præcist på klikkets x-koordinat");
     assert_eq!(node.y(), 250.0, "Noden skal placeres præcist på klikkets y-koordinat");
-    let node_id = node.id();
+    let node_id: NodeId = node.id();
     assert_eq!(
         app.selected_graph_node_id(),
         Some(node_id),
