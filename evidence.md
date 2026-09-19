@@ -1,20 +1,28 @@
 # Verification Report
 
-**Task ID**: `009-orthogonal-edge-routing-and-ports`  
-**Task Title**: Task 009: Ortogonal Edge-Routing, Præcise Pilehoveder og Port-Bus  
+**Task ID**: `010-information-model-classes-and-attributes`  
+**Task Title**: Task 010: Informationsmodel - Klasser, Attributter og Begrebssporing  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Timestamp**: `2026-09-19T17:52:00Z`  
+**Timestamp**: `2026-09-19T18:18:30Z`  
 
 ## Acceptance Criteria
 
-- [x] **Synlige og præcise pilehoveder**: Spidsen af pilehovedet (hvid lukket trekant for generalisering, vinkelret på kanten) rører præcist nodens ydre afgrænsning uden at blive skjult bag nodens fyld eller streg.
-- [x] **FDA Label Semantik**: Almindelige generaliseringspile har ingen vilkårlig fritekst-label jf. FDA regel §5.6 / linje 1474 & 1526; associationer viser associationsnavn centreret på det primære linjesegment.
-- [x] **90-graders ortogonal Manhattan-routing**: Alle relationer tegnes udelukkende med horisontale og vertikale segmenter med præcise 90° vinkler.
-- [x] **Nærheds-håndtering og port-skift**: Når to forbundne noder bringes tættere sammen end det nødvendige pilerum ($D_{\text{min}} = 36\text{px}$), skifter portene automatisk til sideporte (eller ekstern omløbskorridor), så pilen aldrig klemmes flad eller inverteres.
-- [x] **Multi-relation anker & parallelle kanaler**: Flere relationer af samme type på samme nodeside samles i samme ankerpunkt/stamme mod målet; relationer af forskellig type fordeles symmetrisk i slots langs siden og rutes i parallelle baner med fast afstand (mindst 12px) uden overlap.
-- [x] **Krydsende linjebroer**: Når to ortogonale edges krydser hinanden, markeres skæringspunktet med en visuel bue/bro (jump arc) på den ene linje for at indikere at de ikke forbinder.
-- [x] **Fuld testverifikation & ren kode**: Matematiske enhedstests for ortogonal routing, port-allokering og krydsningsdetektion passerer 100%, og `cargo clippy -- -D warnings` rapporterer 0 advarsler.
+- [x] **Kerne-datastrukturer og Begrebssporing (`src/features/information_model/`)**:
+  - `InformationClass` har `id: Uuid`, `name: String`, `description: Option<String>`, `concept_ids: Vec<Uuid>`, samt `attributes: Vec<Attribute>`.
+  - `Attribute` har `id: Uuid`, `name: String` (valideret med lowerCamelCase advarsel/tjek jf. FDA §6.3), `data_type: PrimitiveType`, `multiplicity: Multiplicity`, og `concept_ids: Vec<Uuid>`.
+  - `InformationModel` etableres som container med metoder til CRUD på klasser og attributter, samt opslag af klasser knyttet til et specifikt begreb.
+- [x] **ModelProject & Disk-Persistens (`src/features/model/`)**:
+  - `ModelProject` indeholder `information_model: InformationModel` med `#[serde(default)]` for at bevare fuld bagudkompatibilitet med eksisterende filer.
+  - Fuld disk-persistens via `storage.rs` verificeret med round-trip serialisering og deserialisering.
+- [x] **Fane 4 UI: Master-Detail Editor (`src/ui/app.rs`)**:
+  - Venstre kolonne: Liste over informationsklasser, søgning/filtrering, `+ Ny Klasse` knap, og mulighed for hurtigt at oprette en klasse fra et begreb.
+  - Højre kolonne: Detaljevisning for valgt klasse med redigering af navn, beskrivelse, tilknyttede begreber (multi-select / badge-vælger), samt tabel over klassens attributter med tilføj, rediger og slet.
+- [x] **ADR 006**:
+  - Oprettelse af `docs/adr/006-information-model-and-concept-traceability.md`, der dokumenterer `M:N` begrebssporing for klasser og attributter samt FDA-typeafgrænsning.
+- [x] **Fuld Verifikation & Nul Regressionsfejl**:
+  - Enhedstests for datamodellen, metoder og persistens.
+  - 100% grøn test pass-rate (`cargo test --workspace`) og 0 clippy advarsler (`cargo clippy -- -D warnings`).
 
 ---
 
@@ -24,7 +32,9 @@
 |---|---|---|---|
 | `formatting` | `cargo fmt --check` | `PASSED` | `0` |
 | `lint` | `cargo clippy -- -D warnings` | `PASSED` | `0` |
-| `unit & acceptance` | `cargo test --workspace` | `PASSED` | `0` (22 tests passed) |
-| `spec` | `xgauntlet check-spec -t 009-orthogonal-edge-routing-and-ports` | `PASSED` | `0` |
+| `unit & acceptance` | `cargo test --workspace` | `PASSED` | `0` (24 tests passed) |
+| `invariants` | `cargo test -- proptest` | `PASSED` | `0` (4 proptests passed) |
+| `spec` | `xgauntlet check-spec -t 010-information-model-classes-and-attributes` | `PASSED` | `0` |
+| `gauntlet` | `xgauntlet verify --task 010-information-model-classes-and-attributes` | `PASSED` | `0` |
 
 ---

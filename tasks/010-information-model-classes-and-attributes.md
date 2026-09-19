@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 010: Informationsmodel - Klasser, Attributter og Begrebssporing"
 description: "Integration af Informationsmodel med klasser, attributter, FDA primitive datatyper, multipliciteter og M:N begrebssporing i ModelProject og UI Fane 4"
-status: active
+status: done
 generated: { by: process:xgauntlet-task-init, at: "2026-09-19T18:09:00Z" }
 tags: [task-lifecycle, intent, information-model, uml, classes, attributes, primitive-types, multiplicity, fda]
 ---
 
 # Task 010: Informationsmodel - Klasser, Attributter og Begrebssporing
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-19`
 
@@ -19,19 +19,19 @@ Hver klasse og hver attribut skal kunne eksistere selvstændigt eller have en ek
 Informationsmodellen skal integreres i `ModelProject`, persisteres til disk, og gøres fuldt redigerbar i en moderne master-detail editor i Fane 4 i Iced brugerfladen.
 
 ## 📋 Acceptance Criteria
-- [ ] **Kerne-datastrukturer og Begrebssporing (`src/features/information_model/`)**:
+- [x] **Kerne-datastrukturer og Begrebssporing (`src/features/information_model/`)**:
   - `InformationClass` har `id: Uuid`, `name: String`, `description: Option<String>`, `concept_ids: Vec<Uuid>`, samt `attributes: Vec<Attribute>`.
   - `Attribute` har `id: Uuid`, `name: String` (valideret med lowerCamelCase advarsel/tjek jf. FDA §6.3), `data_type: PrimitiveType`, `multiplicity: Multiplicity`, og `concept_ids: Vec<Uuid>`.
   - `InformationModel` etableres som container med metoder til CRUD på klasser og attributter, samt opslag af klasser knyttet til et specifikt begreb.
-- [ ] **ModelProject & Disk-Persistens (`src/features/model/`)**:
+- [x] **ModelProject & Disk-Persistens (`src/features/model/`)**:
   - `ModelProject` indeholder `information_model: InformationModel` med `#[serde(default)]` for at bevare fuld bagudkompatibilitet med eksisterende filer.
   - Fuld disk-persistens via `storage.rs` verificeret med round-trip serialisering og deserialisering.
-- [ ] **Fane 4 UI: Master-Detail Editor (`src/ui/app.rs`)**:
+- [x] **Fane 4 UI: Master-Detail Editor (`src/ui/app.rs`)**:
   - Venstre kolonne: Liste over informationsklasser, søgning/filtrering, `+ Ny Klasse` knap, og mulighed for hurtigt at oprette en klasse fra et begreb.
   - Højre kolonne: Detaljevisning for valgt klasse med redigering af navn, beskrivelse, tilknyttede begreber (multi-select / badge-vælger), samt tabel over klassens attributter med tilføj, rediger og slet.
-- [ ] **ADR 006**:
+- [x] **ADR 006**:
   - Oprettelse af `docs/adr/006-information-model-and-concept-traceability.md`, der dokumenterer `M:N` begrebssporing for klasser og attributter samt FDA-typeafgrænsning.
-- [ ] **Fuld Verifikation & Nul Regressionsfejl**:
+- [x] **Fuld Verifikation & Nul Regressionsfejl**:
   - Enhedstests for datamodellen, metoder og persistens.
   - 100% grøn test pass-rate (`cargo test --workspace`) og 0 clippy advarsler (`cargo clippy -- -D warnings`).
 
