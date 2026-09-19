@@ -1662,3 +1662,135 @@ fn test_class_node_height_grows_in_grid_size_increments_and_aligns_with_grid() {
         "Underkant af Person noden skal lande præcis på y=300 (15 * 20) i stedet for mellem to grid-linjer"
     );
 }
+
+#[test]
+fn test_task_007_interactive_edges_drag_to_connect_and_inspector_crud() {
+    let mut app = App::new_with_path(None);
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+
+    // 1. Opret to begreber i projektet
+    let c1 = Concept::new(
+        "Køretøj",
+        "Transportmiddel for personer eller gods",
+        BelongsToDomain::Yes,
+    );
+    let c2 = Concept::new(
+        "Motor",
+        "Drivkraftkilde for et køretøj",
+        BelongsToDomain::Yes,
+    );
+    let id1 = c1.id();
+    let id2 = c2.id();
+
+    let _ = app.project_mut().add_concept(c1);
+    let _ = app.project_mut().add_concept(c2);
+
+    // 2. Tilføj begge begreber til begrebsdiagrammet
+    let _ = app.update(Message::AddConceptToDiagram(id1));
+    let _ = app.update(Message::AddConceptToDiagram(id2));
+
+    let node1 = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(id1)
+        .unwrap()
+        .id();
+    let node2 = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(id2)
+        .unwrap()
+        .id();
+
+    // 3. Markér Node 1 (Køretøj)
+    let _ = app.update(Message::GraphNodeSelected(Some(node1)));
+    assert_eq!(app.selected_graph_node_id(), Some(node1));
+
+    // 4. Test Invariant: Self-loop afvises (Must NOT: self-loop)
+    let _ = app.update(Message::GraphEdgeCreated(node1, node1));
+    assert_eq!(
+        app.project().concept_graph().edge_count(),
+        0,
+        "Self-loop må ikke oprettes"
+    );
+
+    // 5. Drag-to-Connect: Forbind Node 1 til Node 2 -> skal automatisk oprette en Association og markere relationen
+    let _ = app.update(Message::GraphEdgeCreated(node1, node2));
+    assert_eq!(
+        app.project().concept_graph().edge_count(),
+        1,
+        "En relation skal være oprettet"
+    );
+    let edge = &app.project().concept_graph().edges()[0];
+    assert_eq!(edge.from(), node1);
+    assert_eq!(edge.to(), node2);
+    assert_eq!(
+        edge.kind(),
+        RelationKind::Association,
+        "Default relationstype ved drop skal være Association"
+    );
+
+    // Relationen skal straks være markeret som et selvstændigt objekt, og nodemarkering ryddet
+    assert_eq!(
+        app.selected_graph_node_id(),
+        None,
+        "Nodemarkering skal ryddes ved kantvalg"
+    );
+    assert_eq!(
+        app.selected_edge(),
+        Some((node1, node2)),
+        "Den nye relation skal være valgt"
+    );
+
+    // 6. Inspektørpanel for valgt relation: Ændre label og type
+    let _ = app.update(Message::GraphUpdateEdgeLabel(
+        node1,
+        node2,
+        "omfatter".to_string(),
+    ));
+    assert_eq!(
+        app.project().concept_graph().edges()[0].label(),
+        Some("omfatter"),
+        "Associationsnavn skal opdateres i grafen"
+    );
+
+    let _ = app.update(Message::GraphUpdateEdgeKind(
+        node1,
+        node2,
+        RelationKind::Generalization,
+    ));
+    assert_eq!(
+        app.project().concept_graph().edges()[0].kind(),
+        RelationKind::Generalization,
+        "Relationstype skal kunne ændres fra Association til Generalisering"
+    );
+
+    // 7. Verify view() renderer inspektøren uden modal
+    {
+        let _view = app.view();
+        assert!(
+            !app.is_relation_dialog_open(),
+            "Flimsy modal må ikke være åben"
+        );
+    }
+
+    // 8. Deselect og Select på canvas
+    let _ = app.update(Message::GraphEdgeSelected(None));
+    assert_eq!(app.selected_edge(), None);
+
+    let _ = app.update(Message::GraphEdgeSelected(Some((node1, node2))));
+    assert_eq!(app.selected_edge(), Some((node1, node2)));
+
+    // 9. Tastatursletning via Delete-tast
+    let _ = app.update(Message::GraphDeleteSelected);
+    assert_eq!(
+        app.project().concept_graph().edge_count(),
+        0,
+        "Valgt relation skal slettes ved GraphDeleteSelected"
+    );
+    assert_eq!(
+        app.selected_edge(),
+        None,
+        "Markering skal ryddes efter sletning"
+    );
+}
