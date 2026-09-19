@@ -1,22 +1,20 @@
 # Verification Report
 
-**Task ID**: `003-project-persistence`  
-**Task Title**: Task 003: Projektpersistens, Autosave & Git-Format  
+**Task ID**: `006-canvas-direct-concept-crud`  
+**Task Title**: Task 006: Direkte Begrebsoprettelse & Node-redigering på Canvas  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Source Manifest Digest**: `4ee6e816b7d10f126004cc8696bbf913c0c0069754983b907217f5da34a41951`  
-**Timestamp**: `2026-09-19T09:51:08Z`  
-**Head**: `0e37b8d`  
-**Commit**: `0e37b8d`  
+**Timestamp**: `2026-09-19T15:37:00Z`  
+**Head**: `07121a3`  
 
 ## Acceptance Criteria
 
-- [x] `ProjectStorage` i `src/features/model/storage.rs` understøtter deterministisk serialisering (`save_to_file`) og deserialisering (`load_from_file`) med `serde_json` og fuld FDA-validering.
-- [x] Atomisk filskrivning i `ProjectStorage` (skrivning til midlertidig fil `.tmp` efterfulgt af atomisk rename) forhindrer filkorruption.
-- [x] `App` i `src/ui/app.rs` understøtter automatisk indlæsning af standard projektfil (`model.edge.json`) ved opstart, hvis den findes.
-- [x] `App` udfører automatisk gemning (Autosave) til den aktive projektfil, når `ModelProject` muteres (ved oprettelse, redigering og sletning af begreber).
-- [x] UI i `src/ui/app.rs` stiller knapper til rådighed for "📁 Åbn...", "💾 Gem", "Gem som..." samt viser diskret gemt-status i statusbaren.
-- [x] 100% test pass rate på unit-, persistens- og TEA-accepttests samt clippy med 0 advarsler.
+- [x] `GraphCanvas` registrerer dobbeltklik-hændelser på lærredet (`canvas::event::Event`) og skelner mellem klik på en eksisterende node og klik på en tom baggrund.
+- [x] Dobbeltklik på en tom baggrund åbner en dedikeret lynoprettelses-modal ("Nyt Begreb på Lærred") med inputfelter for Foretrukken term (autofokuseret), Definition (Aristoteles' formel) og valg af lokal/indlånt tilknytning.
+- [x] Ved bekræftelse (`Enter` eller "Opret") oprettes begrebet i `project.concepts()` med fuld `ConceptValidator`-validering, og en tilhørende grafnode placeres på det præcise klik-koordinat `(x, y)` og markeres straks.
+- [x] Dobbeltklik på en eksisterende grafnode åbner en fokuseret inline-redigering af nodens foretrukne term og definition direkte på canvaset (eller i sidepanelet uden faneskift).
+- [x] Autosave udløses automatisk efter oprettelse eller redigering, så persistensfilen altid er synkroniseret.
+- [x] 100% test pass rate på unit-, accept- og proptests samt clippy med 0 advarsler.
 
 ---
 
@@ -24,9 +22,10 @@
 
 | Check Name | Status | Exit Code | Duration (s) |
 |---|---|---|---|
-| `lint` | `PASSED` | `0` | `0.182s` |
-| `types` | `PASSED` | `0` | `0.179s` |
-| `unit` | `PASSED` | `0` | `0.252s` |
-| `invariants` | `PASSED` | `0` | `0.226s` |
+| `lint` | `PASSED` | `0` | `0.232s` |
+| `types` | `PASSED` | `0` | `0.169s` |
+| `unit` | `PASSED` | `0` | `0.244s` |
+| `invariants` | `PASSED` | `0` | `0.247s` |
 
 ---
+
