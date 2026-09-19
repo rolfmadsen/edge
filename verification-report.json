@@ -4,40 +4,42 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "003-project-persistence",
-    "task_title": "Task 003: Projektpersistens, Autosave & Git-Format",
-    "task_digest": "43565c2eea8709eb207a66106d4a0819d5a680266e7b944dd0ac91967433293f",
+    "task_id": "008-canvas-ergonomics-zoom-pan-grid",
+    "task_title": "Task 008: Canvas Ergonomi, Zoom, Pan & Magnetisk Gitter",
+    "task_digest": "776d153bc96669f9befb9e8c85578d3d81d89751a59d884dd64ec5266b56245c",
     "acceptance_criteria": [
-      "`ProjectStorage` i `src/features/model/storage.rs` understøtter deterministisk serialisering (`save_to_file`) og deserialisering (`load_from_file`) med `serde_json` og fuld FDA-validering.",
-      "Atomisk filskrivning i `ProjectStorage` (skrivning til midlertidig fil `.tmp` efterfulgt af atomisk rename) forhindrer filkorruption.",
-      "`App` i `src/ui/app.rs` understøtter automatisk indlæsning af standard projektfil (`model.edge.json`) ved opstart, hvis den findes.",
-      "`App` udfører automatisk gemning (Autosave) til den aktive projektfil, når `ModelProject` muteres (ved oprettelse, redigering og sletning af begreber).",
-      "UI i `src/ui/app.rs` stiller knapper til rådighed for \"📁 Åbn...\", \"💾 Gem\", \"Gem som...\" samt viser diskret gemt-status i statusbaren.",
-      "100% test pass rate på unit-, persistens- og TEA-accepttests samt clippy med 0 advarsler."
+      "`GraphCanvas` renderer et diskret, performant prik-gitter (dot-grid, 20px raster) i baggrunden, der tilpasser sig zoom-niveauet med LOD (Level of Detail så det ikke støjer ved udzoomning).",
+      "Nodernes dimensioner er låst til eksakte multipla af gitterstørrelsen (fx bredde 180px [9x20], højde 80px [4x20]), så alle 4 hjørner af noden rammer gitterpunkter præcist.",
+      "Magnetisk \"Snap-to-Grid\": Noders positioner snapper automatisk til nærmeste gitterpunkt (x, y som multipla af 20px) under træk eller ved slip, med toggle i værktøjslinjen.",
+      "Panorering (pan/scroll): Understøtter almindelig scroll, Shift + scroll til horisontal panorering, Space + venstre musetræk (Hand/grab cursor) og midterste museknap.",
+      "Zoom: Default 100% (1.0), min 25% (0.25) og max 150% (1.5). Ctrl/Cmd + scroll forankret i markørposition samt genvejstaster Ctrl/Cmd + `+`, `-`, `0`.",
+      "Værktøjslinjen under Fane 3 indeholder knapper til \"Nulstil visning\" (zoom 100%, pan 0,0), Snap-to-Grid toggle og statusindikator for aktuel zoom-procent.",
+      "Matematisk afkobling: Alle hit-tests, node-positioner og oprettelser regnes i verdenskoordinater via en dedikeret `CanvasViewport` transformation.",
+      "100% test pass rate på unit-, accept- og proptests samt clippy med 0 advarsler."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "cffaac9f8c2c23ee7cbfe8771d22233f4956d6a9dc467383fc668dc7cd7fefdd",
-    "source_manifest_digest_pre": "4ee6e816b7d10f126004cc8696bbf913c0c0069754983b907217f5da34a41951",
-    "source_manifest_digest_post": "4ee6e816b7d10f126004cc8696bbf913c0c0069754983b907217f5da34a41951",
-    "config_digest": "465c7c6ee3a07d4daeaad19b292a9dcc4df64b9cc2b072962208164523df38f8",
-    "task_digest": "43565c2eea8709eb207a66106d4a0819d5a680266e7b944dd0ac91967433293f",
-    "policy_digest": "81fb63c224f5235c4eddc73b37dfc4c7323ca1771af16482b3e8b673cdae5fea",
+    "source_content_digest": "be49c796fff950c96793a9546872f890d680e4f02baa1dbf0643d6cf1e3dae5b",
+    "source_manifest_digest_pre": "3b57d0a38804ce71177f0b3d86421157b382bf8948351b2472c0612e002fe275",
+    "source_manifest_digest_post": "3b57d0a38804ce71177f0b3d86421157b382bf8948351b2472c0612e002fe275",
+    "config_digest": "b7f5ab803250a6f35370ef8ff99eaaa95ad348f297e2e3bd484b50f960d7fd0c",
+    "task_digest": "776d153bc96669f9befb9e8c85578d3d81d89751a59d884dd64ec5266b56245c",
+    "policy_digest": "1bb7209d2f4b60c6c34c7e6c8f82b979d86c06700ebd3f93308f0feb9669a7e0",
     "check_definitions_digest": "ad2dda9df4efbcf8fd2933fe087fdab18ef447b67e5453e11e303deae237cde4",
-    "included_files_count": 31,
+    "included_files_count": 39,
     "vcs": {
       "type": "git",
-      "head": "0e37b8d",
-      "commit": "0e37b8d",
+      "head": "45bf010",
+      "commit": "45bf010",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-19T09:51:07Z",
-    "finished_at": "2026-09-19T09:51:08Z",
-    "total_duration_seconds": 0.852619509,
+    "started_at": "2026-09-19T15:19:25Z",
+    "finished_at": "2026-09-19T15:19:25Z",
+    "total_duration_seconds": 0.80684791,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -50,37 +52,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.181808382,
+      "duration_seconds": 0.149836475,
       "optional": true,
       "passed": true,
-      "log_digest": "f0788aa36d1c86b6ccdfb7f4042a5574102d82061c046422a2d42e008a1e4710"
+      "log_digest": "22e0df986057b9ba5be07526ac5fb348862a3dedef42108383cc3e088acbb889"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.178594806,
+      "duration_seconds": 0.153793729,
       "optional": true,
       "passed": true,
-      "log_digest": "2b34696728dc82b03cbf6311d7e3a6a41658bbde097834c3010a78bc82842c1a"
+      "log_digest": "a41051563a4cb5fc1b1bcdd9aa0ba28ca80f7736d629d90cc138218756e8e3a9"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.252101346,
+      "duration_seconds": 0.242334173,
       "optional": false,
       "passed": true,
-      "log_digest": "daa384769783da12ebecb475ce6b7cb6ac4b78e8077ca5031291028a958fb025"
+      "log_digest": "cb96254e7d329357aa5605c1671833f477dd95d33ad8bcbe5fcda96f35416f3d"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.226061332,
+      "duration_seconds": 0.245750272,
       "optional": false,
       "passed": true,
-      "log_digest": "e53850762001e41c4a1faf4b4b2d88b9b935d7e33f306f08142c27319f1c5eee"
+      "log_digest": "be38f3ab1471c8be243c936f6d890d73de623ba68933200fb3a8b72e378b4d6f"
     }
   ],
   "diagnostics": []
