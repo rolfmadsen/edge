@@ -325,6 +325,63 @@ pub fn segmented_tab_button(
     }
 }
 
+pub fn list_item_button(
+    is_selected: bool,
+) -> impl Fn(&iced::Theme, button::Status) -> button::Style {
+    move |_theme, status| {
+        if is_selected {
+            button::Style {
+                background: Some(Background::Color(ThemeColors::PRIMARY_LIGHT)),
+                text_color: ThemeColors::PRIMARY,
+                border: Border {
+                    color: ThemeColors::PRIMARY,
+                    width: 1.5,
+                    radius: 6.0.into(),
+                },
+                shadow: Shadow {
+                    color: Color::from_rgba(0.0, 0.0, 0.0, 0.04),
+                    offset: Vector::new(0.0, 1.0),
+                    blur_radius: 2.0,
+                },
+                ..Default::default()
+            }
+        } else {
+            match status {
+                button::Status::Hovered => button::Style {
+                    background: Some(Background::Color(ThemeColors::SLATE_100)),
+                    text_color: ThemeColors::SLATE_900,
+                    border: Border {
+                        color: ThemeColors::SLATE_300,
+                        width: 1.0,
+                        radius: 6.0.into(),
+                    },
+                    ..Default::default()
+                },
+                button::Status::Pressed => button::Style {
+                    background: Some(Background::Color(ThemeColors::SLATE_200)),
+                    text_color: ThemeColors::SLATE_900,
+                    border: Border {
+                        color: ThemeColors::SLATE_400,
+                        width: 1.0,
+                        radius: 6.0.into(),
+                    },
+                    ..Default::default()
+                },
+                _ => button::Style {
+                    background: Some(Background::Color(ThemeColors::SURFACE_CARD)),
+                    text_color: ThemeColors::SLATE_800,
+                    border: Border {
+                        color: ThemeColors::SLATE_200,
+                        width: 1.0,
+                        radius: 6.0.into(),
+                    },
+                    ..Default::default()
+                },
+            }
+        }
+    }
+}
+
 // -----------------------------------------------------------------------------
 // Input Styles
 // -----------------------------------------------------------------------------

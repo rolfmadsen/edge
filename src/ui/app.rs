@@ -1,14 +1,17 @@
 use crate::features::concept_model::{NodeId, RelationKind};
 use crate::features::concepts::{BelongsToDomain, Concept, ConceptValidator, ValidationError};
+use crate::features::information_model::{
+    is_lower_camel_case, Attribute, InformationClass, Multiplicity, PrimitiveType,
+};
 use crate::features::model::storage::ProjectStorage;
 use crate::features::model::ModelProject;
 use crate::ui::concept_editor::ConceptEditorState;
 use crate::ui::concept_table;
 use crate::ui::graph_canvas::GraphCanvas;
 use crate::ui::theme::{
-    card_container_style, danger_button_style, modal_backdrop_style, modal_card_style,
-    modern_input_style, pill_container_style, primary_button_style, secondary_button_style,
-    segmented_tab_button, ThemeColors,
+    card_container_style, danger_button_style, list_item_button, modal_backdrop_style,
+    modal_card_style, modern_input_style, pill_container_style, primary_button_style,
+    secondary_button_style, segmented_tab_button, ThemeColors,
 };
 use iced::event::{self, Event};
 use iced::keyboard::{self, key::Named, Key};
@@ -30,6 +33,18 @@ pub struct NodeOption {
 impl std::fmt::Display for NodeOption {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.label)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConceptOption {
+    pub id: Uuid,
+    pub term: String,
+}
+
+impl std::fmt::Display for ConceptOption {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.term)
     }
 }
 
@@ -160,6 +175,24 @@ pub enum Message {
     CanvasResetView,
     CanvasSpacePressed(bool),
     CanvasModifiersChanged(iced::keyboard::Modifiers),
+
+    // Informationsmodel (Task 010)
+    SelectInformationClass(Option<Uuid>),
+    CreateInformationClass,
+    CreateInformationClassFromConcept(ConceptOption),
+    UpdateInformationClassName(Uuid, String),
+    UpdateInformationClassDescription(Uuid, String),
+    AddConceptToInformationClass(Uuid, ConceptOption),
+    RemoveConceptFromInformationClass(Uuid, Uuid),
+    DeleteInformationClass(Uuid),
+    AddAttributeToClass(Uuid),
+    UpdateAttributeName(Uuid, Uuid, String),
+    UpdateAttributeType(Uuid, Uuid, PrimitiveType),
+    UpdateAttributeMultiplicity(Uuid, Uuid, Multiplicity),
+    AddConceptToAttribute(Uuid, Uuid, ConceptOption),
+    RemoveConceptFromAttribute(Uuid, Uuid, Uuid),
+    DeleteAttribute(Uuid, Uuid),
+    InformationClassSearchChanged(String),
 }
 
 pub struct App {
@@ -178,6 +211,8 @@ pub struct App {
     canvas_viewport: crate::ui::graph_canvas::CanvasViewport,
     snap_to_grid: bool,
     is_space_pressed: bool,
+    selected_info_class_id: Option<Uuid>,
+    info_class_search: String,
 }
 
 impl Default for App {
@@ -213,6 +248,8 @@ impl App {
                         canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
                         snap_to_grid: true,
                         is_space_pressed: false,
+                        selected_info_class_id: None,
+                        info_class_search: String::new(),
                     };
                 }
             }
@@ -239,6 +276,8 @@ impl App {
             canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
             snap_to_grid: true,
             is_space_pressed: false,
+            selected_info_class_id: None,
+            info_class_search: String::new(),
         }
     }
 
@@ -357,6 +396,8 @@ impl App {
                 self.selected_graph_node_id = None;
                 self.relation_dialog = None;
                 self.quick_create = None;
+                self.selected_info_class_id = None;
+                self.info_class_search.clear();
             }
             Message::StartNewConcept => {
                 self.editor_state = Some(ConceptEditorState::new_empty());
@@ -771,6 +812,142 @@ impl App {
                 self.is_space_pressed = pressed;
             }
             Message::CanvasModifiersChanged(_mods) => {}
+
+            // Informationsmodel (Task 010)
+            Message::SelectInformationClass(id) => {
+                self.selected_info_class_id = id;
+            }
+            Message::CreateInformationClass => {
+                let class = InformationClass::new("NyKlasse");
+                let id = self.project.information_model_mut().add_class(class);
+                self.selected_info_class_id = Some(id);
+                self.trigger_autosave();
+            }
+            Message::CreateInformationClassFromConcept(opt) => {
+                if let Some(concept) = self.project.get_concept(opt.id).cloned() {
+                    let id = self
+                        .project
+                        .information_model_mut()
+                        .create_class_from_concept(&concept);
+                    self.selected_info_class_id = Some(id);
+                    self.trigger_autosave();
+                }
+            }
+            Message::UpdateInformationClassName(class_id, name) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    class.set_name(name);
+                    self.trigger_autosave();
+                }
+            }
+            Message::UpdateInformationClassDescription(class_id, desc) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    class.set_description(if desc.trim().is_empty() {
+                        None
+                    } else {
+                        Some(desc)
+                    });
+                    self.trigger_autosave();
+                }
+            }
+            Message::AddConceptToInformationClass(class_id, opt) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    class.add_concept_id(opt.id);
+                    self.trigger_autosave();
+                }
+            }
+            Message::RemoveConceptFromInformationClass(class_id, concept_id) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    class.remove_concept_id(concept_id);
+                    self.trigger_autosave();
+                }
+            }
+            Message::DeleteInformationClass(class_id) => {
+                self.project.information_model_mut().remove_class(class_id);
+                if self.selected_info_class_id == Some(class_id) {
+                    self.selected_info_class_id = None;
+                }
+                self.trigger_autosave();
+            }
+            Message::AddAttributeToClass(class_id) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    let attr = Attribute::new(
+                        "nyAttribut",
+                        PrimitiveType::CharacterString,
+                        Multiplicity::exactly_one(),
+                    );
+                    class.add_attribute(attr);
+                    self.trigger_autosave();
+                }
+            }
+            Message::UpdateAttributeName(class_id, attr_id, name) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    if let Some(attr) = class
+                        .attributes_mut()
+                        .iter_mut()
+                        .find(|a| a.id() == attr_id)
+                    {
+                        attr.set_name(name);
+                        self.trigger_autosave();
+                    }
+                }
+            }
+            Message::UpdateAttributeType(class_id, attr_id, dt) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    if let Some(attr) = class
+                        .attributes_mut()
+                        .iter_mut()
+                        .find(|a| a.id() == attr_id)
+                    {
+                        attr.set_data_type(dt);
+                        self.trigger_autosave();
+                    }
+                }
+            }
+            Message::UpdateAttributeMultiplicity(class_id, attr_id, m) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    if let Some(attr) = class
+                        .attributes_mut()
+                        .iter_mut()
+                        .find(|a| a.id() == attr_id)
+                    {
+                        attr.set_multiplicity(m);
+                        self.trigger_autosave();
+                    }
+                }
+            }
+            Message::AddConceptToAttribute(class_id, attr_id, opt) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    if let Some(attr) = class
+                        .attributes_mut()
+                        .iter_mut()
+                        .find(|a| a.id() == attr_id)
+                    {
+                        attr.add_concept_id(opt.id);
+                        self.trigger_autosave();
+                    }
+                }
+            }
+            Message::RemoveConceptFromAttribute(class_id, attr_id, concept_id) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    if let Some(attr) = class
+                        .attributes_mut()
+                        .iter_mut()
+                        .find(|a| a.id() == attr_id)
+                    {
+                        attr.remove_concept_id(concept_id);
+                        self.trigger_autosave();
+                    }
+                }
+            }
+            Message::DeleteAttribute(class_id, attr_id) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    class.remove_attribute(attr_id);
+                    self.trigger_autosave();
+                }
+            }
+            Message::InformationClassSearchChanged(q) => {
+                self.info_class_search = q;
+            }
         }
 
         Task::none()
@@ -1309,37 +1486,61 @@ impl App {
                 let meta = self.project.metadata();
                 let meta_card = column![
                     row![
-                        text(format!("Model: {}", meta.name())).size(22).color(ThemeColors::SLATE_900),
+                        text(format!("Model: {}", meta.name()))
+                            .size(22)
+                            .color(ThemeColors::SLATE_900),
                         Space::new().width(8),
-                        container(text(format!("{:?}", meta.status())).size(11).color(ThemeColors::PRIMARY))
-                            .style(|_| container::Style {
-                                background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
-                                border: iced::Border {
-                                    color: ThemeColors::PRIMARY,
-                                    width: 0.5,
-                                    radius: 4.0.into(),
-                                },
-                                ..Default::default()
-                            })
-                            .padding([2, 6]),
-                    ].align_y(Alignment::Center),
+                        container(
+                            text(format!("{:?}", meta.status()))
+                                .size(11)
+                                .color(ThemeColors::PRIMARY)
+                        )
+                        .style(|_| container::Style {
+                            background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
+                            border: iced::Border {
+                                color: ThemeColors::PRIMARY,
+                                width: 0.5,
+                                radius: 4.0.into(),
+                            },
+                            ..Default::default()
+                        })
+                        .padding([2, 6]),
+                    ]
+                    .align_y(Alignment::Center),
                     Space::new().height(4),
-                    text(meta.description()).size(13).color(ThemeColors::SLATE_700),
+                    text(meta.description())
+                        .size(13)
+                        .color(ThemeColors::SLATE_700),
                     Space::new().height(8),
                     row![
                         column![
-                            text("Emneområde (§26):").size(12).color(ThemeColors::TEXT_MUTED),
-                            text(meta.domain_area()).size(13).color(ThemeColors::SLATE_800),
-                        ].spacing(2).width(Length::FillPortion(1)),
+                            text("Emneområde (§26):")
+                                .size(12)
+                                .color(ThemeColors::TEXT_MUTED),
+                            text(meta.domain_area())
+                                .size(13)
+                                .color(ThemeColors::SLATE_800),
+                        ]
+                        .spacing(2)
+                        .width(Length::FillPortion(1)),
                         column![
-                            text("Ansvarlig organisation:").size(12).color(ThemeColors::TEXT_MUTED),
-                            text(meta.responsible_org()).size(13).color(ThemeColors::SLATE_800),
-                        ].spacing(2).width(Length::FillPortion(1)),
+                            text("Ansvarlig organisation:")
+                                .size(12)
+                                .color(ThemeColors::TEXT_MUTED),
+                            text(meta.responsible_org())
+                                .size(13)
+                                .color(ThemeColors::SLATE_800),
+                        ]
+                        .spacing(2)
+                        .width(Length::FillPortion(1)),
                         column![
                             text("Model-URI:").size(12).color(ThemeColors::TEXT_MUTED),
                             text(meta.uri()).size(13).color(ThemeColors::PRIMARY),
-                        ].spacing(2).width(Length::FillPortion(1)),
-                    ].spacing(16),
+                        ]
+                        .spacing(2)
+                        .width(Length::FillPortion(1)),
+                    ]
+                    .spacing(16),
                 ]
                 .spacing(12);
 
@@ -1363,7 +1564,8 @@ impl App {
                         container(text("Diagram").size(11).color(ThemeColors::SLATE_600))
                             .style(pill_container_style)
                             .padding([2, 8]),
-                    ].align_y(Alignment::Center),
+                    ]
+                    .align_y(Alignment::Center),
                     Space::new().width(16),
                     button(text("+ Opret Relation").size(12))
                         .style(primary_button_style)
@@ -1373,18 +1575,32 @@ impl App {
                         .style(secondary_button_style)
                         .on_press(Message::GraphSyncNodes)
                         .padding([6, 12]),
-                    button(text(if self.snap_to_grid { "🧲 Snap: Til" } else { "🧲 Snap: Fra" }).size(12))
-                        .style(secondary_button_style)
-                        .on_press(Message::ToggleSnapToGrid)
-                        .padding([6, 12]),
+                    button(
+                        text(if self.snap_to_grid {
+                            "🧲 Snap: Til"
+                        } else {
+                            "🧲 Snap: Fra"
+                        })
+                        .size(12)
+                    )
+                    .style(secondary_button_style)
+                    .on_press(Message::ToggleSnapToGrid)
+                    .padding([6, 12]),
                     Space::new().width(4),
                     button(text("-").size(12))
                         .style(secondary_button_style)
                         .on_press(Message::CanvasZoomOut)
                         .padding([6, 10]),
-                    container(text(format!("{}%", (self.canvas_viewport.zoom() * 100.0).round() as i32)).size(12).color(ThemeColors::SLATE_700))
-                        .style(pill_container_style)
-                        .padding([4, 8]),
+                    container(
+                        text(format!(
+                            "{}%",
+                            (self.canvas_viewport.zoom() * 100.0).round() as i32
+                        ))
+                        .size(12)
+                        .color(ThemeColors::SLATE_700)
+                    )
+                    .style(pill_container_style)
+                    .padding([4, 8]),
                     button(text("+").size(12))
                         .style(secondary_button_style)
                         .on_press(Message::CanvasZoomIn)
@@ -1396,10 +1612,21 @@ impl App {
                     Space::new().width(Length::Fill),
                     container(
                         row![
-                            text(format!("Noder: {}", self.project.concept_graph().node_count())).size(12).color(ThemeColors::SLATE_700),
+                            text(format!(
+                                "Noder: {}",
+                                self.project.concept_graph().node_count()
+                            ))
+                            .size(12)
+                            .color(ThemeColors::SLATE_700),
                             text(" • ").size(12).color(ThemeColors::SLATE_400),
-                            text(format!("Relationer: {}", self.project.concept_graph().edge_count())).size(12).color(ThemeColors::SLATE_700),
-                        ].align_y(Alignment::Center)
+                            text(format!(
+                                "Relationer: {}",
+                                self.project.concept_graph().edge_count()
+                            ))
+                            .size(12)
+                            .color(ThemeColors::SLATE_700),
+                        ]
+                        .align_y(Alignment::Center)
                     )
                     .style(pill_container_style)
                     .padding([4, 12]),
@@ -1422,13 +1649,17 @@ impl App {
                 .width(Length::Fill)
                 .height(Length::Fill);
 
-                let inspector_panel: Element<Message> = if let Some(selected_id) = self.selected_graph_node_id {
+                let inspector_panel: Element<Message> = if let Some(selected_id) =
+                    self.selected_graph_node_id
+                {
                     if let Some(node) = self.project.concept_graph().find_node(selected_id) {
                         match (self.is_inline_graph_editing, &self.editor_state) {
                             (true, Some(editor)) => {
                                 let mut edit_col = column![
                                     row![
-                                        text("Hurtigredigering").size(14).color(ThemeColors::PRIMARY),
+                                        text("Hurtigredigering")
+                                            .size(14)
+                                            .color(ThemeColors::PRIMARY),
                                         Space::new().width(Length::Fill),
                                         button(text("✕").size(11))
                                             .style(secondary_button_style)
@@ -1523,13 +1754,23 @@ impl App {
                                 let title = node.label();
                                 let is_local = node.is_local();
 
-                            let (badge_text, badge_bg, badge_border) = if is_local {
-                                ("Lokalt begreb", ThemeColors::FDA_SAND, ThemeColors::FDA_SAND_BORDER)
-                            } else {
-                                ("Indlånt begreb", ThemeColors::FDA_BORROWED_BLUE_BG, ThemeColors::FDA_BORROWED_BLUE)
-                            };
+                                let (badge_text, badge_bg, badge_border) = if is_local {
+                                    (
+                                        "Lokalt begreb",
+                                        ThemeColors::FDA_SAND,
+                                        ThemeColors::FDA_SAND_BORDER,
+                                    )
+                                } else {
+                                    (
+                                        "Indlånt begreb",
+                                        ThemeColors::FDA_BORROWED_BLUE_BG,
+                                        ThemeColors::FDA_BORROWED_BLUE,
+                                    )
+                                };
 
-                            let badge = container(text(badge_text).size(11).color(ThemeColors::SLATE_800))
+                                let badge = container(
+                                    text(badge_text).size(11).color(ThemeColors::SLATE_800),
+                                )
                                 .style(move |_| container::Style {
                                     background: Some(iced::Background::Color(badge_bg)),
                                     border: iced::Border {
@@ -1541,123 +1782,156 @@ impl App {
                                 })
                                 .padding([3, 8]);
 
-                            let mut insp = column![
-                                row![
-                                    text("Inspector").size(11).color(ThemeColors::TEXT_MUTED),
-                                    Space::new().width(Length::Fill),
-                                    badge,
-                                    button(text("✕").size(11))
-                                        .style(secondary_button_style)
-                                        .on_press(Message::GraphNodeSelected(None))
-                                        .padding([2, 5]),
-                                ].align_y(Alignment::Center),
-                                text(title).size(18).color(ThemeColors::SLATE_900),
-                            ].spacing(8);
+                                let mut insp = column![
+                                    row![
+                                        text("Inspector").size(11).color(ThemeColors::TEXT_MUTED),
+                                        Space::new().width(Length::Fill),
+                                        badge,
+                                        button(text("✕").size(11))
+                                            .style(secondary_button_style)
+                                            .on_press(Message::GraphNodeSelected(None))
+                                            .padding([2, 5]),
+                                    ]
+                                    .align_y(Alignment::Center),
+                                    text(title).size(18).color(ThemeColors::SLATE_900),
+                                ]
+                                .spacing(8);
 
-                            if let Some(c) = concept {
-                                insp = insp.push(
-                                    container(
-                                        column![
-                                            text("Definition (FDA):").size(11).color(ThemeColors::TEXT_MUTED),
-                                            text(c.definition()).size(12).color(ThemeColors::SLATE_800),
-                                        ].spacing(3)
-                                    )
-                                    .style(card_container_style)
-                                    .padding(10)
-                                    .width(Length::Fill)
-                                );
+                                if let Some(c) = concept {
+                                    insp = insp.push(
+                                        container(
+                                            column![
+                                                text("Definition (FDA):")
+                                                    .size(11)
+                                                    .color(ThemeColors::TEXT_MUTED),
+                                                text(c.definition())
+                                                    .size(12)
+                                                    .color(ThemeColors::SLATE_800),
+                                            ]
+                                            .spacing(3),
+                                        )
+                                        .style(card_container_style)
+                                        .padding(10)
+                                        .width(Length::Fill),
+                                    );
 
-                                if let Some(src) = c.source() {
+                                    if let Some(src) = c.source() {
+                                        insp = insp.push(
+                                            row![
+                                                text("Kilde:")
+                                                    .size(11)
+                                                    .color(ThemeColors::TEXT_MUTED),
+                                                Space::new().width(4),
+                                                text(src).size(11).color(ThemeColors::SLATE_700),
+                                            ]
+                                            .align_y(Alignment::Center),
+                                        );
+                                    }
+
                                     insp = insp.push(
                                         row![
-                                            text("Kilde:").size(11).color(ThemeColors::TEXT_MUTED),
-                                            Space::new().width(4),
-                                            text(src).size(11).color(ThemeColors::SLATE_700),
-                                        ].align_y(Alignment::Center)
+                                            button(text("✏️ Hurtigrediger").size(11))
+                                                .style(primary_button_style)
+                                                .on_press(Message::GraphNodeDoubleClicked(
+                                                    selected_id
+                                                ))
+                                                .padding([5, 8]),
+                                            button(text("Begrebsliste").size(11))
+                                                .style(secondary_button_style)
+                                                .on_press(Message::EditConcept(c.id()))
+                                                .padding([5, 8]),
+                                        ]
+                                        .spacing(6),
                                     );
                                 }
 
-                                insp = insp.push(
-                                    row![
-                                        button(text("✏️ Hurtigrediger").size(11))
-                                            .style(primary_button_style)
-                                            .on_press(Message::GraphNodeDoubleClicked(selected_id))
-                                            .padding([5, 8]),
-                                        button(text("Begrebsliste").size(11))
-                                            .style(secondary_button_style)
-                                            .on_press(Message::EditConcept(c.id()))
-                                            .padding([5, 8]),
-                                    ].spacing(6)
-                                );
-                            }
+                                let connected_edges: Vec<_> = self
+                                    .project
+                                    .concept_graph()
+                                    .edges()
+                                    .iter()
+                                    .filter(|e| e.from() == selected_id || e.to() == selected_id)
+                                    .collect();
 
-                            let connected_edges: Vec<_> = self
-                                .project
-                                .concept_graph()
-                                .edges()
-                                .iter()
-                                .filter(|e| e.from() == selected_id || e.to() == selected_id)
-                                .collect();
+                                if !connected_edges.is_empty() {
+                                    insp = insp.push(Space::new().height(4));
+                                    insp = insp.push(
+                                        text("Tilknyttede relationer:")
+                                            .size(12)
+                                            .color(ThemeColors::PRIMARY),
+                                    );
 
-                            if !connected_edges.is_empty() {
-                                insp = insp.push(Space::new().height(4));
-                                insp = insp.push(
-                                    text("Tilknyttede relationer:")
-                                        .size(12)
-                                        .color(ThemeColors::PRIMARY),
-                                );
-
-                                for edge in connected_edges {
-                                    let from_node = self.project.concept_graph().find_node(edge.from());
-                                    let to_node = self.project.concept_graph().find_node(edge.to());
-                                    let from_name = from_node.map(|n| n.label()).unwrap_or("?");
-                                    let to_name = to_node.map(|n| n.label()).unwrap_or("?");
-                                    let desc = match edge.kind() {
-                                        RelationKind::Generalization => format!("{} ⮞ {}", from_name, to_name),
-                                        RelationKind::Association => {
-                                            if let Some(lbl) = edge.label() {
-                                                format!("{} ──({})── {}", from_name, lbl, to_name)
-                                            } else {
-                                                format!("{} ── {}", from_name, to_name)
+                                    for edge in connected_edges {
+                                        let from_node =
+                                            self.project.concept_graph().find_node(edge.from());
+                                        let to_node =
+                                            self.project.concept_graph().find_node(edge.to());
+                                        let from_name = from_node.map(|n| n.label()).unwrap_or("?");
+                                        let to_name = to_node.map(|n| n.label()).unwrap_or("?");
+                                        let desc = match edge.kind() {
+                                            RelationKind::Generalization => {
+                                                format!("{} ⮞ {}", from_name, to_name)
                                             }
-                                        }
-                                        RelationKind::Composition => format!("{} ◆── {}", from_name, to_name),
-                                    };
+                                            RelationKind::Association => {
+                                                if let Some(lbl) = edge.label() {
+                                                    format!(
+                                                        "{} ──({})── {}",
+                                                        from_name, lbl, to_name
+                                                    )
+                                                } else {
+                                                    format!("{} ── {}", from_name, to_name)
+                                                }
+                                            }
+                                            RelationKind::Composition => {
+                                                format!("{} ◆── {}", from_name, to_name)
+                                            }
+                                        };
 
-                                    let edge_from = edge.from();
-                                    let edge_to = edge.to();
-                                    let edge_row = row![
-                                        text(desc).size(11).color(ThemeColors::SLATE_800).width(Length::Fill),
-                                        button(text("🗑️").size(11))
-                                            .style(danger_button_style)
-                                            .on_press(Message::GraphDeleteRelation(edge_from, edge_to))
-                                            .padding([2, 5]),
-                                    ]
-                                    .spacing(4)
-                                    .align_y(Alignment::Center);
+                                        let edge_from = edge.from();
+                                        let edge_to = edge.to();
+                                        let edge_row = row![
+                                            text(desc)
+                                                .size(11)
+                                                .color(ThemeColors::SLATE_800)
+                                                .width(Length::Fill),
+                                            button(text("🗑️").size(11))
+                                                .style(danger_button_style)
+                                                .on_press(Message::GraphDeleteRelation(
+                                                    edge_from, edge_to
+                                                ))
+                                                .padding([2, 5]),
+                                        ]
+                                        .spacing(4)
+                                        .align_y(Alignment::Center);
 
-                                    insp = insp.push(edge_row);
+                                        insp = insp.push(edge_row);
+                                    }
                                 }
-                            }
 
-                            container(scrollable(insp.spacing(8)))
-                                .style(card_container_style)
-                                .padding(14)
-                                .width(Length::Fixed(290.0))
-                                .height(Length::Fill)
-                                .into()
+                                container(scrollable(insp.spacing(8)))
+                                    .style(card_container_style)
+                                    .padding(14)
+                                    .width(Length::Fixed(290.0))
+                                    .height(Length::Fill)
+                                    .into()
+                            }
                         }
-                    }
-                } else {
-                        container(text("Ingen node valgt").size(12).color(ThemeColors::TEXT_MUTED))
-                            .width(Length::Fixed(290.0))
-                            .height(Length::Fill)
-                            .into()
+                    } else {
+                        container(
+                            text("Ingen node valgt")
+                                .size(12)
+                                .color(ThemeColors::TEXT_MUTED),
+                        )
+                        .width(Length::Fixed(290.0))
+                        .height(Length::Fill)
+                        .into()
                     }
                 } else {
                     container(
                         column![
-                            text("💡 Begrebsmodel Inspector").size(14).color(ThemeColors::PRIMARY),
+                            text("💡 Begrebsmodel Inspector")
+                                .size(14)
+                                .color(ThemeColors::PRIMARY),
                             text("• Klik på en node for at se definition og relationer.")
                                 .size(12)
                                 .color(ThemeColors::TEXT_MUTED),
@@ -1686,7 +1960,9 @@ impl App {
                 let body = row![
                     container(canvas_widget)
                         .style(|_| container::Style {
-                            background: Some(iced::Background::Color(Color::from_rgb(0.985, 0.988, 0.992))),
+                            background: Some(iced::Background::Color(Color::from_rgb(
+                                0.985, 0.988, 0.992
+                            ))),
                             border: iced::Border {
                                 color: ThemeColors::SLATE_200,
                                 width: 1.0,
@@ -1701,23 +1977,13 @@ impl App {
                 .spacing(12)
                 .height(Length::Fill);
 
-                column![toolbar, body].spacing(10).height(Length::Fill).into()
+                column![toolbar, body]
+                    .spacing(10)
+                    .height(Length::Fill)
+                    .into()
             }
 
-            Tab::InformationModel => container(
-                column![
-                    text("Informationsmodel (UML Klasser)").size(20).color(ThemeColors::SLATE_900),
-                    Space::new().height(4),
-                    text("Informationsmodel med klasser, attributter, standard datatyper og multiplicitet etableres i Fase 4 jf. FDA Modelreglerne.")
-                        .size(13)
-                        .color(ThemeColors::TEXT_MUTED),
-                ]
-                .spacing(8)
-            )
-            .style(card_container_style)
-            .padding(24)
-            .width(Length::Fill)
-            .into(),
+            Tab::InformationModel => self.view_information_model(),
         };
 
         // 4. Status Bar
@@ -1789,5 +2055,478 @@ impl App {
         } else {
             base_layout
         }
+    }
+
+    fn view_information_model(&self) -> Element<'_, Message> {
+        let info_model = self.project.information_model();
+        let concept_options: Vec<ConceptOption> = self
+            .project
+            .concepts()
+            .iter()
+            .map(|c| ConceptOption {
+                id: c.id(),
+                term: c.preferred_term().to_string(),
+            })
+            .collect();
+
+        // 1. Venstre kolonne: Liste over klasser
+        let class_count = info_model.classes().len();
+        let search_filter = self.info_class_search.trim().to_lowercase();
+        let filtered_classes: Vec<&InformationClass> = info_model
+            .classes()
+            .iter()
+            .filter(|c| {
+                if search_filter.is_empty() {
+                    true
+                } else {
+                    c.name().to_lowercase().contains(&search_filter)
+                        || c.description()
+                            .map(|d| d.to_lowercase().contains(&search_filter))
+                            .unwrap_or(false)
+                }
+            })
+            .collect();
+
+        let class_list_header = column![
+            row![
+                text("Informationsklasser")
+                    .size(16)
+                    .color(ThemeColors::SLATE_900),
+                Space::new().width(Length::Fill),
+                container(
+                    text(format!("{}", class_count))
+                        .size(11)
+                        .color(ThemeColors::PRIMARY)
+                )
+                .style(pill_container_style)
+                .padding([2, 8]),
+            ]
+            .align_y(Alignment::Center),
+            text_input("🔍 Søg klasser...", &self.info_class_search)
+                .style(modern_input_style)
+                .on_input(Message::InformationClassSearchChanged)
+                .padding(6),
+            row![
+                button(text("+ Ny Klasse").size(12))
+                    .style(primary_button_style)
+                    .on_press(Message::CreateInformationClass)
+                    .padding([6, 12]),
+                pick_list(
+                    concept_options.clone(),
+                    None::<ConceptOption>,
+                    Message::CreateInformationClassFromConcept,
+                )
+                .placeholder("+ Fra Begreb...")
+                .padding(5)
+                .width(Length::Fill),
+            ]
+            .spacing(6)
+            .align_y(Alignment::Center),
+        ]
+        .spacing(10);
+
+        let mut class_items = column![].spacing(6);
+        for class in filtered_classes {
+            let is_selected = self.selected_info_class_id == Some(class.id());
+            let class_id = class.id();
+            let attr_count = class.attributes().len();
+            let concept_count = class.concept_ids().len();
+
+            let item_btn = button(
+                column![
+                    row![
+                        text(class.name()).size(14).color(if is_selected {
+                            ThemeColors::PRIMARY
+                        } else {
+                            ThemeColors::SLATE_900
+                        }),
+                        Space::new().width(Length::Fill),
+                        container(
+                            text(format!("{} attr", attr_count))
+                                .size(11)
+                                .color(ThemeColors::SLATE_600)
+                        )
+                        .style(pill_container_style)
+                        .padding([2, 6]),
+                    ]
+                    .align_y(Alignment::Center),
+                    if concept_count > 0 {
+                        row![container(
+                            text(format!("{} begreb(er)", concept_count))
+                                .size(10)
+                                .color(ThemeColors::ACCENT_GREEN)
+                        )
+                        .style(pill_container_style)
+                        .padding([1, 5])]
+                    } else {
+                        row![
+                            container(text("selvstændig").size(10).color(ThemeColors::TEXT_MUTED))
+                                .style(pill_container_style)
+                                .padding([1, 5])
+                        ]
+                    },
+                ]
+                .spacing(4),
+            )
+            .style(list_item_button(is_selected))
+            .on_press(Message::SelectInformationClass(Some(class_id)))
+            .padding([8, 12])
+            .width(Length::Fill);
+
+            class_items = class_items.push(item_btn);
+        }
+
+        let left_panel = container(
+            column![
+                class_list_header,
+                scrollable(class_items).height(Length::Fill),
+            ]
+            .spacing(12)
+            .height(Length::Fill),
+        )
+        .style(card_container_style)
+        .padding(14)
+        .width(Length::Fixed(320.0))
+        .height(Length::Fill);
+
+        // 2. Højre kolonne: Master-Detail Visning
+        let right_panel: Element<'_, Message> = if let Some(class_id) = self.selected_info_class_id
+        {
+            if let Some(class) = info_model.get_class(class_id) {
+                // Card 1: Klassedetaljer & Begrebssporing
+                let mut linked_concept_badges = row![].spacing(6).align_y(Alignment::Center);
+                for cid in class.concept_ids() {
+                    let concept_term = self
+                        .project
+                        .get_concept(*cid)
+                        .map(|c| c.preferred_term())
+                        .unwrap_or("Ukendt Begreb");
+                    let badge = container(
+                        row![
+                            text(concept_term).size(12).color(ThemeColors::PRIMARY),
+                            button(text("✕").size(10).color(ThemeColors::TEXT_MUTED))
+                                .style(secondary_button_style)
+                                .on_press(Message::RemoveConceptFromInformationClass(
+                                    class_id, *cid,
+                                ))
+                                .padding([2, 5]),
+                        ]
+                        .spacing(4)
+                        .align_y(Alignment::Center),
+                    )
+                    .style(pill_container_style)
+                    .padding([3, 8]);
+                    linked_concept_badges = linked_concept_badges.push(badge);
+                }
+
+                let unlinked_concept_options: Vec<ConceptOption> = concept_options
+                    .iter()
+                    .filter(|opt| !class.concept_ids().contains(&opt.id))
+                    .cloned()
+                    .collect();
+
+                let class_card = container(
+                    column![
+                        row![
+                            text("Klasseoplysninger")
+                                .size(16)
+                                .color(ThemeColors::SLATE_900),
+                            Space::new().width(Length::Fill),
+                            button(text("🗑️ Slet Klasse").size(12))
+                                .style(danger_button_style)
+                                .on_press(Message::DeleteInformationClass(class_id))
+                                .padding([5, 10]),
+                        ]
+                        .align_y(Alignment::Center),
+                        row![
+                            column![
+                                text("Klassenavn (UML UpperCamelCase)")
+                                    .size(12)
+                                    .color(ThemeColors::SLATE_600),
+                                text_input("F.eks. Person, Koeretoej...", class.name())
+                                    .style(modern_input_style)
+                                    .on_input(move |val| {
+                                        Message::UpdateInformationClassName(class_id, val)
+                                    })
+                                    .padding(7),
+                            ]
+                            .spacing(4)
+                            .width(Length::FillPortion(1)),
+                            column![
+                                text("Beskrivelse / Definition")
+                                    .size(12)
+                                    .color(ThemeColors::SLATE_600),
+                                text_input(
+                                    "Beskriv informationsklassen...",
+                                    class.description().unwrap_or(""),
+                                )
+                                .style(modern_input_style)
+                                .on_input(move |val| {
+                                    Message::UpdateInformationClassDescription(class_id, val)
+                                })
+                                .padding(7),
+                            ]
+                            .spacing(4)
+                            .width(Length::FillPortion(2)),
+                        ]
+                        .spacing(12),
+                        column![
+                            text("Tilknyttede Begreber (M:N Sporbarhed):")
+                                .size(12)
+                                .color(ThemeColors::SLATE_600),
+                            row![
+                                linked_concept_badges,
+                                if !unlinked_concept_options.is_empty() {
+                                    pick_list(
+                                        unlinked_concept_options,
+                                        None::<ConceptOption>,
+                                        move |opt| {
+                                            Message::AddConceptToInformationClass(class_id, opt)
+                                        },
+                                    )
+                                    .placeholder("+ Knyt begreb...")
+                                    .padding(5)
+                                    .width(Length::Fixed(180.0))
+                                } else {
+                                    pick_list(vec![], None::<ConceptOption>, move |opt| {
+                                        Message::AddConceptToInformationClass(class_id, opt)
+                                    })
+                                    .placeholder("Alle begreber knyttet")
+                                    .padding(5)
+                                    .width(Length::Fixed(180.0))
+                                },
+                            ]
+                            .spacing(8)
+                            .align_y(Alignment::Center),
+                        ]
+                        .spacing(6),
+                    ]
+                    .spacing(12),
+                )
+                .style(card_container_style)
+                .padding(16)
+                .width(Length::Fill);
+
+                // Card 2: Attributter
+                let attr_count = class.attributes().len();
+                let attr_header = row![
+                    text("Attributter").size(16).color(ThemeColors::SLATE_900),
+                    container(
+                        text(format!("{}", attr_count))
+                            .size(11)
+                            .color(ThemeColors::PRIMARY)
+                    )
+                    .style(pill_container_style)
+                    .padding([2, 8]),
+                    Space::new().width(Length::Fill),
+                    button(text("+ Tilføj Attribut").size(12))
+                        .style(primary_button_style)
+                        .on_press(Message::AddAttributeToClass(class_id))
+                        .padding([6, 12]),
+                ]
+                .align_y(Alignment::Center);
+
+                let mut attr_rows = column![].spacing(8);
+
+                if class.attributes().is_empty() {
+                    attr_rows = attr_rows.push(
+                        container(
+                            text("Ingen attributter defineret for denne klasse endnu. Klik på '+ Tilføj Attribut' ovenfor.")
+                                .size(13)
+                                .color(ThemeColors::TEXT_MUTED),
+                        )
+                        .padding([12, 0]),
+                    );
+                } else {
+                    // Header row
+                    let col_headers = row![
+                        text("Attributnavn (lowerCamelCase)")
+                            .size(12)
+                            .color(ThemeColors::TEXT_MUTED)
+                            .width(Length::Fixed(200.0)),
+                        text("FDA Primitiv Type")
+                            .size(12)
+                            .color(ThemeColors::TEXT_MUTED)
+                            .width(Length::Fixed(160.0)),
+                        text("Multiplicitet")
+                            .size(12)
+                            .color(ThemeColors::TEXT_MUTED)
+                            .width(Length::Fixed(120.0)),
+                        text("Knyttet Begreb (Sporing)")
+                            .size(12)
+                            .color(ThemeColors::TEXT_MUTED)
+                            .width(Length::Fill),
+                        text("Slet")
+                            .size(12)
+                            .color(ThemeColors::TEXT_MUTED)
+                            .width(Length::Fixed(40.0)),
+                    ]
+                    .spacing(8)
+                    .align_y(Alignment::Center);
+
+                    attr_rows = attr_rows.push(col_headers);
+
+                    for attr in class.attributes() {
+                        let attr_id = attr.id();
+                        let is_valid_case = is_lower_camel_case(attr.name());
+
+                        let name_col = column![
+                            text_input("f.eks. fornavn...", attr.name())
+                                .style(modern_input_style)
+                                .on_input(move |val| {
+                                    Message::UpdateAttributeName(class_id, attr_id, val)
+                                })
+                                .padding(6),
+                            if !is_valid_case && !attr.name().is_empty() {
+                                text("Bør være lowerCamelCase jf. §6.3")
+                                    .size(10)
+                                    .color(ThemeColors::ACCENT_RED)
+                            } else {
+                                text("").size(0)
+                            },
+                        ]
+                        .spacing(2)
+                        .width(Length::Fixed(200.0));
+
+                        let type_col =
+                            pick_list(PrimitiveType::ALL, Some(attr.data_type()), move |dt| {
+                                Message::UpdateAttributeType(class_id, attr_id, dt)
+                            })
+                            .padding(5)
+                            .width(Length::Fixed(160.0));
+
+                        let mult_col =
+                            pick_list(Multiplicity::PRESETS, Some(attr.multiplicity()), move |m| {
+                                Message::UpdateAttributeMultiplicity(class_id, attr_id, m)
+                            })
+                            .padding(5)
+                            .width(Length::Fixed(120.0));
+
+                        let mut attr_concept_row = row![].spacing(4).align_y(Alignment::Center);
+                        for cid in attr.concept_ids() {
+                            let c_term = self
+                                .project
+                                .get_concept(*cid)
+                                .map(|c| c.preferred_term())
+                                .unwrap_or("Begreb");
+                            let badge = container(
+                                row![
+                                    text(c_term).size(11).color(ThemeColors::ACCENT_GREEN),
+                                    button(text("✕").size(9).color(ThemeColors::TEXT_MUTED))
+                                        .style(secondary_button_style)
+                                        .on_press(Message::RemoveConceptFromAttribute(
+                                            class_id, attr_id, *cid,
+                                        ))
+                                        .padding([1, 4]),
+                                ]
+                                .spacing(2)
+                                .align_y(Alignment::Center),
+                            )
+                            .style(pill_container_style)
+                            .padding([2, 5]);
+                            attr_concept_row = attr_concept_row.push(badge);
+                        }
+
+                        let unlinked_for_attr: Vec<ConceptOption> = concept_options
+                            .iter()
+                            .filter(|opt| !attr.concept_ids().contains(&opt.id))
+                            .cloned()
+                            .collect();
+
+                        let concept_col = row![
+                            attr_concept_row,
+                            if !unlinked_for_attr.is_empty() {
+                                pick_list(unlinked_for_attr, None::<ConceptOption>, move |opt| {
+                                    Message::AddConceptToAttribute(class_id, attr_id, opt)
+                                })
+                                .placeholder("+ Begreb...")
+                                .padding(4)
+                                .width(Length::Fixed(130.0))
+                            } else {
+                                pick_list(vec![], None::<ConceptOption>, move |opt| {
+                                    Message::AddConceptToAttribute(class_id, attr_id, opt)
+                                })
+                                .placeholder("Alle tilknyttet")
+                                .padding(4)
+                                .width(Length::Fixed(130.0))
+                            }
+                        ]
+                        .spacing(4)
+                        .align_y(Alignment::Center)
+                        .width(Length::Fill);
+
+                        let del_col = button(text("🗑️").size(12))
+                            .style(secondary_button_style)
+                            .on_press(Message::DeleteAttribute(class_id, attr_id))
+                            .padding([5, 8]);
+
+                        let attr_row = row![name_col, type_col, mult_col, concept_col, del_col]
+                            .spacing(8)
+                            .align_y(Alignment::Center);
+
+                        attr_rows = attr_rows.push(attr_row);
+                    }
+                }
+
+                let attributes_card = container(
+                    column![attr_header, scrollable(attr_rows).height(Length::Fill)]
+                        .spacing(12)
+                        .height(Length::Fill),
+                )
+                .style(card_container_style)
+                .padding(16)
+                .width(Length::Fill)
+                .height(Length::Fill);
+
+                column![class_card, attributes_card]
+                    .spacing(12)
+                    .height(Length::Fill)
+                    .into()
+            } else {
+                container(
+                    column![
+                        text("🏛️").size(32),
+                        text("Vælg en klasse fra listen til venstre.")
+                            .size(14)
+                            .color(ThemeColors::TEXT_MUTED),
+                    ]
+                    .spacing(8)
+                    .align_x(Alignment::Center),
+                )
+                .style(card_container_style)
+                .padding(40)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .align_x(Alignment::Center)
+                .align_y(Alignment::Center)
+                .into()
+            }
+        } else {
+            container(
+                column![
+                    text("🏛️").size(36),
+                    text("Informationsmodel (UML Klasser & Attributter)")
+                        .size(18)
+                        .color(ThemeColors::SLATE_900),
+                    text("Vælg en informationsklasse fra oversigten til venstre eller opret en ny med '+ Ny Klasse' eller '+ Fra Begreb...'.")
+                        .size(13)
+                        .color(ThemeColors::TEXT_MUTED),
+                ]
+                .spacing(10)
+                .align_x(Alignment::Center),
+            )
+            .style(card_container_style)
+            .padding(40)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .align_x(Alignment::Center)
+            .align_y(Alignment::Center)
+            .into()
+        };
+
+        row![left_panel, right_panel]
+            .spacing(12)
+            .height(Length::Fill)
+            .into()
     }
 }

@@ -15,6 +15,17 @@ pub enum PrimitiveType {
 }
 
 impl PrimitiveType {
+    pub const ALL: &'static [PrimitiveType] = &[
+        Self::CharacterString,
+        Self::Integer,
+        Self::Decimal,
+        Self::Boolean,
+        Self::Date,
+        Self::DateTime,
+        Self::Time,
+        Self::Uri,
+    ];
+
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::CharacterString => "CharacterString",
@@ -29,6 +40,12 @@ impl PrimitiveType {
     }
 }
 
+impl std::fmt::Display for PrimitiveType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Multiplicity {
     lower: u32,
@@ -36,6 +53,25 @@ pub struct Multiplicity {
 }
 
 impl Multiplicity {
+    pub const PRESETS: &'static [Multiplicity] = &[
+        Multiplicity {
+            lower: 1,
+            upper: Some(1),
+        },
+        Multiplicity {
+            lower: 0,
+            upper: Some(1),
+        },
+        Multiplicity {
+            lower: 0,
+            upper: None,
+        },
+        Multiplicity {
+            lower: 1,
+            upper: None,
+        },
+    ];
+
     pub fn new(lower: u32, upper: Option<u32>) -> Self {
         Self { lower, upper }
     }
@@ -75,6 +111,20 @@ impl Multiplicity {
             }
             None => format!("{}..*", self.lower),
         }
+    }
+}
+
+impl std::fmt::Display for Multiplicity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_display_string())
+    }
+}
+
+pub fn is_lower_camel_case(s: &str) -> bool {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(c) => c.is_ascii_lowercase(),
+        None => false,
     }
 }
 
@@ -270,9 +320,15 @@ impl InformationModel {
         self.classes.iter_mut().find(|c| c.id() == id)
     }
 
-    pub fn add_class(&mut self, _class: InformationClass) -> Uuid {
-        // Minimal initial stub to trigger RED failure on acceptance test
-        Uuid::nil()
+    pub fn add_class(&mut self, class: InformationClass) -> Uuid {
+        let id = class.id();
+        self.classes.push(class);
+        id
+    }
+
+    pub fn create_class_from_concept(&mut self, concept: &Concept) -> Uuid {
+        let class = InformationClass::from_concept(concept);
+        self.add_class(class)
     }
 
     pub fn remove_class(&mut self, id: Uuid) -> Option<InformationClass> {

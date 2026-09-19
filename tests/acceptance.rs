@@ -4,7 +4,7 @@ use edge::features::information_model::{
     Attribute, InformationClass, InformationModel, Multiplicity, PrimitiveType,
 };
 use edge::features::model::{ModelMetadata, ModelProject, ModelStatus};
-use edge::ui::app::{App, Message, Tab};
+use edge::ui::app::{App, ConceptOption, Message, Tab};
 
 #[test]
 fn test_fda_project_initialization_and_metadata() {
@@ -1174,8 +1174,9 @@ fn test_task_010_information_model_classes_attributes_and_concept_traceability()
         }
     }"#;
 
-    let legacy_project: ModelProject = serde_json::from_str(legacy_json)
-        .expect("Bagudkompatibilitet skal sikre at legacy JSON uden information_model kan indlæses");
+    let legacy_project: ModelProject = serde_json::from_str(legacy_json).expect(
+        "Bagudkompatibilitet skal sikre at legacy JSON uden information_model kan indlæses",
+    );
     assert_eq!(
         legacy_project.information_model().classes().len(),
         0,
@@ -1183,3 +1184,122 @@ fn test_task_010_information_model_classes_attributes_and_concept_traceability()
     );
 }
 
+#[test]
+fn test_information_model_ui_crud_and_concept_linking() {
+    let mut app = App::new_with_path(None);
+
+    // 1. Skift til Informationsmodel-fanen
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    assert_eq!(app.active_tab(), Tab::InformationModel);
+
+    // 2. Opret et begreb i projektet til sporing
+    let c = Concept::new("Borger", "Fysisk person.", BelongsToDomain::Yes);
+    let c_id = app.project_mut().add_concept(c).unwrap();
+
+    // 3. Opret en ny klasse via UI
+    let _ = app.update(Message::CreateInformationClass);
+    assert_eq!(
+        app.project().information_model().classes().len(),
+        1,
+        "Skal have oprettet 1 klasse"
+    );
+
+    let class_id = app.project().information_model().classes()[0].id();
+
+    // 4. Opdater klassens navn og beskrivelse
+    let _ = app.update(Message::UpdateInformationClassName(
+        class_id,
+        "BorgerKlasse".to_string(),
+    ));
+    let _ = app.update(Message::UpdateInformationClassDescription(
+        class_id,
+        "En informationsklasse for borgere".to_string(),
+    ));
+
+    // 5. Knyt begreb til klassen
+    let _ = app.update(Message::AddConceptToInformationClass(
+        class_id,
+        ConceptOption {
+            id: c_id,
+            term: "Borger".to_string(),
+        },
+    ));
+
+    let class = app
+        .project()
+        .information_model()
+        .get_class(class_id)
+        .unwrap();
+    assert_eq!(class.name(), "BorgerKlasse");
+    assert_eq!(
+        class.description(),
+        Some("En informationsklasse for borgere")
+    );
+    assert!(class.concept_ids().contains(&c_id));
+
+    // 6. Tilføj attribut
+    let _ = app.update(Message::AddAttributeToClass(class_id));
+    let class = app
+        .project()
+        .information_model()
+        .get_class(class_id)
+        .unwrap();
+    assert_eq!(class.attributes().len(), 1);
+    let attr_id = class.attributes()[0].id();
+
+    // 7. Opdater attribut oplysninger
+    let _ = app.update(Message::UpdateAttributeName(
+        class_id,
+        attr_id,
+        "cprNummer".to_string(),
+    ));
+    let _ = app.update(Message::UpdateAttributeType(
+        class_id,
+        attr_id,
+        PrimitiveType::CharacterString,
+    ));
+    let _ = app.update(Message::UpdateAttributeMultiplicity(
+        class_id,
+        attr_id,
+        Multiplicity::exactly_one(),
+    ));
+
+    // 8. Knyt begreb til attribut
+    let _ = app.update(Message::AddConceptToAttribute(
+        class_id,
+        attr_id,
+        ConceptOption {
+            id: c_id,
+            term: "Borger".to_string(),
+        },
+    ));
+
+    let class = app
+        .project()
+        .information_model()
+        .get_class(class_id)
+        .unwrap();
+    let attr = &class.attributes()[0];
+    assert_eq!(attr.name(), "cprNummer");
+    assert_eq!(attr.data_type(), PrimitiveType::CharacterString);
+    assert_eq!(attr.multiplicity(), Multiplicity::exactly_one());
+    assert!(attr.concept_ids().contains(&c_id));
+
+    // 9. Verificer at view renderer uden panik
+    {
+        let _view = app.view();
+    }
+
+    // 10. Slet attribut
+    let _ = app.update(Message::DeleteAttribute(class_id, attr_id));
+    let class = app
+        .project()
+        .information_model()
+        .get_class(class_id)
+        .unwrap();
+    assert_eq!(class.attributes().len(), 0);
+
+    // 11. Slet klasse
+    let _ = app.update(Message::DeleteInformationClass(class_id));
+    assert_eq!(app.project().information_model().classes().len(), 0);
+}
