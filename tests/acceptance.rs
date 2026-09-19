@@ -576,3 +576,156 @@ fn test_app_modal_overlay_rendering() {
     assert!(!app.is_relation_dialog_open());
     let _ = app.view();
 }
+
+#[test]
+fn test_canvas_direct_concept_creation_and_node_editing() {
+    use edge::features::concept_model::NodeId;
+    use edge::features::model::storage::ProjectStorage;
+    use edge::ui::app::ConceptFormField;
+
+    let temp_dir = std::env::temp_dir();
+    let file_path = temp_dir.join(format!(
+        "test_edge_canvas_crud_{}.edge.json",
+        uuid::Uuid::new_v4()
+    ));
+
+    let mut app = App::new_with_path(Some(file_path.clone()));
+
+    // 1. Skift til Begrebsmodel (Graf) fanen
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    assert_eq!(app.active_tab(), Tab::ConceptModel);
+
+    // 2. Dobbeltklik på tomt canvas (x: 450.0, y: 250.0) fanges og åbner lynoprettelse
+    let _ = app.update(Message::CanvasDoubleClicked(450.0, 250.0));
+    assert!(
+        app.is_quick_create_open(),
+        "Dobbeltklik på tomt canvas skal åbne lynoprettelses-dialog"
+    );
+
+    // Verificer at view() renderer modal overlay for lynoprettelse uden fejl
+    let _ = app.view();
+
+    // 3. Validering via ConceptValidator: Ugyldigt begreb (tom definition og term) må IKKE oprettes
+    let _ = app.update(Message::QuickCreateSubmit);
+    assert_eq!(
+        app.project().concepts().len(),
+        0,
+        "Ugyldigt begreb uden term og definition må ikke oprettes"
+    );
+    assert!(
+        app.is_quick_create_open(),
+        "Lynoprettelse skal forblive åben ved valideringsfejl"
+    );
+
+    // Udfyld kun term (mangler definition jf. FDA krav)
+    let _ = app.update(Message::QuickCreateTermChanged("Godsvogn".to_string()));
+    let _ = app.update(Message::QuickCreateSubmit);
+    assert_eq!(
+        app.project().concepts().len(),
+        0,
+        "Begreb uden definition skal afvises af ConceptValidator"
+    );
+    assert!(
+        app.is_quick_create_open(),
+        "Dialog forbliver åben da definition mangler"
+    );
+
+    // Udfyld gyldig FDA definition
+    let _ = app.update(Message::QuickCreateDefinitionChanged(
+        "Jernbanekøretøj indrettet til transport af gods.".to_string(),
+    ));
+    let _ = app.update(Message::QuickCreateSubmit);
+
+    // 4. Oprettelse lykkes: begreb tilføjes, grafnode placeres på (450, 250) og markeres straks
+    assert!(
+        !app.is_quick_create_open(),
+        "Lynoprettelse dialog skal lukke efter succesfuld oprettelse"
+    );
+    assert_eq!(app.project().concepts().len(), 1);
+
+    let concept = &app.project().concepts()[0];
+    assert_eq!(concept.preferred_term(), "Godsvogn");
+    assert_eq!(
+        concept.definition(),
+        "Jernbanekøretøj indrettet til transport af gods."
+    );
+
+    let node = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(concept.id())
+        .expect("Grafen skal indeholde en node for det nye begreb");
+    assert_eq!(node.label(), "Godsvogn");
+    assert_eq!(node.x(), 450.0, "Noden skal placeres præcist på klikkets x-koordinat");
+    assert_eq!(node.y(), 250.0, "Noden skal placeres præcist på klikkets y-koordinat");
+    let node_id = node.id();
+    assert_eq!(
+        app.selected_graph_node_id(),
+        Some(node_id),
+        "Den nyoprettede grafnode skal automatisk markeres"
+    );
+
+    // Verificer autosave: projektfilen på disken indeholder det nye begreb og noden
+    let on_disk = ProjectStorage::load_from_file(&file_path)
+        .expect("Projektfil skal være autosaved efter lynoprettelse på canvas");
+    assert_eq!(on_disk.concepts().len(), 1);
+    assert_eq!(on_disk.concept_graph().node_count(), 1);
+
+    // 5. Dobbeltklik på eksisterende grafnode åbner hurtigredigering uden at forlade canvas-fanen
+    let _ = app.update(Message::GraphNodeDoubleClicked(node_id));
+    assert_eq!(
+        app.active_tab(),
+        Tab::ConceptModel,
+        "Dobbeltklik på node må IKKE navigere væk fra ConceptModel-fanen"
+    );
+    assert!(
+        app.is_node_editing(),
+        "Hurtigredigering af nodens begreb skal være aktiv"
+    );
+
+    let _ = app.view();
+
+    // Rediger nodens begreb direkte og gem
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::PreferredTerm,
+        "Godsvogn (Jernbane)".to_string(),
+    ));
+    let _ = app.update(Message::SaveConcept);
+
+    // 6. Verificer at fanen forbliver ConceptModel, og data er opdateret i både begreb og grafnode
+    assert_eq!(
+        app.active_tab(),
+        Tab::ConceptModel,
+        "Skal forblive på ConceptModel fanen efter gem af hurtigredigering"
+    );
+    assert!(
+        !app.is_node_editing(),
+        "Hurtigredigering skal være lukket efter gem"
+    );
+    assert_eq!(
+        app.project().concepts()[0].preferred_term(),
+        "Godsvogn (Jernbane)"
+    );
+
+    let updated_node = app
+        .project()
+        .concept_graph()
+        .find_node(node_id)
+        .expect("Noden skal findes");
+    assert_eq!(
+        updated_node.label(),
+        "Godsvogn (Jernbane)",
+        "Grafnodens label skal være opdateret til den nye term"
+    );
+
+    // Verificer autosave efter hurtigredigering
+    let on_disk_after_edit = ProjectStorage::load_from_file(&file_path)
+        .expect("Projektfil skal være autosaved efter hurtigredigering");
+    assert_eq!(
+        on_disk_after_edit.concepts()[0].preferred_term(),
+        "Godsvogn (Jernbane)"
+    );
+
+    let _ = std::fs::remove_file(file_path);
+}
+
