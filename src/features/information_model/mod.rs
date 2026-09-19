@@ -594,3 +594,41 @@ impl ClassGraph {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_class_graph_lifecycle_and_cascading_removal() {
+        let mut graph = ClassGraph::new();
+        let class_1 = Uuid::new_v4();
+        let class_2 = Uuid::new_v4();
+
+        let n1 = graph.add_node(class_1, 0);
+        let n2 = graph.add_node(class_2, 2);
+
+        assert_eq!(graph.node_count(), 2);
+        assert!(graph.is_class_on_diagram(class_1));
+        assert!(graph.is_class_on_diagram(class_2));
+
+        // Dimensioner
+        let node_1 = graph.find_node(n1).unwrap();
+        let node_2 = graph.find_node(n2).unwrap();
+        assert_eq!(node_1.height(), MIN_CLASS_NODE_HEIGHT);
+        assert!(node_2.height() > node_1.height());
+
+        // Relation
+        graph.add_relation(n2, n1, RelationKind::Generalization, None);
+        assert_eq!(graph.edge_count(), 1);
+
+        // Kaskadesletning
+        graph.remove_class_node(class_1);
+        assert_eq!(graph.node_count(), 1);
+        assert_eq!(
+            graph.edge_count(),
+            0,
+            "Relationer skal kaskadeslettes uden hængende kanter"
+        );
+    }
+}
