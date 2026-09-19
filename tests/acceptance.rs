@@ -1927,3 +1927,57 @@ fn test_composition_edge_has_diamond_at_source_node() {
         "Diamantens bagerste spids skal pege ud i lærredet mod part-noden"
     );
 }
+
+#[test]
+fn test_edges_do_not_cross_unnecessarily_when_sorted_vertically() {
+    use edge::features::concept_model::{DiagramEdge, DiagramNode, RelationKind};
+    use edge::features::concepts::{BelongsToDomain, Concept};
+    use edge::ui::edge_router::EdgeRouter;
+
+    let c_person = Concept::new("Person", "En person", BelongsToDomain::Yes);
+    let c_cpr = Concept::new("CprPerson", "CPR person", BelongsToDomain::Yes);
+    let c_bil = Concept::new("Personbil", "En bil", BelongsToDomain::No);
+    let c_org = Concept::new("OrgPerson", "Organisation person", BelongsToDomain::Yes);
+
+    let node_person = DiagramNode::new(&c_person, 100.0, 200.0);
+    let node_cpr = DiagramNode::new(&c_cpr, 500.0, 80.0);
+    let node_bil = DiagramNode::new(&c_bil, 500.0, 190.0);
+    let node_org = DiagramNode::new(&c_org, 500.0, 300.0);
+
+    let nodes = vec![
+        node_person.clone(),
+        node_cpr.clone(),
+        node_bil.clone(),
+        node_org.clone(),
+    ];
+
+    // Opret edges i "omvendt" rækkefølge (nederste node først, øverste node sidst)
+    let edge_org = DiagramEdge::new(
+        node_org.id(),
+        node_person.id(),
+        RelationKind::Generalization,
+    );
+    let edge_bil = DiagramEdge::new(
+        node_bil.id(),
+        node_person.id(),
+        RelationKind::Association,
+    );
+    let edge_cpr = DiagramEdge::new(
+        node_cpr.id(),
+        node_person.id(),
+        RelationKind::Composition,
+    );
+
+    let edges = vec![edge_org, edge_bil, edge_cpr];
+    let routes = EdgeRouter::route_edges(&nodes, &edges);
+    assert_eq!(routes.len(), 3);
+
+    // Ingen af disse tre relationer fra parallelle noder til venstre-noden må krydse hinanden!
+    let total_bridges: usize = routes.iter().map(|r| r.bridges.len()).sum();
+    assert_eq!(
+        total_bridges, 0,
+        "Relationer må ikke krydse hinanden unødigt (forventede 0 krydsningsbroer, fik {})",
+        total_bridges
+    );
+}
+
