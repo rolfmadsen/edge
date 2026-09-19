@@ -382,6 +382,7 @@ impl App {
                     text(mode_label).size(13).color(ThemeColors::PRIMARY),
                     text_input("Filsti (f.eks. model.edge.json)...", &self.file_dialog_input)
                         .on_input(Message::FileDialogInputChanged)
+                        .on_submit(Message::ConfirmFileDialog)
                         .padding(6)
                         .width(Length::FillPortion(2)),
                     button(text(confirm_label).size(12))
