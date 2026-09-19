@@ -16,7 +16,7 @@ use iced::widget::{
     button, canvas, column, container, operation, pick_list, row, scrollable, stack, text,
     text_input, Space,
 };
-use iced::{Alignment, Element, Length, Subscription, Task};
+use iced::{Alignment, Element, Length, Point, Subscription, Task};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -151,6 +151,15 @@ pub enum Message {
     QuickCreateSubmit,
     QuickCreateCancel,
     GraphNodeDoubleClicked(NodeId),
+
+    // Canvas ergonomi, zoom, pan & grid (Task 008)
+    CanvasViewportChanged(crate::ui::graph_canvas::CanvasViewport),
+    ToggleSnapToGrid,
+    CanvasZoomIn,
+    CanvasZoomOut,
+    CanvasResetView,
+    CanvasSpacePressed(bool),
+    CanvasModifiersChanged(iced::keyboard::Modifiers),
 }
 
 pub struct App {
@@ -166,6 +175,9 @@ pub struct App {
     relation_dialog: Option<RelationDialogState>,
     quick_create: Option<QuickCreateState>,
     is_inline_graph_editing: bool,
+    canvas_viewport: crate::ui::graph_canvas::CanvasViewport,
+    snap_to_grid: bool,
+    is_space_pressed: bool,
 }
 
 impl Default for App {
@@ -198,6 +210,9 @@ impl App {
                         relation_dialog: None,
                         quick_create: None,
                         is_inline_graph_editing: false,
+                        canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
+                        snap_to_grid: true,
+                        is_space_pressed: false,
                     };
                 }
             }
@@ -221,6 +236,9 @@ impl App {
             relation_dialog: None,
             quick_create: None,
             is_inline_graph_editing: false,
+            canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
+            snap_to_grid: true,
+            is_space_pressed: false,
         }
     }
 
@@ -242,6 +260,22 @@ impl App {
 
     pub fn project(&self) -> &ModelProject {
         &self.project
+    }
+
+    pub fn project_mut(&mut self) -> &mut ModelProject {
+        &mut self.project
+    }
+
+    pub fn is_snap_to_grid_enabled(&self) -> bool {
+        self.snap_to_grid
+    }
+
+    pub fn canvas_zoom(&self) -> f32 {
+        self.canvas_viewport.zoom()
+    }
+
+    pub fn canvas_viewport(&self) -> crate::ui::graph_canvas::CanvasViewport {
+        self.canvas_viewport
     }
 
     pub fn is_editing_concept(&self) -> bool {
@@ -534,9 +568,19 @@ impl App {
                 self.selected_graph_node_id = node_id;
             }
             Message::GraphNodeMoved(node_id, x, y) => {
+                let (final_x, final_y) = if self.snap_to_grid {
+                    (
+                        (x / crate::features::concept_model::GRID_SIZE).round()
+                            * crate::features::concept_model::GRID_SIZE,
+                        (y / crate::features::concept_model::GRID_SIZE).round()
+                            * crate::features::concept_model::GRID_SIZE,
+                    )
+                } else {
+                    (x, y)
+                };
                 self.project
                     .concept_graph_mut()
-                    .update_node_position(node_id, x, y);
+                    .update_node_position(node_id, final_x, final_y);
                 self.trigger_autosave();
             }
             Message::GraphOpenRelationDialog => {
@@ -705,14 +749,36 @@ impl App {
                     }
                 }
             }
+
+            // Canvas ergonomi (Task 008)
+            Message::CanvasViewportChanged(vp) => {
+                self.canvas_viewport = vp;
+            }
+            Message::ToggleSnapToGrid => {
+                self.snap_to_grid = !self.snap_to_grid;
+            }
+            Message::CanvasZoomIn => {
+                self.canvas_viewport.zoom_at(Point::new(500.0, 400.0), 1.15);
+            }
+            Message::CanvasZoomOut => {
+                self.canvas_viewport
+                    .zoom_at(Point::new(500.0, 400.0), 1.0 / 1.15);
+            }
+            Message::CanvasResetView => {
+                self.canvas_viewport.reset();
+            }
+            Message::CanvasSpacePressed(pressed) => {
+                self.is_space_pressed = pressed;
+            }
+            Message::CanvasModifiersChanged(_mods) => {}
         }
 
         Task::none()
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        event::listen_with(|event, _status, _window| {
-            if let Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) = event {
+        event::listen_with(|event, _status, _window| match event {
+            Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
                 match key.as_ref() {
                     Key::Named(Named::Tab) => {
                         if modifiers.shift() {
@@ -722,17 +788,43 @@ impl App {
                         }
                     }
                     Key::Named(Named::Escape) => Some(Message::EscapePressed),
+                    Key::Named(Named::Space) => Some(Message::CanvasSpacePressed(true)),
                     Key::Character(c)
                         if (c == "s" || c == "S")
                             && (modifiers.control() || modifiers.command()) =>
                     {
                         Some(Message::SaveProject)
                     }
+                    Key::Character(c)
+                        if (c == "+" || c == "=")
+                            && (modifiers.control() || modifiers.command()) =>
+                    {
+                        Some(Message::CanvasZoomIn)
+                    }
+                    Key::Character(c)
+                        if c == "-" && (modifiers.control() || modifiers.command()) =>
+                    {
+                        Some(Message::CanvasZoomOut)
+                    }
+                    Key::Character(c)
+                        if c == "0" && (modifiers.control() || modifiers.command()) =>
+                    {
+                        Some(Message::CanvasResetView)
+                    }
                     _ => None,
                 }
-            } else {
-                None
             }
+            Event::Keyboard(keyboard::Event::KeyReleased { key, .. }) => {
+                if let Key::Named(Named::Space) = key.as_ref() {
+                    Some(Message::CanvasSpacePressed(false))
+                } else {
+                    None
+                }
+            }
+            Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
+                Some(Message::CanvasModifiersChanged(modifiers))
+            }
+            _ => None,
         })
     }
 
@@ -1128,16 +1220,13 @@ impl App {
                     text("Foretrukken term *")
                         .size(12)
                         .color(ThemeColors::SLATE_700),
-                    text_input(
-                        "Foretrukken term (f.eks. Godsvogn)...",
-                        &qc.preferred_term
-                    )
-                    .id("quick_create_term_input")
-                    .style(modern_input_style)
-                    .on_input(Message::QuickCreateTermChanged)
-                    .on_submit(Message::QuickCreateSubmit)
-                    .padding(8)
-                    .width(Length::Fill),
+                    text_input("Foretrukken term (f.eks. Godsvogn)...", &qc.preferred_term)
+                        .id("quick_create_term_input")
+                        .style(modern_input_style)
+                        .on_input(Message::QuickCreateTermChanged)
+                        .on_submit(Message::QuickCreateSubmit)
+                        .padding(8)
+                        .width(Length::Fill),
                 ]
                 .spacing(4);
 
@@ -1284,6 +1373,26 @@ impl App {
                         .style(secondary_button_style)
                         .on_press(Message::GraphSyncNodes)
                         .padding([6, 12]),
+                    button(text(if self.snap_to_grid { "🧲 Snap: Til" } else { "🧲 Snap: Fra" }).size(12))
+                        .style(secondary_button_style)
+                        .on_press(Message::ToggleSnapToGrid)
+                        .padding([6, 12]),
+                    Space::new().width(4),
+                    button(text("-").size(12))
+                        .style(secondary_button_style)
+                        .on_press(Message::CanvasZoomOut)
+                        .padding([6, 10]),
+                    container(text(format!("{}%", (self.canvas_viewport.zoom() * 100.0).round() as i32)).size(12).color(ThemeColors::SLATE_700))
+                        .style(pill_container_style)
+                        .padding([4, 8]),
+                    button(text("+").size(12))
+                        .style(secondary_button_style)
+                        .on_press(Message::CanvasZoomIn)
+                        .padding([6, 10]),
+                    button(text("⟲ Nulstil").size(12))
+                        .style(secondary_button_style)
+                        .on_press(Message::CanvasResetView)
+                        .padding([6, 12]),
                     Space::new().width(Length::Fill),
                     container(
                         row![
@@ -1301,10 +1410,14 @@ impl App {
                 let canvas_widget = canvas(GraphCanvas::new(
                     self.project.concept_graph(),
                     self.selected_graph_node_id,
+                    self.canvas_viewport,
+                    self.snap_to_grid,
+                    self.is_space_pressed,
                     Message::GraphNodeSelected,
                     Message::GraphNodeMoved,
                     Message::CanvasDoubleClicked,
                     Message::GraphNodeDoubleClicked,
+                    Message::CanvasViewportChanged,
                 ))
                 .width(Length::Fill)
                 .height(Length::Fill);

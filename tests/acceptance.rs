@@ -656,8 +656,16 @@ fn test_canvas_direct_concept_creation_and_node_editing() {
         .find_node_by_concept(concept.id())
         .expect("Grafen skal indeholde en node for det nye begreb");
     assert_eq!(node.label(), "Godsvogn");
-    assert_eq!(node.x(), 450.0, "Noden skal placeres præcist på klikkets x-koordinat");
-    assert_eq!(node.y(), 250.0, "Noden skal placeres præcist på klikkets y-koordinat");
+    assert_eq!(
+        node.x(),
+        450.0,
+        "Noden skal placeres præcist på klikkets x-koordinat"
+    );
+    assert_eq!(
+        node.y(),
+        250.0,
+        "Noden skal placeres præcist på klikkets y-koordinat"
+    );
     let node_id: NodeId = node.id();
     assert_eq!(
         app.selected_graph_node_id(),
@@ -731,8 +739,8 @@ fn test_canvas_direct_concept_creation_and_node_editing() {
 
 #[test]
 fn test_canvas_ergonomics_zoom_pan_grid() {
-    use edge::features::concepts::{BelongsToDomain, Concept};
     use edge::features::concept_model::{DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, GRID_SIZE};
+    use edge::features::concepts::{BelongsToDomain, Concept};
     use edge::ui::graph_canvas::CanvasViewport;
     use iced::Point;
 
@@ -740,10 +748,18 @@ fn test_canvas_ergonomics_zoom_pan_grid() {
     assert_eq!(GRID_SIZE, 20.0, "Gitteret skal være 20px raster");
     assert_eq!(DEFAULT_NODE_WIDTH, 180.0, "Bredde skal være 180px (9x20)");
     assert_eq!(DEFAULT_NODE_HEIGHT, 80.0, "Højde skal være 80px (4x20)");
-    assert_eq!(DEFAULT_NODE_WIDTH % GRID_SIZE, 0.0, "Bredde skal være multiplum af gitter");
-    assert_eq!(DEFAULT_NODE_HEIGHT % GRID_SIZE, 0.0, "Højde skal være multiplum af gitter");
+    assert_eq!(
+        DEFAULT_NODE_WIDTH % GRID_SIZE,
+        0.0,
+        "Bredde skal være multiplum af gitter"
+    );
+    assert_eq!(
+        DEFAULT_NODE_HEIGHT % GRID_SIZE,
+        0.0,
+        "Højde skal være multiplum af gitter"
+    );
 
-    let mut app = App::default();
+    let mut app = App::new_with_path(None);
     let _ = app.update(Message::SelectTab(Tab::ConceptModel));
 
     // Opret et begreb i projektet og synkroniser til graf
@@ -783,19 +799,46 @@ fn test_canvas_ergonomics_zoom_pan_grid() {
     assert!((world_before.y - world_after.y).abs() < 0.001);
 
     // 3. Test Magnetisk Snap-to-Grid i App
-    assert!(app.is_snap_to_grid_enabled(), "Snap to grid skal være slået til som default");
+    assert!(
+        app.is_snap_to_grid_enabled(),
+        "Snap to grid skal være slået til som default"
+    );
 
     // Flyt node til arbitrære koordinater (137.4, 91.2) - skal snappe til (140.0, 100.0)
     let _ = app.update(Message::GraphNodeMoved(node_id, 137.4, 91.2));
     let moved_node = app.project().concept_graph().find_node(node_id).unwrap();
-    assert_eq!(moved_node.x(), 140.0, "Node x skal snappe til nærmeste multiplum af 20");
-    assert_eq!(moved_node.y(), 100.0, "Node y skal snappe til nærmeste multiplum af 20");
+    assert_eq!(
+        moved_node.x(),
+        140.0,
+        "Node x skal snappe til nærmeste multiplum af 20"
+    );
+    assert_eq!(
+        moved_node.y(),
+        100.0,
+        "Node y skal snappe til nærmeste multiplum af 20"
+    );
 
     // Verificer at alle 4 hjørner rammer gitterpunkter
-    assert_eq!((moved_node.x() + moved_node.width()) % GRID_SIZE, 0.0, "Top-højre hjørne");
-    assert_eq!((moved_node.y() + moved_node.height()) % GRID_SIZE, 0.0, "Bund-venstre hjørne");
-    assert_eq!((moved_node.x() + moved_node.width()) % GRID_SIZE, 0.0, "Bund-højre x");
-    assert_eq!((moved_node.y() + moved_node.height()) % GRID_SIZE, 0.0, "Bund-højre y");
+    assert_eq!(
+        (moved_node.x() + moved_node.width()) % GRID_SIZE,
+        0.0,
+        "Top-højre hjørne"
+    );
+    assert_eq!(
+        (moved_node.y() + moved_node.height()) % GRID_SIZE,
+        0.0,
+        "Bund-venstre hjørne"
+    );
+    assert_eq!(
+        (moved_node.x() + moved_node.width()) % GRID_SIZE,
+        0.0,
+        "Bund-højre x"
+    );
+    assert_eq!(
+        (moved_node.y() + moved_node.height()) % GRID_SIZE,
+        0.0,
+        "Bund-højre y"
+    );
 
     // Slå snapping fra og test at position ikke snappes
     let _ = app.update(Message::ToggleSnapToGrid);
@@ -812,4 +855,3 @@ fn test_canvas_ergonomics_zoom_pan_grid() {
     let _ = app.update(Message::CanvasResetView);
     assert_eq!(app.canvas_zoom(), 1.0);
 }
-

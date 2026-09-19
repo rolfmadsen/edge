@@ -21,6 +21,18 @@ impl std::fmt::Display for RelationKind {
     }
 }
 
+pub const GRID_SIZE: f32 = 20.0;
+pub const DEFAULT_NODE_WIDTH: f32 = 180.0;
+pub const DEFAULT_NODE_HEIGHT: f32 = 80.0;
+
+fn default_node_width() -> f32 {
+    DEFAULT_NODE_WIDTH
+}
+
+fn default_node_height() -> f32 {
+    DEFAULT_NODE_HEIGHT
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DiagramNode {
     id: NodeId,
@@ -30,7 +42,9 @@ pub struct DiagramNode {
     is_local: bool,
     x: f32,
     y: f32,
+    #[serde(default = "default_node_width")]
     width: f32,
+    #[serde(default = "default_node_height")]
     height: f32,
 }
 
@@ -47,8 +61,8 @@ impl DiagramNode {
             is_local: concept.belongs_to_domain().is_local(),
             x,
             y,
-            width: 170.0,
-            height: 70.0,
+            width: DEFAULT_NODE_WIDTH,
+            height: DEFAULT_NODE_HEIGHT,
         }
     }
 
@@ -277,6 +291,8 @@ impl ConceptGraph {
             if let Some(node) = self.find_node_by_concept_mut(concept.id()) {
                 node.set_label(concept.preferred_term().to_string());
                 node.set_is_local(concept.belongs_to_domain().is_local());
+                node.width = DEFAULT_NODE_WIDTH;
+                node.height = DEFAULT_NODE_HEIGHT;
             } else {
                 let count = self.nodes.len() as f32;
                 let x = 60.0 + (count % 3.0) * 230.0;
