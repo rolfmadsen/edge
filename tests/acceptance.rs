@@ -302,4 +302,93 @@ fn test_app_autosave_lifecycle() {
     let _ = std::fs::remove_file(file_path);
 }
 
+#[test]
+fn test_concept_graph_lifecycle_and_persistence() {
+    use edge::features::concept_model::RelationKind;
+    use edge::features::model::storage::ProjectStorage;
+
+    let temp_dir = std::env::temp_dir();
+    let file_path = temp_dir.join(format!("test_edge_graph_{}.edge.json", uuid::Uuid::new_v4()));
+
+    let mut project = ModelProject::default();
+
+    let mut c1 = Concept::new("Køretøj", "Mobilt teknisk anlæg...", BelongsToDomain::Yes);
+    c1.set_legal_source(Some("Færdselsloven § 2".to_string()));
+    let id1 = project.add_concept(c1).unwrap();
+
+    let c2 = Concept::new("Personbil", "Køretøj til højst 9 personer...", BelongsToDomain::Yes);
+    let id2 = project.add_concept(c2).unwrap();
+
+    let c3 = Concept::new("Person", "CPR-registreret person...", BelongsToDomain::No);
+    let id3 = project.add_concept(c3).unwrap();
+
+    // 1. Synkroniser projektbegreber med concept_graph
+    project.sync_concept_graph();
+    let graph = project.concept_graph();
+    assert_eq!(graph.node_count(), 3, "Skal have 3 noder i grafen");
+
+    let node1 = graph.find_node_by_concept(id1).expect("Skal finde node for Køretøj");
+    let node2 = graph.find_node_by_concept(id2).expect("Skal finde node for Personbil");
+    let node3 = graph.find_node_by_concept(id3).expect("Skal finde node for Person");
+
+    assert_eq!(node1.label(), "Køretøj");
+    assert!(node1.is_local(), "Køretøj er lokalt begreb (FDA sand)");
+    assert!(!node3.is_local(), "Person er indlånt begreb (FDA blå)");
+
+    let n1_id = node1.id();
+    let n2_id = node2.id();
+    let n3_id = node3.id();
+
+    // 2. Opret UML relationer: Generalisering (Personbil -> Køretøj) og Association (Person -> Personbil)
+    project.concept_graph_mut().add_relation(n2_id, n1_id, RelationKind::Generalization);
+    project.concept_graph_mut().add_relation_with_label(
+        n3_id,
+        n2_id,
+        RelationKind::Association,
+        Some("ejer".to_string()),
+    );
+    assert_eq!(project.concept_graph().edge_count(), 2);
+
+    // 3. Flyt node position (bruger trækker node på lærredet)
+    project.concept_graph_mut().update_node_position(n1_id, 320.0, 140.0);
+    let moved_node = project.concept_graph().find_node(n1_id).unwrap();
+    assert_eq!(moved_node.x(), 320.0);
+    assert_eq!(moved_node.y(), 140.0);
+
+    // 4. Persistens roundtrip: Gem til .edge.json og indlæs igen
+    ProjectStorage::save_to_file(&project, &file_path).expect("Skal kunne gemme projekt med graf");
+    let loaded = ProjectStorage::load_from_file(&file_path).expect("Skal kunne indlæse projekt med graf");
+
+    assert_eq!(loaded.concepts().len(), 3);
+    assert_eq!(loaded.concept_graph().node_count(), 3);
+    assert_eq!(loaded.concept_graph().edge_count(), 2);
+
+    let loaded_n1 = loaded.concept_graph().find_node(n1_id).expect("Node1 skal findes efter indlæsning");
+    assert_eq!(loaded_n1.x(), 320.0);
+    assert_eq!(loaded_n1.y(), 140.0);
+
+    // 5. Fail-Closed kaskadesletning: Sletning af Køretøj skal fjerne noden OG generaliserings-relationen
+    let mut project_mut = loaded;
+    project_mut.remove_concept(id1);
+    assert_eq!(project_mut.concept_graph().node_count(), 2);
+    assert_eq!(
+        project_mut.concept_graph().edge_count(),
+        1,
+        "Generaliseringen til Køretøj skal automatisk være slettet (ingen dangling edges)"
+    );
+
+    // 6. Test App TEA graf-beskeder
+    let mut app = App::new_with_path(Some(file_path.clone()));
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    let _ = app.update(Message::GraphNodeSelected(Some(n2_id)));
+    assert_eq!(app.selected_graph_node_id(), Some(n2_id));
+
+    let _ = app.update(Message::GraphNodeMoved(n2_id, 500.0, 300.0));
+    let app_n2 = app.project().concept_graph().find_node(n2_id).unwrap();
+    assert_eq!(app_n2.x(), 500.0);
+    assert_eq!(app_n2.y(), 300.0);
+
+    let _ = std::fs::remove_file(file_path);
+}
+
 
