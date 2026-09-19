@@ -17,20 +17,31 @@ tags: [task-lifecycle, intent, ui, canvas, graph, ergonomics, zoom, pan, grid]
 Give begrebsmodelleringen på lærredet professionel desktop-ergonomi og layout-præcision. Dette omfatter et visuelt prik-gitter (dot-grid), magnetisk snapping af noder til gitteret for at sikre snorlige diagrammer, samt understøttelse af trinløs zoom (via musens scrollhjul) og fri panorering (via mellemrumstast eller midterste museknap), så brugeren ubesværet kan overskue og organisere store modeller.
 
 ## 📋 Acceptance Criteria
-- [ ] `GraphCanvas` renderer et diskret, performant prik-gitter (dot-grid) i baggrunden, der tilpasser sig zoom-niveauet.
-- [ ] Implementere magnetisk "Snap-to-Grid" (f.eks. 20px raster), så noder automatisk snapper på plads ved træk og slip, med mulighed for at slå snapping til/fra i værktøjslinjen.
-- [ ] Understøtte zoom ind og ud via musens scrollhjul med markøren som ankerpunkt (`zoom_factor: f32`).
-- [ ] Understøtte panorering (pan/scroll) af hele lærredet ved at trække med mellemrumstasten holdt nede eller via midterste museknap.
-- [ ] Værktøjslinjen under Fane 3 indeholder knapper til "Nulstil visning" (zoom 100%, pan 0,0) og statusindikator for aktuel zoom-procent.
+- [ ] `GraphCanvas` renderer et diskret, performant prik-gitter (dot-grid, 20px raster) i baggrunden, der tilpasser sig zoom-niveauet med LOD (Level of Detail så det ikke støjer ved udzoomning).
+- [ ] Nodernes dimensioner er låst til eksakte multipla af gitterstørrelsen (fx bredde 180px [9x20], højde 80px [4x20]), så alle 4 hjørner af noden rammer gitterpunkter præcist.
+- [ ] Magnetisk "Snap-to-Grid": Noders positioner snapper automatisk til nærmeste gitterpunkt (x, y som multipla af 20px) under træk eller ved slip, med toggle i værktøjslinjen.
+- [ ] Panorering (pan/scroll):
+  - Almindelig scroll: Vertikal panorering (eller 2D pan ved trackpad).
+  - Shift + scroll: Horisontal panorering.
+  - Space + venstre musetræk (Hand/grab cursor): Fri 2D panorering.
+  - Midterste museknap + træk: Direkte panorering.
+- [ ] Zoom:
+  - Default zoom: 100% (1.0). Min zoom: 25% (0.25) til makro-overblik. Max zoom: 150% (1.5) til læsbarhed uden ressourcespild.
+  - Ctrl / Cmd + scroll: Trinløs zoom forankret i musens aktuelle markørposition.
+  - Genvejstaster Ctrl / Cmd + `+`, `-`, `0`: Zoom ind, zoom ud og nulstil til 100%.
+- [ ] Værktøjslinjen under Fane 3 indeholder knapper til "Nulstil visning" (zoom 100%, pan 0,0), Snap-to-Grid toggle og statusindikator for aktuel zoom-procent.
+- [ ] Matematisk afkobling: Alle hit-tests, node-positioner og oprettelser regnes i verdenskoordinater via en dedikeret `CanvasViewport` transformation.
 - [ ] 100% test pass rate på unit-, accept- og proptests samt clippy med 0 advarsler.
 
 ## 🚫 Must NOT
 - Må IKKE introducere unødig CPU/GPU belastning under rendering af gitteret (skal udnytte `canvas::Geometry` caching effektivt).
 - Må IKKE forskyde koordinaterne i den underliggende datamodel utilsigtet (verdenskoordinater vs. skærmkoordinater skal være matematisk præcist afkoblet).
+- Må IKKE tillade zoom ind ud over 150% eller zoom ud under 25%, for at undgå desorientering og numerisk ustabilitet.
 - Må IKKE foretage remote publication handlinger (`git push`).
 
 ## 📝 Revisions
 - 2026-09-19: Task oprettet for canvas ergonomi, zoom, pan og magnetisk gitter.
+- 2026-09-19: Specificeret nodedimensioner som gitter-multipla (180x80 px), standardiseret genvejstaster (Space+drag, Shift+scroll, Ctrl+scroll/keys) og defineret zoom-grænser (25% - 150%, default 100%).
 
 ## 🧪 Verifikation
 - `cargo test --tests`
