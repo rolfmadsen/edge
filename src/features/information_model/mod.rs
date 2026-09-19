@@ -1,4 +1,4 @@
-use crate::features::concept_model::{NodeId, RelationKind};
+use crate::features::concept_model::{NodeId, RelationKind, GRID_SIZE};
 use crate::features::concepts::Concept;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -368,7 +368,9 @@ pub fn calculate_class_node_height(attr_count: usize) -> f32 {
     let header_height = 54.0;
     let compartment_padding = 16.0;
     let attrs_height = (attr_count as f32) * ATTR_LINE_HEIGHT;
-    (header_height + compartment_padding + attrs_height).max(MIN_CLASS_NODE_HEIGHT)
+    let raw_height =
+        (header_height + compartment_padding + attrs_height).max(MIN_CLASS_NODE_HEIGHT);
+    (raw_height / GRID_SIZE).ceil() * GRID_SIZE
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -414,7 +416,7 @@ impl ClassDiagramNode {
     }
 
     pub fn height(&self) -> f32 {
-        self.height
+        (self.height / GRID_SIZE).ceil() * GRID_SIZE
     }
 
     pub fn set_position(&mut self, x: f32, y: f32) {
@@ -427,11 +429,11 @@ impl ClassDiagramNode {
     }
 
     pub fn center(&self) -> (f32, f32) {
-        (self.x + self.width / 2.0, self.y + self.height / 2.0)
+        (self.x + self.width / 2.0, self.y + self.height() / 2.0)
     }
 
     pub fn contains(&self, px: f32, py: f32) -> bool {
-        px >= self.x && px <= self.x + self.width && py >= self.y && py <= self.y + self.height
+        px >= self.x && px <= self.x + self.width && py >= self.y && py <= self.y + self.height()
     }
 }
 
@@ -593,6 +595,22 @@ impl ClassGraph {
             node.update_dimensions(attr_count);
         }
     }
+
+    pub fn sync_with_information_model(&mut self, info_model: &InformationModel) {
+        let valid_class_ids: Vec<Uuid> = info_model.classes().iter().map(|c| c.id()).collect();
+        self.nodes
+            .retain(|n| valid_class_ids.contains(&n.class_id()));
+        let valid_node_ids: std::collections::HashSet<NodeId> =
+            self.nodes.iter().map(|n| n.id()).collect();
+        self.edges
+            .retain(|e| valid_node_ids.contains(&e.from()) && valid_node_ids.contains(&e.to()));
+
+        for node in &mut self.nodes {
+            if let Some(class) = info_model.get_class(node.class_id()) {
+                node.update_dimensions(class.attributes().len());
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -630,5 +648,23 @@ mod tests {
             0,
             "Relationer skal kaskadeslettes uden hængende kanter"
         );
+    }
+
+    #[test]
+    fn test_class_node_height_snaps_to_grid_increments() {
+        for attr_count in 0..10 {
+            let h = calculate_class_node_height(attr_count);
+            assert_eq!(
+                (h % GRID_SIZE).abs(),
+                0.0,
+                "Højde for {} attributter ({}) skal være et multiplum af GRID_SIZE (20.0)",
+                attr_count,
+                h
+            );
+            if attr_count > 0 {
+                let prev_h = calculate_class_node_height(attr_count - 1);
+                assert!(h >= prev_h, "Højde skal være monotont voksende");
+            }
+        }
     }
 }

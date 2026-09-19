@@ -260,6 +260,7 @@ impl App {
             if p.exists() {
                 if let Ok(mut proj) = ProjectStorage::load_from_file(p) {
                     proj.sync_concept_graph();
+                    proj.sync_information_graph();
                     return Self {
                         project: proj,
                         active_tab: Tab::Metadata,
@@ -421,6 +422,8 @@ impl App {
                 self.active_tab = tab;
                 if tab == Tab::ConceptModel {
                     self.project.sync_concept_graph();
+                } else if tab == Tab::InformationModel {
+                    self.project.sync_information_graph();
                 }
             }
             Message::NewProject => {
@@ -594,6 +597,7 @@ impl App {
             Message::OpenProjectFile(path) => match ProjectStorage::load_from_file(&path) {
                 Ok(mut proj) => {
                     proj.sync_concept_graph();
+                    proj.sync_information_graph();
                     self.project = proj;
                     let display = path.display().to_string();
                     self.current_file_path = Some(path);
@@ -901,7 +905,16 @@ impl App {
                         .project
                         .information_model_mut()
                         .create_class_from_concept(&concept);
-                    let node_id = self.project.information_graph_mut().add_node(id, 0);
+                    let attr_count = self
+                        .project
+                        .information_model()
+                        .get_class(id)
+                        .map(|c| c.attributes().len())
+                        .unwrap_or(0);
+                    let node_id = self
+                        .project
+                        .information_graph_mut()
+                        .add_node(id, attr_count);
                     self.selected_info_class_id = Some(id);
                     self.selected_info_graph_node_id = Some(node_id);
                     self.trigger_autosave();

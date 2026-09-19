@@ -1570,3 +1570,95 @@ fn test_task_012_grid_resize_and_information_model_relations_inspector() {
     let _ = app.update(Message::DeleteClassRelation(node_b, node_a));
     assert_eq!(app.project().information_graph().edge_count(), 0);
 }
+
+#[test]
+fn test_class_node_height_grows_in_grid_size_increments_and_aligns_with_grid() {
+    use edge::features::concept_model::GRID_SIZE;
+    use edge::features::information_model::InformationClass;
+
+    let mut app = App::new_with_path(None);
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+
+    let class = InformationClass::new("Person");
+    let class_id = class.id();
+    let _ = app.project_mut().information_model_mut().add_class(class);
+    let node_id = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(class_id, 0);
+
+    // Initial node højde (0 attributter)
+    let node = app
+        .project()
+        .information_graph()
+        .find_node(node_id)
+        .unwrap();
+    let initial_height = node.height();
+    assert_eq!(
+        (initial_height % GRID_SIZE).abs(),
+        0.0,
+        "Initial højde skal være et multiplum af GRID_SIZE ({})",
+        initial_height
+    );
+
+    // Node placeres på en grid-række (f.eks. y = 180.0)
+    app.project_mut()
+        .information_graph_mut()
+        .update_node_position(node_id, 40.0, 180.0);
+    let node = app
+        .project()
+        .information_graph()
+        .find_node(node_id)
+        .unwrap();
+    let bottom_y = node.y() + node.height();
+    assert_eq!(
+        (bottom_y % GRID_SIZE).abs(),
+        0.0,
+        "Underkant skal flugte med en grid-række ({})",
+        bottom_y
+    );
+
+    // Tilføj 1. attribut og verificer at højden vokser med grid-størrelsen
+    let _ = app.update(Message::AddAttributeToClass(class_id));
+    let node = app
+        .project()
+        .information_graph()
+        .find_node(node_id)
+        .unwrap();
+    assert_eq!(
+        (node.height() % GRID_SIZE).abs(),
+        0.0,
+        "Højde efter 1 attribut skal være et multiplum af GRID_SIZE ({})",
+        node.height()
+    );
+    assert_eq!(
+        ((node.y() + node.height()) % GRID_SIZE).abs(),
+        0.0,
+        "Underkant skal fortsat flugte med grid-rækker efter tilføjelse af attribut ({})",
+        node.y() + node.height()
+    );
+
+    // Tilføj 2. attribut og verificer tilsvarende (Person-eksemplet fra brugeren)
+    let _ = app.update(Message::AddAttributeToClass(class_id));
+    let node = app
+        .project()
+        .information_graph()
+        .find_node(node_id)
+        .unwrap();
+    assert_eq!(
+        (node.height() % GRID_SIZE).abs(),
+        0.0,
+        "Højde efter 2 attributter skal være et multiplum af GRID_SIZE ({})",
+        node.height()
+    );
+    assert_eq!(
+        node.height(),
+        120.0,
+        "Højde for Person med 2 attributter skal være præcis 120.0 (6 * 20)"
+    );
+    assert_eq!(
+        node.y() + node.height(),
+        300.0,
+        "Underkant af Person noden skal lande præcis på y=300 (15 * 20) i stedet for mellem to grid-linjer"
+    );
+}

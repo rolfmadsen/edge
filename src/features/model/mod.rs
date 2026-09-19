@@ -159,6 +159,11 @@ impl ModelProject {
         self.concept_graph.sync_with_concepts(&self.concepts);
     }
 
+    pub fn sync_information_graph(&mut self) {
+        self.information_graph
+            .sync_with_information_model(&self.information_model);
+    }
+
     pub fn get_concept(&self, id: Uuid) -> Option<&Concept> {
         self.concepts.iter().find(|c| c.id() == id)
     }

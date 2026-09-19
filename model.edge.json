@@ -29,7 +29,7 @@
       "id": "8938bd75-9444-4982-b946-82ed1d7a6799",
       "preferred_term": "Personbil",
       "definition": "Køretøj indrettet til befordring af højst 9 personer.",
-      "belongs_to_domain": "Yes",
+      "belongs_to_domain": "No",
       "accepted_term": null,
       "deprecated_term": null,
       "example": null,
@@ -87,7 +87,7 @@
         "id": "02e4b5ff-1b17-40f7-a836-94db06b1ce18",
         "concept_id": "8938bd75-9444-4982-b946-82ed1d7a6799",
         "label": "Personbil",
-        "is_local": true,
+        "is_local": false,
         "x": 160.0,
         "y": 100.0,
         "width": 180.0,
@@ -183,7 +183,7 @@
       {
         "id": "fb3be45c-265b-4f24-9e6d-5984851e4ff0",
         "class_id": "d169939d-1d7a-4ff3-8ae0-4c5d391dfe74",
-        "x": 40.0,
+        "x": -200.0,
         "y": 180.0,
         "width": 220.0,
         "height": 110.0
@@ -191,8 +191,8 @@
       {
         "id": "9efa1b57-0bf4-4165-ba74-fbd4ec0654b2",
         "class_id": "c389b6be-3336-4dd3-940b-411793567b03",
-        "x": 40.0,
-        "y": 380.0,
+        "x": -200.0,
+        "y": 360.0,
         "width": 220.0,
         "height": 80.0
       }
