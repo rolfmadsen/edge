@@ -1794,3 +1794,88 @@ fn test_task_007_interactive_edges_drag_to_connect_and_inspector_crud() {
         "Markering skal ryddes efter sletning"
     );
 }
+
+#[test]
+fn test_information_model_interactive_edges_drag_to_connect_and_inspector_crud() {
+    let mut app = App::new_with_path(None);
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    assert_eq!(app.active_tab(), Tab::InformationModel);
+
+    // 1. Opret to informationsklasser på diagrammet
+    let _ = app.update(Message::CreateInformationClass);
+    let class1_id = app.selected_info_class_id().expect("Klasse 1 skal oprettes");
+    let node1_id = app
+        .selected_info_graph_node_id()
+        .expect("Node 1 skal oprettes");
+
+    let _ = app.update(Message::CreateInformationClass);
+    let class2_id = app.selected_info_class_id().expect("Klasse 2 skal oprettes");
+    let node2_id = app
+        .selected_info_graph_node_id()
+        .expect("Node 2 skal oprettes");
+
+    // Navngiv klasserne
+    let _ = app.update(Message::UpdateInformationClassName(class1_id, "Kunde".to_string()));
+    let _ = app.update(Message::UpdateInformationClassName(class2_id, "Ordre".to_string()));
+
+    // Ingen edge er valgt endnu
+    assert_eq!(app.selected_info_edge(), None);
+
+    // 2. Simuler Drag-to-Connect: Forbind node1 -> node2 via InfoEdgeCreated
+    let _ = app.update(Message::InfoEdgeCreated(node1_id, node2_id));
+
+    // Skal have oprettet relationen i information_graph
+    assert_eq!(
+        app.project().information_graph().edge_count(),
+        1,
+        "Relation skal oprettes i informationsgrafen"
+    );
+    assert_eq!(
+        app.selected_info_edge(),
+        Some((node1_id, node2_id)),
+        "Nyoprettet relation skal være valgt i informationsmodellen"
+    );
+    assert_eq!(
+        app.selected_info_graph_node_id(),
+        None,
+        "Node skal fravælges når relation oprettes"
+    );
+
+    // 3. Opdater label og type via inspektøren
+    let _ = app.update(Message::InfoUpdateEdgeLabel(
+        node1_id,
+        node2_id,
+        "afgiver".to_string(),
+    ));
+    assert_eq!(
+        app.project().information_graph().edges()[0].label(),
+        Some("afgiver")
+    );
+
+    let _ = app.update(Message::InfoUpdateEdgeKind(
+        node1_id,
+        node2_id,
+        RelationKind::Composition,
+    ));
+    assert_eq!(
+        app.project().information_graph().edges()[0].kind(),
+        RelationKind::Composition
+    );
+
+    // 4. Test kantudvælgelse (deselect / select)
+    let _ = app.update(Message::InfoEdgeSelected(None));
+    assert_eq!(app.selected_info_edge(), None);
+
+    let _ = app.update(Message::InfoEdgeSelected(Some((node1_id, node2_id))));
+    assert_eq!(app.selected_info_edge(), Some((node1_id, node2_id)));
+
+    // 5. Test sletning via Delete-tast (GraphDeleteSelected)
+    let _ = app.update(Message::GraphDeleteSelected);
+    assert_eq!(
+        app.project().information_graph().edge_count(),
+        0,
+        "Relation skal slettes fra informationsgrafen ved GraphDeleteSelected"
+    );
+    assert_eq!(app.selected_info_edge(), None);
+}
+
