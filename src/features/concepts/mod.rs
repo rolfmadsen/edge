@@ -9,6 +9,34 @@ pub enum BelongsToDomain {
     ModelRef(String),
 }
 
+impl BelongsToDomain {
+    pub fn display_label(&self) -> String {
+        match self {
+            Self::Yes => "Ja (Lokalt begreb)".to_string(),
+            Self::No => "Nej (Indlånt begreb)".to_string(),
+            Self::ModelRef(uri) => format!("Model: {}", uri),
+        }
+    }
+
+    pub fn is_local(&self) -> bool {
+        matches!(self, Self::Yes)
+    }
+
+    pub fn from_str_loose(s: &str) -> Self {
+        let trimmed = s.trim();
+        if trimmed.eq_ignore_ascii_case("ja") || trimmed.eq_ignore_ascii_case("yes") {
+            Self::Yes
+        } else if trimmed.eq_ignore_ascii_case("nej") || trimmed.eq_ignore_ascii_case("no") {
+            Self::No
+        } else if !trimmed.is_empty() {
+            Self::ModelRef(trimmed.to_string())
+        } else {
+            Self::Yes
+        }
+    }
+}
+
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Concept {
     id: Uuid,
@@ -32,8 +60,17 @@ impl Concept {
         definition: impl Into<String>,
         belongs_to_domain: BelongsToDomain,
     ) -> Self {
+        Self::new_with_id(Uuid::new_v4(), preferred_term, definition, belongs_to_domain)
+    }
+
+    pub fn new_with_id(
+        id: Uuid,
+        preferred_term: impl Into<String>,
+        definition: impl Into<String>,
+        belongs_to_domain: BelongsToDomain,
+    ) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id,
             preferred_term: preferred_term.into(),
             definition: definition.into(),
             belongs_to_domain,

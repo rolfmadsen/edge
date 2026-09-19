@@ -149,12 +149,15 @@ fn test_concept_list_ui_crud_cycle() {
     assert!(!app.is_editing_concept());
     assert_eq!(app.project().concepts().len(), 1);
 
-    let saved = &app.project().concepts()[0];
-    assert_eq!(saved.preferred_term(), "Personbil");
-    assert_eq!(saved.definition(), "Køretøj indrettet til befordring af højst 9 personer.");
-    assert_eq!(saved.belongs_to_domain(), &BelongsToDomain::Yes);
-    assert_eq!(saved.source(), Some("Færdselsloven"));
-    assert_eq!(saved.legal_source(), Some("LBK nr 1324"));
+    let id = {
+        let saved = &app.project().concepts()[0];
+        assert_eq!(saved.preferred_term(), "Personbil");
+        assert_eq!(saved.definition(), "Køretøj indrettet til befordring af højst 9 personer.");
+        assert_eq!(saved.belongs_to_domain(), &BelongsToDomain::Yes);
+        assert_eq!(saved.source(), Some("Færdselsloven"));
+        assert_eq!(saved.legal_source(), Some("LBK nr 1324"));
+        saved.id()
+    };
 
     // 4. Søgning / filtrering
     app.update(Message::SearchQueryChanged("Person".to_string()));
@@ -167,7 +170,6 @@ fn test_concept_list_ui_crud_cycle() {
     assert_eq!(app.filtered_concepts().len(), 1);
 
     // 5. Rediger begreb
-    let id = saved.id();
     app.update(Message::EditConcept(id));
     assert!(app.is_editing_concept());
     app.update(Message::UpdateConceptField(ConceptFormField::PreferredTerm, "Personbil (M1)".to_string()));

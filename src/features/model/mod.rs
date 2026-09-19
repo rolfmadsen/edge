@@ -1,4 +1,6 @@
+use crate::features::concepts::{Concept, ConceptValidator, ValidationError};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ModelStatus {
@@ -81,11 +83,15 @@ impl ModelMetadata {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelProject {
     metadata: ModelMetadata,
+    concepts: Vec<Concept>,
 }
 
 impl ModelProject {
     pub fn new(metadata: ModelMetadata) -> Self {
-        Self { metadata }
+        Self {
+            metadata,
+            concepts: Vec::new(),
+        }
     }
 
     pub fn metadata(&self) -> &ModelMetadata {
@@ -94,6 +100,47 @@ impl ModelProject {
 
     pub fn metadata_mut(&mut self) -> &mut ModelMetadata {
         &mut self.metadata
+    }
+
+    pub fn concepts(&self) -> &[Concept] {
+        &self.concepts
+    }
+
+    pub fn concepts_mut(&mut self) -> &mut Vec<Concept> {
+        &mut self.concepts
+    }
+
+    pub fn get_concept(&self, id: Uuid) -> Option<&Concept> {
+        self.concepts.iter().find(|c| c.id() == id)
+    }
+
+    pub fn get_concept_mut(&mut self, id: Uuid) -> Option<&mut Concept> {
+        self.concepts.iter_mut().find(|c| c.id() == id)
+    }
+
+    pub fn add_concept(&mut self, concept: Concept) -> Result<Uuid, ValidationError> {
+        ConceptValidator::validate(&concept)?;
+        let id = concept.id();
+        self.concepts.push(concept);
+        Ok(id)
+    }
+
+    pub fn update_concept(&mut self, concept: Concept) -> Result<(), ValidationError> {
+        ConceptValidator::validate(&concept)?;
+        if let Some(existing) = self.concepts.iter_mut().find(|c| c.id() == concept.id()) {
+            *existing = concept;
+            Ok(())
+        } else {
+            Err(ValidationError::MissingRequiredField("Begreb ikke fundet i projekt"))
+        }
+    }
+
+    pub fn remove_concept(&mut self, id: Uuid) -> Option<Concept> {
+        if let Some(idx) = self.concepts.iter().position(|c| c.id() == id) {
+            Some(self.concepts.remove(idx))
+        } else {
+            None
+        }
     }
 }
 
@@ -110,3 +157,4 @@ impl Default for ModelProject {
         ))
     }
 }
+
