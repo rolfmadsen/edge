@@ -9,5 +9,36 @@
     "status": "Draft",
     "legal_source": null
   },
-  "concepts": []
+  "concepts": [
+    {
+      "id": "4a7d4c83-e17e-4157-8807-754821a6a5d4",
+      "preferred_term": "Person",
+      "definition": "person der er registreret i CPR med personnummer",
+      "belongs_to_domain": "Yes",
+      "accepted_term": null,
+      "deprecated_term": null,
+      "example": null,
+      "comment": null,
+      "application_note": null,
+      "legal_source": null,
+      "source": null,
+      "identifier": null,
+      "derived_from": null
+    },
+    {
+      "id": "8938bd75-9444-4982-b946-82ed1d7a6799",
+      "preferred_term": "Personbil",
+      "definition": "Køretøj indrettet til befordring af højst 9 personer.",
+      "belongs_to_domain": "Yes",
+      "accepted_term": null,
+      "deprecated_term": null,
+      "example": null,
+      "comment": null,
+      "application_note": null,
+      "legal_source": "LBK nr 1324",
+      "source": "Færdselsloven",
+      "identifier": null,
+      "derived_from": null
+    }
+  ]
 }
