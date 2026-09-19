@@ -25,24 +25,24 @@ tags: [task-lifecycle, intent, unified-canvas, concept-model, studio-layout, tdd
      - **Højre Inspector (~290-300px)**: Kontekstpanel til hurtig redigering af det valgte begreb, kendskab til tilknyttede relationer samt mulighed for at fjerne noden fra diagrammet uden at slette begrebet fra projektet.
 
 ## 📋 Acceptance Criteria
-- [ ] **Unified `DiagramCanvas` (`src/ui/diagram_canvas.rs`)**:
+- [x] **Unified `DiagramCanvas` (`src/ui/diagram_canvas.rs`)**:
   - `CanvasNode` og `CanvasEdge` abstraktioner eller generiske adaptere til noder og relationer.
   - 100% fælles event-handling: Zoom, Pan (Space og Middle click), Node Drag (uden jump-offset), Snap to Grid, Double Click.
   - 100% fælles baggrundsgrid og ortogonal edge-routing (`EdgeRouter`) med korrekte UML-pile (Generalisering, Komposition, Association) og labels.
   - Pluggable node-rendering, der lader hver model definere sit eget visuelle udtryk (FDA koncept vs UML 3-sektions klasse).
   - Bagudkompatibilitet for eksisterende imports (`CanvasViewport` m.fl.).
-- [ ] **Begrebsmodel Studio 3-delt Layout (`src/ui/concept_model_view.rs`)**:
+- [x] **Begrebsmodel Studio 3-delt Layout (`src/ui/concept_model_view.rs`)**:
   - Udflytning af Fane 3 præsentationslogik fra `app.rs` til dedikeret `concept_model_view.rs`.
   - Venstre palet med begrebsliste, søgning og `[✓]` (på diagram) / `[+]` (tilføj til diagram).
   - Center canvas med toolbar (Zoom, Snap, Opret Relation, Reset) og relation modal overlay.
   - Højre inspector med visning/hurtigredigering af begreb, relationsoversigt og "Fjern fra diagram" knap.
-- [ ] **Model & Controller integration**:
+- [x] **Model & Controller integration**:
   - `ConceptGraph::is_concept_on_diagram(&self, concept_id: Uuid) -> bool`.
   - Støtte for at fjerne en node fra canvas (`RemoveConceptFromDiagram`) uden at slette begrebet fra projektet.
   - Søgning i begrebspaletten.
-- [ ] **Fuld Verifikation & Nul Regressionsfejl**:
+- [x] **Fuld Verifikation & Nul Regressionsfejl**:
   - Ny acceptancetest `test_task_012_unified_diagram_canvas_and_concept_studio_layout` i `tests/acceptance.rs`.
-  - Alle eksisterende 26 enheds-, accept- og proptests forbliver 100% grønne.
+  - Alle eksisterende 26+ enheds-, accept- og proptests forbliver 100% grønne.
   - `cargo clippy -- -D warnings` og `cargo fmt --check` uden fejl.
 
 ## 🚫 Must NOT
