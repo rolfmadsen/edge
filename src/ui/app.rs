@@ -270,11 +270,13 @@ impl App {
             }
             Message::StartNewConcept => {
                 self.editor_state = Some(ConceptEditorState::new_empty());
+                return operation::focus("preferred_term_input");
             }
             Message::EditConcept(id) => {
                 if let Some(concept) = self.project.get_concept(id) {
                     self.editor_state = Some(ConceptEditorState::from_concept(concept));
                     self.active_tab = Tab::ConceptList;
+                    return operation::focus("preferred_term_input");
                 }
             }
             Message::DeleteConcept(id) => {

@@ -213,6 +213,7 @@ impl ConceptEditorState {
                 "F.eks. Køretøj, Personbil, Myndighed...",
                 &self.preferred_term
             )
+            .id("preferred_term_input")
             .style(modern_input_style)
             .on_input(|v| Message::UpdateConceptField(ConceptFormField::PreferredTerm, v))
             .padding(8),
