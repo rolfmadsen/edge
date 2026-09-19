@@ -454,16 +454,10 @@ where
             Color::from_rgb(0.985, 0.988, 0.992),
         );
 
-        // 1. Baggrundsgitter
+        // 1. Baggrundsgitter (dækker hele vinduet dynamisk ved resize og pan)
         let step = GRID_SIZE * self.viewport.zoom();
-        let ox = self.viewport.pan().x % step;
-        let oy = self.viewport.pan().y % step;
-
-        let start_x = if ox <= 0.0 { ox + step } else { ox };
-        let start_y = if oy <= 0.0 { oy + step } else { oy };
-
-        let max_x = bounds.width;
-        let max_y = bounds.height;
+        let ox = self.viewport.pan().x.rem_euclid(step);
+        let oy = self.viewport.pan().y.rem_euclid(step);
 
         let dot_color = if self.viewport.zoom() < 0.5 {
             Color::from_rgba(0.65, 0.7, 0.78, 0.25)
@@ -472,15 +466,11 @@ where
         };
 
         let mut grid_builder = iced::widget::canvas::path::Builder::new();
-        let mut gx = start_x;
-        while gx <= max_x {
-            let mut gy = start_y;
-            while gy <= max_y {
-                let screen_pt = self.viewport.to_screen(Point::new(gx, gy));
-                grid_builder.rectangle(
-                    Point::new(screen_pt.x - 1.0, screen_pt.y - 1.0),
-                    Size::new(2.0, 2.0),
-                );
+        let mut gx = ox;
+        while gx <= bounds.width {
+            let mut gy = oy;
+            while gy <= bounds.height {
+                grid_builder.rectangle(Point::new(gx - 1.0, gy - 1.0), Size::new(2.0, 2.0));
                 gy += step;
             }
             gx += step;

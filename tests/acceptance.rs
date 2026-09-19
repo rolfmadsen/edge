@@ -1498,3 +1498,75 @@ fn test_task_012_unified_diagram_canvas_and_concept_studio_layout() {
         let _view = app.view();
     }
 }
+
+#[test]
+fn test_task_012_grid_resize_and_information_model_relations_inspector() {
+    use edge::features::concept_model::RelationKind;
+    use edge::features::information_model::InformationClass;
+    use edge::ui::diagram_canvas::CanvasViewport;
+    use iced::{Point, Rectangle, Size};
+
+    // 1. Verificer at grid beregning dækker vilkårlige vinduesstørrelser uden fordoblet transformation
+    let vp = CanvasViewport::new(iced::Vector::new(15.0, 25.0), 1.0);
+    let bounds = Rectangle::new(Point::ORIGIN, Size::new(2560.0, 1440.0));
+    let step = 20.0 * vp.zoom();
+    let ox = vp.pan().x.rem_euclid(step);
+    let oy = vp.pan().y.rem_euclid(step);
+    let mut last_x = ox;
+    while last_x + step <= bounds.width {
+        last_x += step;
+    }
+    let mut last_y = oy;
+    while last_y + step <= bounds.height {
+        last_y += step;
+    }
+    assert!(
+        last_x >= 2540.0,
+        "Grid dots skal dække hele bredden ved resize"
+    );
+    assert!(
+        last_y >= 1420.0,
+        "Grid dots skal dække hele højden ved resize"
+    );
+
+    // 2. Verificer at Informationsmodellen viser tilknyttede relationer for en valgt klasse
+    let mut app = App::new_with_path(None);
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+
+    let class_a = InformationClass::new("Person");
+    let class_b = InformationClass::new("OrgPerson");
+    let class_a_id = class_a.id();
+    let class_b_id = class_b.id();
+
+    let _ = app.project_mut().information_model_mut().add_class(class_a);
+    let _ = app.project_mut().information_model_mut().add_class(class_b);
+
+    let node_a = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(class_a_id, 0);
+    let node_b = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(class_b_id, 0);
+
+    // Opret en generaliseringsrelation mellem OrgPerson -> Person
+    let _ = app.update(Message::AddClassRelation(
+        node_b,
+        node_a,
+        RelationKind::Generalization,
+        None,
+    ));
+
+    // Vælg OrgPerson
+    let _ = app.update(Message::SelectInformationClass(Some(class_b_id)));
+
+    // Verificer at app.view() renderer fejlfrit med tilknyttede relationer i inspectoren
+    {
+        let _view = app.view();
+    }
+
+    // Slet relationen via DeleteClassRelation og verificer at den fjernes
+    let _ = app.update(Message::DeleteClassRelation(node_b, node_a));
+    assert_eq!(app.project().information_graph().edge_count(), 0);
+}

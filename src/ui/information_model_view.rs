@@ -528,6 +528,78 @@ pub fn view<'a>(
                     .padding([4, 8])
             };
 
+            // Tilknyttede relationer for denne klasse
+            let connected_edges: Vec<_> =
+                if let Some(node) = class_graph.find_node_by_class(class_id) {
+                    let node_id = node.id();
+                    class_graph
+                        .edges()
+                        .iter()
+                        .filter(|e| e.from() == node_id || e.to() == node_id)
+                        .collect()
+                } else {
+                    Vec::new()
+                };
+
+            let mut relations_col = column![text("Tilknyttede relationer:")
+                .size(11)
+                .color(ThemeColors::SLATE_700),]
+            .spacing(4);
+
+            if connected_edges.is_empty() {
+                relations_col = relations_col.push(
+                    text("(ingen relationer)")
+                        .size(11)
+                        .color(ThemeColors::TEXT_MUTED),
+                );
+            } else {
+                for edge in connected_edges {
+                    let from_class = class_graph
+                        .find_node(edge.from())
+                        .and_then(|n| info_model.get_class(n.class_id()))
+                        .map(|c| c.name())
+                        .unwrap_or("?");
+                    let to_class = class_graph
+                        .find_node(edge.to())
+                        .and_then(|n| info_model.get_class(n.class_id()))
+                        .map(|c| c.name())
+                        .unwrap_or("?");
+
+                    let desc = match edge.kind() {
+                        RelationKind::Generalization => {
+                            format!("{} ⮞ {}", from_class, to_class)
+                        }
+                        RelationKind::Association => {
+                            if let Some(lbl) = edge.label() {
+                                format!("{} ──({})── {}", from_class, lbl, to_class)
+                            } else {
+                                format!("{} ── {}", from_class, to_class)
+                            }
+                        }
+                        RelationKind::Composition => {
+                            format!("{} ◆── {}", from_class, to_class)
+                        }
+                    };
+
+                    let edge_from = edge.from();
+                    let edge_to = edge.to();
+                    let edge_row = row![
+                        text(desc)
+                            .size(11)
+                            .color(ThemeColors::SLATE_800)
+                            .width(Length::Fill),
+                        button(text("🗑️").size(11))
+                            .style(danger_button_style)
+                            .on_press(Message::DeleteClassRelation(edge_from, edge_to))
+                            .padding([2, 5]),
+                    ]
+                    .spacing(4)
+                    .align_y(Alignment::Center);
+
+                    relations_col = relations_col.push(edge_row);
+                }
+            }
+
             let inspector_content = column![
                 row![
                     text("Klasse Inspector")
@@ -552,6 +624,8 @@ pub fn view<'a>(
                     add_concept_picker,
                 ]
                 .spacing(4),
+                // Tilknyttede Relationer
+                relations_col,
                 // Attributter
                 column![
                     row![
@@ -565,15 +639,13 @@ pub fn view<'a>(
                             .padding([3, 7]),
                     ]
                     .align_y(Alignment::Center),
-                    scrollable(attr_list).height(Length::Fill),
+                    attr_list,
                 ]
-                .spacing(6)
-                .height(Length::Fill),
+                .spacing(6),
             ]
-            .spacing(10)
-            .height(Length::Fill);
+            .spacing(10);
 
-            container(inspector_content)
+            container(scrollable(inspector_content))
                 .style(card_container_style)
                 .padding(12)
                 .width(Length::Fixed(290.0))

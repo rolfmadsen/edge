@@ -89,7 +89,7 @@
         "label": "Personbil",
         "is_local": true,
         "x": 160.0,
-        "y": 140.0,
+        "y": 100.0,
         "width": 180.0,
         "height": 80.0
       },
@@ -98,7 +98,7 @@
         "concept_id": "59e4b522-0adb-4808-bd88-786eaacf712d",
         "label": "OrgPerson",
         "is_local": true,
-        "x": 280.0,
+        "x": 260.0,
         "y": 420.0,
         "width": 180.0,
         "height": 80.0
@@ -108,7 +108,7 @@
         "concept_id": "f3e7d2a5-6369-490c-8e9b-7818eebaff81",
         "label": "CprPerson",
         "is_local": true,
-        "x": 40.0,
+        "x": 60.0,
         "y": 420.0,
         "width": 180.0,
         "height": 80.0
@@ -166,6 +166,43 @@
             "concept_ids": []
           }
         ]
+      },
+      {
+        "id": "c389b6be-3336-4dd3-940b-411793567b03",
+        "name": "OrgPerson",
+        "description": "En OrgPerson er en Person, som har en Identitet i en Organisation",
+        "concept_ids": [
+          "59e4b522-0adb-4808-bd88-786eaacf712d"
+        ],
+        "attributes": []
+      }
+    ]
+  },
+  "information_graph": {
+    "nodes": [
+      {
+        "id": "fb3be45c-265b-4f24-9e6d-5984851e4ff0",
+        "class_id": "d169939d-1d7a-4ff3-8ae0-4c5d391dfe74",
+        "x": 40.0,
+        "y": 180.0,
+        "width": 220.0,
+        "height": 110.0
+      },
+      {
+        "id": "9efa1b57-0bf4-4165-ba74-fbd4ec0654b2",
+        "class_id": "c389b6be-3336-4dd3-940b-411793567b03",
+        "x": 40.0,
+        "y": 380.0,
+        "width": 220.0,
+        "height": 80.0
+      }
+    ],
+    "edges": [
+      {
+        "from": "9efa1b57-0bf4-4165-ba74-fbd4ec0654b2",
+        "to": "fb3be45c-265b-4f24-9e6d-5984851e4ff0",
+        "kind": "Generalization",
+        "label": "er en"
       }
     ]
   }
