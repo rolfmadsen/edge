@@ -1993,21 +1993,38 @@ fn test_stateful_edge_port_hysteresis_and_persistence() {
     let nodes = vec![node_person.clone(), node_test.clone(), node_org.clone()];
 
     // 1. Initial oprettelse med låst/husket Right port
-    let mut edge_test = DiagramEdge::new(node_person.id(), node_test.id(), RelationKind::Association);
+    let mut edge_test =
+        DiagramEdge::new(node_person.id(), node_test.id(), RelationKind::Association);
     edge_test.set_ports(Some(PortSide::Right), Some(PortSide::Left));
 
-    let mut edge_org = DiagramEdge::new(node_org.id(), node_person.id(), RelationKind::Generalization);
+    let mut edge_org = DiagramEdge::new(
+        node_org.id(),
+        node_person.id(),
+        RelationKind::Generalization,
+    );
     edge_org.set_ports(Some(PortSide::Left), Some(PortSide::Right));
 
     let routes = EdgeRouter::route_edges(&nodes, &[edge_test.clone(), edge_org.clone()]);
     assert_eq!(routes.len(), 2);
 
     // edge_test skal udgå fra Person's højre side og ramme TestKlasse's venstre side
-    assert_eq!(routes[0].from_side, PortSide::Right, "Person skal bevare højre port i Nordøst-kvadranten");
-    assert_eq!(routes[0].to_side, PortSide::Left, "TestKlasse skal rammes på venstre side");
+    assert_eq!(
+        routes[0].from_side,
+        PortSide::Right,
+        "Person skal bevare højre port i Nordøst-kvadranten"
+    );
+    assert_eq!(
+        routes[0].to_side,
+        PortSide::Left,
+        "TestKlasse skal rammes på venstre side"
+    );
 
     // edge_org (generalisering) skal ramme Person på højre side og udgå fra OrgPerson's venstre side
-    assert_eq!(routes[1].from_side, PortSide::Left, "OrgPerson skal udgå fra venstre side mod Person");
+    assert_eq!(
+        routes[1].from_side,
+        PortSide::Left,
+        "OrgPerson skal udgå fra venstre side mod Person"
+    );
     assert_eq!(routes[1].to_side, PortSide::Right, "Person skal modtage generalisering på højre side fremfor at lave baglæns u-vending under bunden");
 
     // 2. Hysterese-udløser: Flyt TestKlasse ind over den vertikale linje (x < person.right)
@@ -2025,9 +2042,14 @@ fn test_stateful_edge_port_hysteresis_and_persistence() {
     );
 
     // 3. Persistens: Serialisering og deserialisering med serde
-    let serialized = serde_json::to_string(&edge_test).expect("DiagramEdge skal kunne serialiseres");
-    assert!(serialized.contains("Right"), "JSON skal indeholde 'Right' portside");
-    let deserialized: DiagramEdge = serde_json::from_str(&serialized).expect("DiagramEdge skal deserialiseres");
+    let serialized =
+        serde_json::to_string(&edge_test).expect("DiagramEdge skal kunne serialiseres");
+    assert!(
+        serialized.contains("Right"),
+        "JSON skal indeholde 'Right' portside"
+    );
+    let deserialized: DiagramEdge =
+        serde_json::from_str(&serialized).expect("DiagramEdge skal deserialiseres");
     assert_eq!(deserialized.source_port(), Some(PortSide::Right));
     assert_eq!(deserialized.target_port(), Some(PortSide::Left));
 
@@ -2037,7 +2059,8 @@ fn test_stateful_edge_port_hysteresis_and_persistence() {
         node_person.id(),
         node_test.id()
     );
-    let legacy_edge: DiagramEdge = serde_json::from_str(&legacy_json).expect("Legacy JSON skal deserialiseres uden fejl");
+    let legacy_edge: DiagramEdge =
+        serde_json::from_str(&legacy_json).expect("Legacy JSON skal deserialiseres uden fejl");
     assert_eq!(legacy_edge.source_port(), None);
     assert_eq!(legacy_edge.target_port(), None);
 }
