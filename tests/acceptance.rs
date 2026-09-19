@@ -1972,3 +1972,71 @@ fn test_edges_do_not_cross_unnecessarily_when_sorted_vertically() {
         total_bridges
     );
 }
+
+#[test]
+fn test_stateful_edge_port_hysteresis_and_persistence() {
+    use edge::features::concept_model::{DiagramEdge, DiagramNode, PortSide, RelationKind};
+    use edge::features::concepts::{BelongsToDomain, Concept};
+    use edge::ui::edge_router::EdgeRouter;
+
+    let c_person = Concept::new("Person", "En person", BelongsToDomain::Yes);
+    let c_test = Concept::new("TestKlasse", "En testklasse", BelongsToDomain::Yes);
+    let c_org = Concept::new("OrgPerson", "Organisation person", BelongsToDomain::Yes);
+
+    // Person i (100, 200), width=180, height=80 -> right=280, bottom=280
+    let node_person = DiagramNode::new(&c_person, 100.0, 200.0);
+    // TestKlasse i (400, 50) -> Nordøst for Person (x > 280, y < 200)
+    let node_test = DiagramNode::new(&c_test, 400.0, 50.0);
+    // OrgPerson i (400, 380) -> Sydøst for Person (x > 280, y > 280)
+    let node_org = DiagramNode::new(&c_org, 400.0, 380.0);
+
+    let nodes = vec![node_person.clone(), node_test.clone(), node_org.clone()];
+
+    // 1. Initial oprettelse med låst/husket Right port
+    let mut edge_test = DiagramEdge::new(node_person.id(), node_test.id(), RelationKind::Association);
+    edge_test.set_ports(Some(PortSide::Right), Some(PortSide::Left));
+
+    let mut edge_org = DiagramEdge::new(node_org.id(), node_person.id(), RelationKind::Generalization);
+    edge_org.set_ports(Some(PortSide::Left), Some(PortSide::Right));
+
+    let routes = EdgeRouter::route_edges(&nodes, &[edge_test.clone(), edge_org.clone()]);
+    assert_eq!(routes.len(), 2);
+
+    // edge_test skal udgå fra Person's højre side og ramme TestKlasse's venstre side
+    assert_eq!(routes[0].from_side, PortSide::Right, "Person skal bevare højre port i Nordøst-kvadranten");
+    assert_eq!(routes[0].to_side, PortSide::Left, "TestKlasse skal rammes på venstre side");
+
+    // edge_org (generalisering) skal ramme Person på højre side og udgå fra OrgPerson's venstre side
+    assert_eq!(routes[1].from_side, PortSide::Left, "OrgPerson skal udgå fra venstre side mod Person");
+    assert_eq!(routes[1].to_side, PortSide::Right, "Person skal modtage generalisering på højre side fremfor at lave baglæns u-vending under bunden");
+
+    // 2. Hysterese-udløser: Flyt TestKlasse ind over den vertikale linje (x < person.right)
+    // Person right er 100 + 180 = 280. Sæt TestKlasse x = 150 (direkte over Person)
+    let node_test_above = DiagramNode::new(&c_test, 150.0, 50.0);
+    let routes_above = EdgeRouter::route_edges(
+        &[node_person.clone(), node_test_above, node_org.clone()],
+        &[edge_test.clone(), edge_org.clone()],
+    );
+    assert_eq!(
+        routes_above[0].from_side,
+        PortSide::Top,
+        "Når noden trækkes ind over den vertikale grænse over Person, skal porten skifte til Top"
+    );
+
+    // 3. Persistens: Serialisering og deserialisering med serde
+    let serialized = serde_json::to_string(&edge_test).expect("DiagramEdge skal kunne serialiseres");
+    assert!(serialized.contains("Right"), "JSON skal indeholde 'Right' portside");
+    let deserialized: DiagramEdge = serde_json::from_str(&serialized).expect("DiagramEdge skal deserialiseres");
+    assert_eq!(deserialized.source_port(), Some(PortSide::Right));
+    assert_eq!(deserialized.target_port(), Some(PortSide::Left));
+
+    // Bagudkompatibilitet: JSON uden porte skal deserialisere med None
+    let legacy_json = format!(
+        r#"{{"from":"{}","to":"{}","kind":"Association","label":null}}"#,
+        node_person.id(),
+        node_test.id()
+    );
+    let legacy_edge: DiagramEdge = serde_json::from_str(&legacy_json).expect("Legacy JSON skal deserialiseres uden fejl");
+    assert_eq!(legacy_edge.source_port(), None);
+    assert_eq!(legacy_edge.target_port(), None);
+}
