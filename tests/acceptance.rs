@@ -1994,16 +1994,34 @@ fn test_relation_bundling_by_type_and_direction() {
         node_comp.clone(),
     ];
 
-    let edge_org_gen = DiagramEdge::new(node_org.id(), node_person.id(), RelationKind::Generalization);
-    let edge_cpr_gen = DiagramEdge::new(node_cpr.id(), node_person.id(), RelationKind::Generalization);
-    let edge_person_comp = DiagramEdge::new(node_person.id(), node_comp.id(), RelationKind::Composition);
+    let edge_org_gen = DiagramEdge::new(
+        node_org.id(),
+        node_person.id(),
+        RelationKind::Generalization,
+    );
+    let edge_cpr_gen = DiagramEdge::new(
+        node_cpr.id(),
+        node_person.id(),
+        RelationKind::Generalization,
+    );
+    let edge_person_comp =
+        DiagramEdge::new(node_person.id(), node_comp.id(), RelationKind::Composition);
 
     let edges = vec![edge_org_gen, edge_cpr_gen, edge_person_comp];
     let assignments = EdgeRouter::assign_ports(&nodes, &edges);
 
-    let assign_org = assignments.iter().find(|a| a.from_id == node_org.id()).unwrap();
-    let assign_cpr = assignments.iter().find(|a| a.from_id == node_cpr.id()).unwrap();
-    let assign_comp = assignments.iter().find(|a| a.from_id == node_person.id()).unwrap();
+    let assign_org = assignments
+        .iter()
+        .find(|a| a.from_id == node_org.id())
+        .unwrap();
+    let assign_cpr = assignments
+        .iter()
+        .find(|a| a.from_id == node_cpr.id())
+        .unwrap();
+    let assign_comp = assignments
+        .iter()
+        .find(|a| a.from_id == node_person.id())
+        .unwrap();
 
     // Begge generaliseringer skal ramme Person i bunden (to_side == Bottom)
     assert_eq!(assign_org.to_side, PortSide::Bottom);
@@ -2033,7 +2051,8 @@ fn test_relation_bundling_by_type_and_direction() {
     let route_org = routes.iter().find(|r| r.from == node_org.id()).unwrap();
     let route_cpr = routes.iter().find(|r| r.from == node_cpr.id()).unwrap();
     assert_eq!(
-        route_org.points.last(), route_cpr.points.last(),
+        route_org.points.last(),
+        route_cpr.points.last(),
         "De to generaliseringer skal ramme samme pilehoved-forankringspunkt"
     );
 
@@ -2051,8 +2070,14 @@ fn test_relation_bundling_by_type_and_direction() {
     let edge_b = DiagramEdge::new(node_root.id(), node_right.id(), RelationKind::Association);
 
     let assignments2 = EdgeRouter::assign_ports(&nodes2, &[edge_a, edge_b]);
-    let assign_a = assignments2.iter().find(|a| a.to_id == node_left.id()).unwrap();
-    let assign_b = assignments2.iter().find(|a| a.to_id == node_right.id()).unwrap();
+    let assign_a = assignments2
+        .iter()
+        .find(|a| a.to_id == node_left.id())
+        .unwrap();
+    let assign_b = assignments2
+        .iter()
+        .find(|a| a.to_id == node_right.id())
+        .unwrap();
 
     assert_eq!(assign_a.from_side, PortSide::Bottom);
     assert_eq!(assign_b.from_side, PortSide::Bottom);

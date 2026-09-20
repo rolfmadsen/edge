@@ -163,70 +163,66 @@ impl EdgeRouter {
         }
 
         // Beregn slot offsets for hver side:
-        // Hvis alle tilknytninger er indgående generaliseringer til denne node, deles de om ankerpunktet (FDA Fig 7.1).
-        // Ellers sorteres tilknytningerne rumligt (spatial sorting) langs nodens kant, så parallelle relationer
-        // altid forsynes med porte i naturlig rækkefølge uden krydsninger.
+        // Relationer på samme side grupperes efter (RelationKind, is_source):
+        // - Samme type og retning (f.eks. indgående generaliseringer eller udgående associationer)
+        //   deles om det samme ankerpunkt / port-slot (bundling jf. ADR 005 og FDA Fig 7.1).
+        // - Forskellige typer/retninger adskilles i parallelle slots og sorteres rumligt (spatial sorting)
+        //   efter de tilknyttede modstående noders gennemsnitlige position, så krydsninger undgås.
         let mut slot_offsets: HashMap<(usize, bool), f32> = HashMap::new();
 
         for ((_node_id, side), attachments) in side_attachments {
-            let all_incoming_gen = !attachments.is_empty()
-                && attachments
-                    .iter()
-                    .all(|a| a.1 == RelationKind::Generalization && !a.2);
+            let mut groups: HashMap<(RelationKind, bool), Vec<usize>> = HashMap::new();
+            for &(edge_idx, kind, is_source) in &attachments {
+                groups.entry((kind, is_source)).or_default().push(edge_idx);
+            }
 
-            if all_incoming_gen {
-                for (edge_idx, _, is_source) in attachments {
+            if groups.len() <= 1 {
+                for &(edge_idx, _, is_source) in &attachments {
                     slot_offsets.insert((edge_idx, is_source), 0.0);
                 }
             } else {
-                let mut sorted_attachments = attachments;
-                sorted_attachments.sort_by(|a, b| {
-                    let other_id_a = if a.2 {
-                        edges[a.0].to()
-                    } else {
-                        edges[a.0].from()
-                    };
-                    let other_id_b = if b.2 {
-                        edges[b.0].to()
-                    } else {
-                        edges[b.0].from()
-                    };
+                let mut sorted_groups: Vec<((RelationKind, bool), Vec<usize>, f32)> = groups
+                    .into_iter()
+                    .map(|(key, edge_indices)| {
+                        let avg_coord = if edge_indices.is_empty() {
+                            0.0
+                        } else {
+                            let sum: f32 = edge_indices
+                                .iter()
+                                .map(|&e_idx| {
+                                    let other_id = if key.1 {
+                                        edges[e_idx].to()
+                                    } else {
+                                        edges[e_idx].from()
+                                    };
+                                    node_map
+                                        .get(&other_id)
+                                        .map(|n| {
+                                            if side.is_vertical() {
+                                                n.center().0
+                                            } else {
+                                                n.center().1
+                                            }
+                                        })
+                                        .unwrap_or(0.0)
+                                })
+                                .sum();
+                            sum / edge_indices.len() as f32
+                        };
+                        (key, edge_indices, avg_coord)
+                    })
+                    .collect();
 
-                    let coord_a = node_map
-                        .get(&other_id_a)
-                        .map(|n| {
-                            if side.is_vertical() {
-                                n.center().0
-                            } else {
-                                n.center().1
-                            }
-                        })
-                        .unwrap_or(0.0);
-                    let coord_b = node_map
-                        .get(&other_id_b)
-                        .map(|n| {
-                            if side.is_vertical() {
-                                n.center().0
-                            } else {
-                                n.center().1
-                            }
-                        })
-                        .unwrap_or(0.0);
+                sorted_groups
+                    .sort_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
 
-                    coord_a
-                        .partial_cmp(&coord_b)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                });
-
-                let count = sorted_attachments.len();
-                if count <= 1 {
-                    if let Some(&(edge_idx, _, is_source)) = sorted_attachments.first() {
-                        slot_offsets.insert((edge_idx, is_source), 0.0);
-                    }
-                } else {
-                    let mid = (count as f32 - 1.0) / 2.0;
-                    for (i, &(edge_idx, _, is_source)) in sorted_attachments.iter().enumerate() {
-                        let offset = (i as f32 - mid) * SLOT_SPACING;
+                let count = sorted_groups.len();
+                let mid = (count as f32 - 1.0) / 2.0;
+                for (i, ((_kind, is_source), edge_indices, _)) in
+                    sorted_groups.into_iter().enumerate()
+                {
+                    let offset = (i as f32 - mid) * SLOT_SPACING;
+                    for edge_idx in edge_indices {
                         slot_offsets.insert((edge_idx, is_source), offset);
                     }
                 }
