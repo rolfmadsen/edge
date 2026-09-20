@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 020: Harmoniseret Egenskaber- og Vejledningspanel i Begrebs- og Informationsmodel"
 description: "Ensretning af højre panel på tværs af Begrebsmodel og Informationsmodel med ensartet navngivning (Egenskaber vs Vejledning), sektionsopbygning og visuelt hierarki"
-status: pending
+status: active
 generated: { by: process:antigravity-task-init, at: "2026-09-20T09:55:00Z" }
 tags: [ui, ux, inspector, properties, guidance, consistency]
 ---
 
 # Task 020: Harmoniseret Egenskaber- og Vejledningspanel i Begrebs- og Informationsmodel
 
-**Status**: `PENDING`
+**Status**: `ACTIVE`
 **Intent**: `🔄 ENHANCEMENT`
 **Oprettet**: `2026-09-20`
 
