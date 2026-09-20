@@ -951,7 +951,7 @@ pub fn render_uml_class_node(
     frame: &mut Frame,
     node: &ClassDiagramNode,
     class_name: &str,
-    attributes: &[(String, String, String)],
+    attributes: &[(String, String, String, bool)],
     is_borrowed: bool,
     is_selected: bool,
     _viewport: CanvasViewport,
@@ -1033,8 +1033,12 @@ pub fn render_uml_class_node(
             ..Default::default()
         });
     } else {
-        for (attr_name, attr_type, attr_mult) in attributes {
-            let line_str = format!("+ {} : {} [{}]", attr_name, attr_type, attr_mult);
+        for (attr_name, attr_type, attr_mult, has_concept) in attributes {
+            let line_str = if *has_concept {
+                format!("+ {} : {} [{}] 🔗", attr_name, attr_type, attr_mult)
+            } else {
+                format!("+ {} : {} [{}]", attr_name, attr_type, attr_mult)
+            };
             frame.fill_text(Text {
                 content: line_str,
                 position: Point::new(node.x() + 14.0, attr_y),

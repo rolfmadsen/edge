@@ -4,7 +4,9 @@ use crate::features::information_model::{
     is_lower_camel_case, ClassGraph, InformationClass, InformationModel, Multiplicity,
     PrimitiveType,
 };
-use crate::ui::app::{ConceptOption, Message, NodeOption, RelationDialogState};
+use crate::ui::app::{
+    AttributeConceptOption, ConceptOption, Message, NodeOption, RelationDialogState,
+};
 use crate::ui::diagram_canvas::{render_uml_class_node, CanvasViewport, DiagramCanvas};
 use crate::ui::theme::{
     card_container_style, danger_button_style, list_item_button, modern_input_style,
@@ -221,7 +223,7 @@ pub fn view<'a>(
                 } else {
                     class_opt.map(|c| c.name()).unwrap()
                 };
-                let attributes: Vec<(String, String, String)> = class_opt
+                let attributes: Vec<(String, String, String, bool)> = class_opt
                     .map(|c| {
                         c.attributes()
                             .iter()
@@ -235,6 +237,7 @@ pub fn view<'a>(
                                     name.to_string(),
                                     a.data_type().as_str().to_string(),
                                     a.multiplicity().to_string(),
+                                    !a.concept_ids().is_empty(),
                                 )
                             })
                             .collect()
@@ -617,23 +620,60 @@ pub fn view<'a>(
 
                 let is_name_valid = is_lower_camel_case(&name_val);
 
+                let linked_concept_id = attr.concept_ids().first().copied();
+                let linked_concept =
+                    linked_concept_id.and_then(|cid| concepts.iter().find(|c| c.id() == cid));
+
+                let mut attr_concept_options = vec![AttributeConceptOption {
+                    id: None,
+                    label: "— Intet begreb (teknisk felt) —".to_string(),
+                }];
+                for c in concepts {
+                    attr_concept_options.push(AttributeConceptOption {
+                        id: Some(c.id()),
+                        label: c.preferred_term().to_string(),
+                    });
+                }
+
+                let selected_concept_opt = match linked_concept {
+                    Some(c) => AttributeConceptOption {
+                        id: Some(c.id()),
+                        label: c.preferred_term().to_string(),
+                    },
+                    None => AttributeConceptOption {
+                        id: None,
+                        label: "— Intet begreb (teknisk felt) —".to_string(),
+                    },
+                };
+
+                let mut top_row = row![
+                    text_input("attributNavn", &name_val)
+                        .style(modern_input_style)
+                        .size(12.0)
+                        .on_input(move |s| {
+                            Message::UpdateAttributeName(class_id, attr_id, s)
+                        })
+                        .padding([3, 6])
+                        .width(Length::Fill),
+                ];
+
+                if linked_concept.is_some() {
+                    top_row = top_row.push(
+                        text("🔗")
+                            .size(11)
+                            .color(ThemeColors::PRIMARY),
+                    );
+                }
+
+                top_row = top_row.push(
+                    button(text("✕").size(10))
+                        .style(danger_button_style)
+                        .on_press(Message::DeleteAttribute(class_id, attr_id))
+                        .padding([2, 5]),
+                );
+
                 let mut attr_col = column![
-                    row![
-                        text_input("attributNavn", &name_val)
-                            .style(modern_input_style)
-                            .size(12.0)
-                            .on_input(move |s| {
-                                Message::UpdateAttributeName(class_id, attr_id, s)
-                            })
-                            .padding([3, 6])
-                            .width(Length::Fill),
-                        button(text("✕").size(10))
-                            .style(danger_button_style)
-                            .on_press(Message::DeleteAttribute(class_id, attr_id))
-                            .padding([2, 5]),
-                    ]
-                    .spacing(4)
-                    .align_y(Alignment::Center),
+                    top_row.spacing(4).align_y(Alignment::Center),
                     row![
                         pick_list(PrimitiveType::ALL, Some(type_val), move |t| {
                             Message::UpdateAttributeType(class_id, attr_id, t)
@@ -650,8 +690,38 @@ pub fn view<'a>(
                     ]
                     .spacing(4)
                     .align_y(Alignment::Center),
+                    row![
+                        text("Begreb:").size(11.0).color(ThemeColors::SLATE_500),
+                        pick_list(
+                            attr_concept_options,
+                            Some(selected_concept_opt),
+                            move |opt| Message::SetAttributeConcept(class_id, attr_id, opt.id)
+                        )
+                        .text_size(11.0)
+                        .padding([3, 6])
+                        .width(Length::Fill),
+                    ]
+                    .spacing(4)
+                    .align_y(Alignment::Center),
                 ]
                 .spacing(4);
+
+                if let Some(c) = linked_concept {
+                    let badge = container(
+                        row![
+                            text("🔗").size(10).color(ThemeColors::PRIMARY),
+                            text(format!("Lineage: {}", c.preferred_term()))
+                                .size(10.5)
+                                .color(ThemeColors::PRIMARY),
+                        ]
+                        .spacing(4)
+                        .align_y(Alignment::Center),
+                    )
+                    .style(pill_container_style)
+                    .padding([2, 6]);
+
+                    attr_col = attr_col.push(badge);
+                }
 
                 if !is_name_valid && !name_val.is_empty() {
                     attr_col = attr_col.push(

@@ -200,6 +200,14 @@ impl Attribute {
     pub fn remove_concept_id(&mut self, id: Uuid) {
         self.concept_ids.retain(|c| *c != id);
     }
+
+    pub fn set_concept_ids(&mut self, ids: Vec<Uuid>) {
+        self.concept_ids = ids;
+    }
+
+    pub fn clear_concept_ids(&mut self) {
+        self.concept_ids.clear();
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -357,6 +365,15 @@ impl InformationModel {
             }
         }
         results
+    }
+
+    pub fn remove_concept_references(&mut self, concept_id: Uuid) {
+        for class in &mut self.classes {
+            class.remove_concept_id(concept_id);
+            for attr in class.attributes_mut() {
+                attr.remove_concept_id(concept_id);
+            }
+        }
     }
 }
 

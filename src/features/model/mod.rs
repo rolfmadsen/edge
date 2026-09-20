@@ -243,6 +243,7 @@ impl ModelProject {
         if let Some(idx) = self.concepts.iter().position(|c| c.id() == id) {
             let removed = self.concepts.remove(idx);
             self.concept_graph.remove_node_by_concept(id);
+            self.information_model.remove_concept_references(id);
             Some(removed)
         } else {
             None

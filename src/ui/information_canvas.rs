@@ -41,7 +41,7 @@ impl<'a, Message> InformationCanvas<'a, Message> {
                   vp: CanvasViewport| {
                 let class_opt = model.get_class(node.class_id());
                 let class_name = class_opt.map(|c| c.name()).unwrap_or("Ukendt Klasse");
-                let attributes: Vec<(String, String, String)> = class_opt
+                let attributes: Vec<(String, String, String, bool)> = class_opt
                     .map(|c| {
                         c.attributes()
                             .iter()
@@ -50,6 +50,7 @@ impl<'a, Message> InformationCanvas<'a, Message> {
                                     a.name().to_string(),
                                     a.data_type().as_str().to_string(),
                                     a.multiplicity().to_string(),
+                                    !a.concept_ids().is_empty(),
                                 )
                             })
                             .collect()

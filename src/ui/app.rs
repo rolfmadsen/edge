@@ -48,6 +48,18 @@ impl std::fmt::Display for ConceptOption {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AttributeConceptOption {
+    pub id: Option<Uuid>,
+    pub label: String,
+}
+
+impl std::fmt::Display for AttributeConceptOption {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.label)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct RelationDialogState {
     pub from_node: Option<NodeOption>,
@@ -336,6 +348,7 @@ pub enum Message {
     UpdateAttributeMultiplicity(Uuid, Uuid, Multiplicity),
     AddConceptToAttribute(Uuid, Uuid, ConceptOption),
     RemoveConceptFromAttribute(Uuid, Uuid, Uuid),
+    SetAttributeConcept(Uuid, Uuid, Option<Uuid>),
     DeleteAttribute(Uuid, Uuid),
     InformationClassSearchChanged(String),
 
@@ -1414,6 +1427,22 @@ impl App {
                         .find(|a| a.id() == attr_id)
                     {
                         attr.remove_concept_id(concept_id);
+                        self.trigger_autosave();
+                    }
+                }
+            }
+            Message::SetAttributeConcept(class_id, attr_id, maybe_concept_id) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    if let Some(attr) = class
+                        .attributes_mut()
+                        .iter_mut()
+                        .find(|a| a.id() == attr_id)
+                    {
+                        if let Some(cid) = maybe_concept_id {
+                            attr.set_concept_ids(vec![cid]);
+                        } else {
+                            attr.clear_concept_ids();
+                        }
                         self.trigger_autosave();
                     }
                 }
