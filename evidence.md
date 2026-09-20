@@ -1,22 +1,23 @@
 # Verification Report
  
-**Task ID**: `027-collab-protocol-and-mutation-bridge`  
-**Task Title**: Task 027: Collab Protokol, Host/Guest Tilstande & Mutation Bridge  
+**Task ID**: `029-collab-inbound-subscription-framing-and-presence`  
+**Task Title**: Task 029: Inbound Collab Subscription, Transport Framing & Relay Hardening  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Timestamp**: `2026-09-20T15:03:00Z`  
-**Head**: `90b4a73`  
+**Timestamp**: `2026-09-20T15:58:00Z`  
+**Head**: `87d7d0d`  
  
 ## Acceptance Criteria
  
-- [x] `CollabPayload` og `ModelMutation` er defineret med `serde::{Serialize, Deserialize}` i `src/features/collab/protocol.rs`.
-- [x] `src/ui/app.rs` udvides med `CollabState` (`None`, `Host`, `Guest`) med `is_guest()`, `is_host()` og `is_active()` helpers.
-- [x] Lokale handlinger i Begrebslisten, Begrebsmodellen og Informationsmodellen udsender tilhørende `ModelMutation`, når en session er aktiv (`broadcast_mutation`).
-- [x] Canvas drag af noder throttles (maks 15 Hz / 66 ms tærskel) for at undgå netværksmætning (`broadcast_node_moved_throttled`).
-- [x] Indgående hændelser muterer `ModelProject` i RAM uden ekko og opdaterer visningen for alle faner (`apply_mutation`).
-- [x] Automatiserede tests beviser, at hvis `CollabState == Guest`, foretages der **aldrig** skrivning til `model.edge.json` ved modtagelse af mutationer (`test_guest_autosave_suppressed`).
-- [x] Værten kan uploade et fuldt snapshot ved opstart, som gæsten indlæser som erstatning for sit RAM-projekt ved tilslutning (`CollabPayload::Snapshot`).
-- [x] `cargo test` og `cargo clippy -- -D warnings` passerer 100% på tværs af hele workspacet (78 tests i alt).
+- [x] `FrameType` og `CollabEnvelope` er implementeret med serde og enheds-tests.
+- [x] `CollabChannel` udsender frames med eksplicit `FrameType` præfiks (`0x01` Snapshot, `0x02` Mutation, `0x03` Presence, `0x04` HostLeft).
+- [x] `edge-relay` håndhæver maks payload-størrelse (5 MB), max rum (1.000) og udsender presence opdateringer (`0x03`).
+- [x] `App::subscription` indeholder en aktiv lytter på kollaborationskanalen, som modtager snapshots, mutationer, presence og host-exit.
+- [x] Modtagne mutationer opdaterer modelsandheden i RAM uden at gen-broadcaste til netværket.
+- [x] Gæster modtager omgående opdateret deltagerantal i headeren via presence events.
+- [x] Hvis værten afbryder sessionen, modtager gæster `GuestEndedNoticeModalState` med mulighed for "Gem som kopi...".
+- [x] Automatiseret E2E accepttest beviser reel tovejs synkronisering mellem to forbundne `App` instanser (`test_task029_e2e_collab_sync_and_presence`).
+- [x] `cargo clippy --workspace -- -D warnings` og `cargo test --workspace` passerer 100% (83/83 tests).
  
 ---
  
@@ -25,8 +26,8 @@
 | Check Name | Status | Exit Code | Details |
 |---|---|---|---|
 | `fmt` (`cargo fmt --check`) | `PASSED` | `0` | Formatteret i overensstemmelse med Rust standarder |
-| `lint` (`cargo clippy --workspace --all-targets -- -D warnings`) | `PASSED` | `0` | 0 advarsler på tværs af hele workspace |
-| `tests` (`cargo test --workspace`) | `PASSED` | `0` | 78/78 tests passed (inkl. proptests, unit- og acceptance tests) |
+| `lint` (`cargo clippy --workspace -- -D warnings`) | `PASSED` | `0` | 0 advarsler på tværs af hele workspace |
+| `tests` (`cargo test --workspace`) | `PASSED` | `0` | 83/83 tests passed (28 lib, 44 acceptance, 4 proptests, 7 relay integration tests) |
 | `check` (`cargo check --workspace`) | `PASSED` | `0` | Fuld workspace kompilering uden fejl |
  
 ---
