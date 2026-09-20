@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 017: Model Omslag & Metadata Redigeringsmodal og 3-Faset Navigation"
 description: "Fjernelse af Omslag & Metadata som selvstændig fane til fordel for en 3-faset arbejdsgang, samt implementering af en komplet redigeringsmodal til modelomslagets metadata"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-20T09:55:00Z" }
 tags: [ui, metadata, model-cover, tabs, fda-phases, modal]
 ---
 
 # Task 017: Model Omslag & Metadata Redigeringsmodal og 3-Faset Navigation
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🔄 ENHANCEMENT`
 **Oprettet**: `2026-09-20`
 
@@ -30,14 +30,14 @@ tags: [ui, metadata, model-cover, tabs, fda-phases, modal]
 4. Sikre at ændringer gemmes direkte i `ModelMetadata` og trigger markering af ikke-gemte ændringer (`SaveStatus::Unsaved`).
 
 ## 📋 Acceptance Criteria
-- [ ] Top-fanebaren indeholder præcis 3 faner: Begrebsliste, Begrebsmodel og Informationsmodel.
-- [ ] `Tab::Metadata` er fjernet fra fanelinjen, og default aktiv fane ved opstart eller nyt projekt er `Tab::ConceptList`.
-- [ ] En knap i headeren åbner `ModelMetadataModal`.
-- [ ] Modalen indeholder formularfelter for samtlige metadatafelter (navn, beskrivelse, status, emneområde, ansvarlig myndighed, URI, version).
-- [ ] Gem-knap i modalen opdaterer `project.metadata` og sætter applikationen i unsaved-status.
-- [ ] Annuller/Luk knapper og Escape-tast lukker modalen uden at gemme utilsigtede ændringer.
-- [ ] Enhedstests validerer korrekt opdatering og serialisering af de redigerede metadatafelter.
-- [ ] 100% test pass rate på `cargo test --workspace` og clippy uden advarsler.
+- [x] Top-fanebaren indeholder præcis 3 faner: Begrebsliste, Begrebsmodel og Informationsmodel.
+- [x] `Tab::Metadata` er fjernet fra fanelinjen, og default aktiv fane ved opstart eller nyt projekt er `Tab::ConceptList`.
+- [x] En knap i headeren åbner `ModelMetadataModal`.
+- [x] Modalen indeholder formularfelter for samtlige metadatafelter (navn, beskrivelse, status, emneområde, ansvarlig myndighed, URI, version).
+- [x] Gem-knap i modalen opdaterer `project.metadata` og sætter applikationen i unsaved-status.
+- [x] Annuller/Luk knapper og Escape-tast lukker modalen uden at gemme utilsigtede ændringer.
+- [x] Enhedstests validerer korrekt opdatering og serialisering af de redigerede metadatafelter.
+- [x] 100% test pass rate på `cargo test --workspace` og clippy uden advarsler.
 
 ## 🚫 Must NOT
 - Må IKKE fjerne eller forringe felter defineret i `ModelMetadata`.

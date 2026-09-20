@@ -4,43 +4,42 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "007-canvas-interactive-edges-drag-connect",
-    "task_title": "Task 007: Interaktiv Relation-håndtering, Drag-to-Connect & Edges",
-    "task_digest": "608fec51206b95aedd60dfa34ecb7388a5a8916658144da5ef5e70dc26faab17",
+    "task_id": "017-model-metadata-modal-and-3phase-tabs",
+    "task_title": "Task 017: Model Omslag & Metadata Redigeringsmodal og 3-Faset Navigation",
+    "task_digest": "00974a84e5a79739c279628ad143185f40f4b4e935a6aed142b23e60e2269b81",
     "acceptance_criteria": [
-      "Når en node er markeret på lærredet, vises et synligt forbindelseshåndtag (connect handle).",
-      "Klik-og-træk fra forbindelseshåndtaget på Node A starter en elastik-preview-linje mod musemarkøren.",
-      "Målnode B highlightes som gyldigt slip-mål under træk (forudsat $B \\neq A$).",
-      "Ved slip over en målnode oprettes relationen automatisk som `RelationKind::Association`, og relationen markeres straks.",
-      "Den valgte relation åbner en dedikeret relations-inspektør i højre panel med fokus på navnefeltet (label) og hurtig ændring af relationstype (Association, Generalisering, Komposition).",
-      "Relationer på canvaset kan klikkes og markeres direkte som et selvstændigt objekt (visuel fremhævning af linjen).",
-      "Tastaturet (`Delete` eller `Backspace`) sletter det aktuelt markerede objekt (enten valgt relation eller valgt node).",
-      "Dobbeltklik på en relations label eller klik på linjen åbner/aktiverer relations-inspektøren.",
-      "100% test pass rate på unit-, accept- og proptests samt clippy med 0 advarsler."
+      "Top-fanebaren indeholder præcis 3 faner: Begrebsliste, Begrebsmodel og Informationsmodel.",
+      "`Tab::Metadata` er fjernet fra fanelinjen, og default aktiv fane ved opstart eller nyt projekt er `Tab::ConceptList`.",
+      "En knap i headeren åbner `ModelMetadataModal`.",
+      "Modalen indeholder formularfelter for samtlige metadatafelter (navn, beskrivelse, status, emneområde, ansvarlig myndighed, URI, version).",
+      "Gem-knap i modalen opdaterer `project.metadata` og sætter applikationen i unsaved-status.",
+      "Annuller/Luk knapper og Escape-tast lukker modalen uden at gemme utilsigtede ændringer.",
+      "Enhedstests validerer korrekt opdatering og serialisering af de redigerede metadatafelter.",
+      "100% test pass rate på `cargo test --workspace` og clippy uden advarsler."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "25764748e51f4a5034f31ac6bc3ca79dc2523b08ba74cf5a6fcf5f948df46d9a",
-    "source_manifest_digest_pre": "d8a5b668f7ae887ab34f9e4571f1a539ecb7d1a2fa6465d4f6208c5769c572e3",
-    "source_manifest_digest_post": "d8a5b668f7ae887ab34f9e4571f1a539ecb7d1a2fa6465d4f6208c5769c572e3",
-    "config_digest": "b7f5ab803250a6f35370ef8ff99eaaa95ad348f297e2e3bd484b50f960d7fd0c",
-    "task_digest": "608fec51206b95aedd60dfa34ecb7388a5a8916658144da5ef5e70dc26faab17",
-    "policy_digest": "824947561334c1d5ba8c4b8fe4122d4cbe9c0160b5e7895a88fa06ddc11ab253",
+    "source_content_digest": "b1394fde3dc7af08eab97fadaac143907e1d6b29cb743fc0e2f1ab7e1a796ec0",
+    "source_manifest_digest_pre": "478959975fb171475e98189619ba191908e3b30b36048b9819f296dbe5ee3e3b",
+    "source_manifest_digest_post": "478959975fb171475e98189619ba191908e3b30b36048b9819f296dbe5ee3e3b",
+    "config_digest": "a39c41501ff787d3c41a10cb43a63bded80d210f39f91c9d06b54d1626d3cfa1",
+    "task_digest": "00974a84e5a79739c279628ad143185f40f4b4e935a6aed142b23e60e2269b81",
+    "policy_digest": "5090a2fa8109c351feef4526ffff4d5def36ef3e7cb966e9951d009a75a80c1b",
     "check_definitions_digest": "ad2dda9df4efbcf8fd2933fe087fdab18ef447b67e5453e11e303deae237cde4",
-    "included_files_count": 52,
+    "included_files_count": 64,
     "vcs": {
       "type": "git",
-      "head": "04593b1",
-      "commit": "04593b1",
+      "head": "712c111",
+      "commit": "712c111",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-19T20:28:01Z",
-    "finished_at": "2026-09-19T20:28:02Z",
-    "total_duration_seconds": 1.069067272,
+    "started_at": "2026-09-20T08:00:50Z",
+    "finished_at": "2026-09-20T08:00:51Z",
+    "total_duration_seconds": 0.891710857,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -53,37 +52,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.213921448,
+      "duration_seconds": 0.221912476,
       "optional": true,
       "passed": true,
-      "log_digest": "2b34696728dc82b03cbf6311d7e3a6a41658bbde097834c3010a78bc82842c1a"
+      "log_digest": "4f27ac380b22e1d975eee20ce727fa8cbc09061177f6253af0777fd4de7b7506"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.240836349,
+      "duration_seconds": 0.14429952,
       "optional": true,
       "passed": true,
-      "log_digest": "2bc683fb4e4f4f21ee9ee39e2b8ecce2efe20d3b1be57bda5316aa519ab3d30a"
+      "log_digest": "22e0df986057b9ba5be07526ac5fb348862a3dedef42108383cc3e088acbb889"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.313124606,
+      "duration_seconds": 0.259253123,
       "optional": false,
       "passed": true,
-      "log_digest": "1f1969b607f291e05ef48e9d4b6e5248c333b7f612560e0084b3633b8acdebf6"
+      "log_digest": "bcb4ba54c9cac980b5f55c3714f86bc0ee487099524242ba211971141615f728"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.282155106,
+      "duration_seconds": 0.250023395,
       "optional": false,
       "passed": true,
-      "log_digest": "2744c176777853bbc8d40e001c709eb7323d83620957b2ba95d65666e56c89e4"
+      "log_digest": "7c909d98f74550ba1b6fb3b97034446b9039e5f6f56969c7f685d3230a56086c"
     }
   ],
   "diagnostics": []

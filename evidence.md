@@ -1,25 +1,24 @@
 # Verification Report
 
-**Task ID**: `007-canvas-interactive-edges-drag-connect`  
-**Task Title**: Task 007: Interaktiv Relation-håndtering, Drag-to-Connect & Edges  
+**Task ID**: `017-model-metadata-modal-and-3phase-tabs`  
+**Task Title**: Task 017: Model Omslag & Metadata Redigeringsmodal og 3-Faset Navigation  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Source Manifest Digest**: `d8a5b668f7ae887ab34f9e4571f1a539ecb7d1a2fa6465d4f6208c5769c572e3`  
-**Timestamp**: `2026-09-19T20:28:02Z`  
-**Head**: `04593b1`  
-**Commit**: `04593b1`  
+**Source Manifest Digest**: `478959975fb171475e98189619ba191908e3b30b36048b9819f296dbe5ee3e3b`  
+**Timestamp**: `2026-09-20T08:00:51Z`  
+**Head**: `712c111`  
+**Commit**: `712c111`  
 
 ## Acceptance Criteria
 
-- [x] Når en node er markeret på lærredet, vises et synligt forbindelseshåndtag (connect handle).
-- [x] Klik-og-træk fra forbindelseshåndtaget på Node A starter en elastik-preview-linje mod musemarkøren.
-- [x] Målnode B highlightes som gyldigt slip-mål under træk (forudsat $B \neq A$).
-- [x] Ved slip over en målnode oprettes relationen automatisk som `RelationKind::Association`, og relationen markeres straks.
-- [x] Den valgte relation åbner en dedikeret relations-inspektør i højre panel med fokus på navnefeltet (label) og hurtig ændring af relationstype (Association, Generalisering, Komposition).
-- [x] Relationer på canvaset kan klikkes og markeres direkte som et selvstændigt objekt (visuel fremhævning af linjen).
-- [x] Tastaturet (`Delete` eller `Backspace`) sletter det aktuelt markerede objekt (enten valgt relation eller valgt node).
-- [x] Dobbeltklik på en relations label eller klik på linjen åbner/aktiverer relations-inspektøren.
-- [x] 100% test pass rate på unit-, accept- og proptests samt clippy med 0 advarsler.
+- [x] Top-fanebaren indeholder præcis 3 faner: Begrebsliste, Begrebsmodel og Informationsmodel.
+- [x] `Tab::Metadata` er fjernet fra fanelinjen, og default aktiv fane ved opstart eller nyt projekt er `Tab::ConceptList`.
+- [x] En knap i headeren åbner `ModelMetadataModal`.
+- [x] Modalen indeholder formularfelter for samtlige metadatafelter (navn, beskrivelse, status, emneområde, ansvarlig myndighed, URI, version).
+- [x] Gem-knap i modalen opdaterer `project.metadata` og sætter applikationen i unsaved-status.
+- [x] Annuller/Luk knapper og Escape-tast lukker modalen uden at gemme utilsigtede ændringer.
+- [x] Enhedstests validerer korrekt opdatering og serialisering af de redigerede metadatafelter.
+- [x] 100% test pass rate på `cargo test --workspace` og clippy uden advarsler.
 
 ---
 
@@ -27,9 +26,9 @@
 
 | Check Name | Status | Exit Code | Duration (s) |
 |---|---|---|---|
-| `lint` | `PASSED` | `0` | `0.214s` |
-| `types` | `PASSED` | `0` | `0.241s` |
-| `unit` | `PASSED` | `0` | `0.313s` |
-| `invariants` | `PASSED` | `0` | `0.282s` |
+| `lint` | `PASSED` | `0` | `0.222s` |
+| `types` | `PASSED` | `0` | `0.144s` |
+| `unit` | `PASSED` | `0` | `0.259s` |
+| `invariants` | `PASSED` | `0` | `0.250s` |
 
 ---
