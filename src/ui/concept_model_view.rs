@@ -54,11 +54,6 @@ pub fn view<'a>(
             )
             .style(pill_container_style)
             .padding([2, 7]),
-            Space::new().width(Length::Fill),
-            button(text("+ Nyt begreb").size(11))
-                .style(primary_button_style)
-                .on_press(Message::StartNewConcept)
-                .padding([3, 7]),
         ]
         .spacing(6)
         .align_y(Alignment::Center),

@@ -3541,7 +3541,7 @@ async fn test_task_026_e2ee_crypto_and_network_channel() {
 
     // Host sender krypteret payload over WebSocket
     host_channel
-        .send(encrypted_payload.clone())
+        .send_mutation(encrypted_payload.clone())
         .expect("Host afsendelse fejlede");
 
     // Guest modtager den krypterede payload og dekrypterer den
@@ -4792,7 +4792,7 @@ fn test_task034_collab_edge_and_diagram_sync_lifecycle() {
 
 #[test]
 fn test_task036_concept_editor_domain_toggle_and_model_ref() {
-    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::concepts::BelongsToDomain;
     use kant::ui::concept_editor::ConceptFormField;
 
     let mut app = App::new_with_path(None);
@@ -4861,4 +4861,3 @@ fn test_task036_concept_editor_domain_toggle_and_model_ref() {
         "Når skiftet til lokalt begreb, skal det gemmes som BelongsToDomain::Yes"
     );
 }
-

@@ -10,6 +10,7 @@ pub enum ConceptFormField {
     PreferredTerm,
     Definition,
     BelongsToDomain,
+    ModelUri,
     AcceptedTerm,
     DeprecatedTerm,
     Example,
@@ -26,7 +27,8 @@ pub struct ConceptEditorState {
     pub editing_id: Option<Uuid>,
     pub preferred_term: String,
     pub definition: String,
-    pub belongs_to_domain: String,
+    pub belongs_to_domain: BelongsToDomain,
+    pub model_uri: String,
     pub accepted_term: String,
     pub deprecated_term: String,
     pub example: String,
@@ -52,7 +54,8 @@ impl ConceptEditorState {
             editing_id: None,
             preferred_term: String::new(),
             definition: String::new(),
-            belongs_to_domain: String::new(),
+            belongs_to_domain: BelongsToDomain::Yes,
+            model_uri: String::new(),
             accepted_term: String::new(),
             deprecated_term: String::new(),
             example: String::new(),
@@ -68,17 +71,18 @@ impl ConceptEditorState {
     }
 
     pub fn from_concept(concept: &Concept) -> Self {
-        let belongs_str = match concept.belongs_to_domain() {
-            BelongsToDomain::Yes => "Ja".to_string(),
-            BelongsToDomain::No => "Nej".to_string(),
-            BelongsToDomain::ModelRef(uri) => uri.clone(),
+        let (belongs, model_uri) = match concept.belongs_to_domain() {
+            BelongsToDomain::Yes => (BelongsToDomain::Yes, String::new()),
+            BelongsToDomain::No => (BelongsToDomain::No, String::new()),
+            BelongsToDomain::ModelRef(uri) => (BelongsToDomain::No, uri.clone()),
         };
 
         Self {
             editing_id: Some(concept.id()),
             preferred_term: concept.preferred_term().to_string(),
             definition: concept.definition().to_string(),
-            belongs_to_domain: belongs_str,
+            belongs_to_domain: belongs,
+            model_uri,
             accepted_term: concept.accepted_term().unwrap_or_default().to_string(),
             deprecated_term: concept.deprecated_term().unwrap_or_default().to_string(),
             example: concept.example().unwrap_or_default().to_string(),
@@ -99,12 +103,28 @@ impl ConceptEditorState {
         }
     }
 
+    pub fn set_domain(&mut self, domain: BelongsToDomain) {
+        self.belongs_to_domain = domain;
+    }
+
     pub fn update_field(&mut self, field: ConceptFormField, value: String) {
         self.validation_error = None;
         match field {
             ConceptFormField::PreferredTerm => self.preferred_term = value,
             ConceptFormField::Definition => self.definition = value,
-            ConceptFormField::BelongsToDomain => self.belongs_to_domain = value,
+            ConceptFormField::BelongsToDomain => {
+                let parsed = BelongsToDomain::from_str_loose(&value);
+                match parsed {
+                    BelongsToDomain::ModelRef(uri) => {
+                        self.belongs_to_domain = BelongsToDomain::No;
+                        self.model_uri = uri;
+                    }
+                    other => {
+                        self.belongs_to_domain = other;
+                    }
+                }
+            }
+            ConceptFormField::ModelUri => self.model_uri = value,
             ConceptFormField::AcceptedTerm => self.accepted_term = value,
             ConceptFormField::DeprecatedTerm => self.deprecated_term = value,
             ConceptFormField::Example => self.example = value,
@@ -118,21 +138,21 @@ impl ConceptEditorState {
     }
 
     pub fn build_concept(&self) -> Result<Concept, ValidationError> {
-        let belongs = BelongsToDomain::from_str_loose(&self.belongs_to_domain);
-        let mut concept = Concept::new(&self.preferred_term, &self.definition, belongs);
+        let belongs = match &self.belongs_to_domain {
+            BelongsToDomain::Yes => BelongsToDomain::Yes,
+            BelongsToDomain::No | BelongsToDomain::ModelRef(_) => {
+                let trimmed = self.model_uri.trim();
+                if trimmed.is_empty() {
+                    BelongsToDomain::No
+                } else {
+                    BelongsToDomain::ModelRef(trimmed.to_string())
+                }
+            }
+        };
+        let mut concept = Concept::new(&self.preferred_term, &self.definition, belongs.clone());
 
         if let Some(id) = self.editing_id {
-            // Bevar det eksisterende ID ved redigering
-            let val = concept.clone();
-            drop(val);
-            // Concept::new genererer et nyt UUID, men ved update vil ModelProject opdatere efter id
-            // Lad os tilføje en setter eller sikre id bevares
-            concept = Concept::new_with_id(
-                id,
-                &self.preferred_term,
-                &self.definition,
-                BelongsToDomain::from_str_loose(&self.belongs_to_domain),
-            );
+            concept = Concept::new_with_id(id, &self.preferred_term, &self.definition, belongs);
         }
 
         let opt = |s: &str| {
@@ -224,22 +244,57 @@ impl ConceptEditorState {
         .spacing(4)
         .width(Length::FillPortion(2));
 
-        let domain_input = column![
-            text("Tilhører emneområde *")
+        let is_local = self.belongs_to_domain == BelongsToDomain::Yes;
+        let mut domain_col = column![
+            text("Domæne / Kontekst (Tilhører emneområde §26) *")
                 .size(13)
                 .color(ThemeColors::SLATE_800),
-            text_input("Ja (lokalt) / Nej / URI...", &self.belongs_to_domain)
-                .style(modern_input_style)
-                .on_input(|v| Message::UpdateConceptField(ConceptFormField::BelongsToDomain, v))
-                .padding(8),
-            text("Angiv Ja (lokalt), Nej eller model-URI (§26)")
+            row![
+                button(text("Lokalt begreb (Ja)").size(11))
+                    .style(if is_local {
+                        primary_button_style
+                    } else {
+                        secondary_button_style
+                    })
+                    .on_press(Message::SetConceptDomain(BelongsToDomain::Yes))
+                    .padding([6, 12]),
+                button(text("Indlånt begreb (Nej)").size(11))
+                    .style(if !is_local {
+                        primary_button_style
+                    } else {
+                        secondary_button_style
+                    })
+                    .on_press(Message::SetConceptDomain(BelongsToDomain::No))
+                    .padding([6, 12]),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
+            text("Lokale begreber defineres her (FDA Sand). Indlånte markeres med FDA Blå (§26)")
                 .size(11)
                 .color(ThemeColors::SLATE_500),
         ]
         .spacing(4)
-        .width(Length::FillPortion(1));
+        .width(Length::FillPortion(2));
 
-        let term_domain_row = row![term_input, domain_input].spacing(16);
+        if !is_local {
+            domain_col = domain_col.push(
+                column![
+                    text("Kildemodel URI (valgfri)")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                    text_input("F.eks. https://data.gov.dk/model/core/cpr", &self.model_uri)
+                        .style(modern_input_style)
+                        .on_input(|v| Message::UpdateConceptField(ConceptFormField::ModelUri, v))
+                        .padding(6),
+                    text("URI på den eksterne FDA-model, begrebet er defineret i")
+                        .size(11)
+                        .color(ThemeColors::SLATE_500),
+                ]
+                .spacing(3),
+            );
+        }
+
+        let term_domain_row = row![term_input, domain_col].spacing(16);
 
         // 2. Definition
         let definition_input = column![
@@ -387,6 +442,9 @@ impl ConceptEditorState {
                         .style(modern_input_style)
                         .on_input(|v| Message::UpdateConceptField(ConceptFormField::Identifier, v))
                         .padding(8),
+                        text("Begrebets egen persistente URI i begrebskataloget (Bilag D)")
+                            .size(11)
+                            .color(ThemeColors::SLATE_500),
                     ]
                     .spacing(4)
                     .width(Length::FillPortion(1)),

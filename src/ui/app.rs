@@ -483,6 +483,7 @@ pub enum Message {
     SaveConcept,
     CancelConceptEdit,
     UpdateConceptField(ConceptFormField, String),
+    SetConceptDomain(crate::features::concepts::BelongsToDomain),
     SearchQueryChanged(String),
     ToggleShowAllFields,
 
@@ -1796,6 +1797,11 @@ impl App {
             Message::UpdateConceptField(field, value) => {
                 if let Some(editor) = &mut self.editor_state {
                     editor.update_field(field, value);
+                }
+            }
+            Message::SetConceptDomain(domain) => {
+                if let Some(editor) = &mut self.editor_state {
+                    editor.set_domain(domain);
                 }
             }
             Message::SearchQueryChanged(query) => {
@@ -3624,19 +3630,7 @@ impl App {
             sidebar_toggle_btn,
             Space::new().width(10),
             text("Kant").size(18).color(ThemeColors::PRIMARY),
-            Space::new().width(4),
-            container(text("FDA v2.1").size(10).color(ThemeColors::PRIMARY))
-                .style(|_theme: &iced::Theme| container::Style {
-                    background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
-                    border: iced::Border {
-                        color: ThemeColors::PRIMARY,
-                        width: 1.0,
-                        radius: 10.0.into(),
-                    },
-                    ..Default::default()
-                })
-                .padding([2, 6]),
-            Space::new().width(12),
+            Space::new().width(16),
             menu_button("Filer", MenuType::File),
             Space::new().width(4),
             menu_button("Hjælp", MenuType::Help),
