@@ -251,10 +251,126 @@ pub struct DiagramCanvasState {
     pub last_click: Option<ClickRecord>,
     pub panning_start: Option<(Point, Vector)>,
     pub is_panning_space: bool,
+    pub is_panning_minimap: bool,
     pub modifiers: iced::keyboard::Modifiers,
     pub connecting_from: Option<NodeId>,
     pub connecting_cursor: Option<Point>,
     pub hovered_target_node: Option<NodeId>,
+}
+
+/// Koordinattransformation for miniaturekort (Minimap)
+#[derive(Debug, Clone, Copy)]
+pub struct MinimapTransform {
+    pub world_bounds: Rectangle,
+    pub minimap_rect: Rectangle,
+    pub scale: f32,
+    pub offset: Point,
+}
+
+impl MinimapTransform {
+    pub fn compute<N: CanvasNode>(
+        nodes: &[N],
+        viewport: &CanvasViewport,
+        screen_bounds: Size,
+        minimap_rect: Rectangle,
+    ) -> Self {
+        let vp_tl = viewport.to_world(Point::ORIGIN);
+        let vp_br = viewport.to_world(Point::new(screen_bounds.width, screen_bounds.height));
+
+        let mut min_x = vp_tl.x.min(vp_br.x);
+        let mut max_x = vp_tl.x.max(vp_br.x);
+        let mut min_y = vp_tl.y.min(vp_br.y);
+        let mut max_y = vp_tl.y.max(vp_br.y);
+
+        for node in nodes {
+            let (nx, ny) = node.position();
+            let (nw, nh) = node.size();
+            min_x = min_x.min(nx);
+            min_y = min_y.min(ny);
+            max_x = max_x.max(nx + nw);
+            max_y = max_y.max(ny + nh);
+        }
+
+        let margin = 60.0;
+        min_x -= margin;
+        min_y -= margin;
+        max_x += margin;
+        max_y += margin;
+
+        let world_w = (max_x - min_x).max(100.0);
+        let world_h = (max_y - min_y).max(100.0);
+
+        let scale_x = minimap_rect.width / world_w;
+        let scale_y = minimap_rect.height / world_h;
+        let scale = scale_x.min(scale_y);
+
+        let content_w = world_w * scale;
+        let content_h = world_h * scale;
+        let offset_x = minimap_rect.x + (minimap_rect.width - content_w) / 2.0;
+        let offset_y = minimap_rect.y + (minimap_rect.height - content_h) / 2.0;
+
+        Self {
+            world_bounds: Rectangle::new(Point::new(min_x, min_y), Size::new(world_w, world_h)),
+            minimap_rect,
+            scale,
+            offset: Point::new(offset_x, offset_y),
+        }
+    }
+
+    pub fn world_to_minimap(&self, world_pt: Point) -> Point {
+        Point::new(
+            self.offset.x + (world_pt.x - self.world_bounds.x) * self.scale,
+            self.offset.y + (world_pt.y - self.world_bounds.y) * self.scale,
+        )
+    }
+
+    pub fn minimap_to_world(&self, minimap_pt: Point) -> Point {
+        Point::new(
+            self.world_bounds.x + (minimap_pt.x - self.offset.x) / self.scale,
+            self.world_bounds.y + (minimap_pt.y - self.offset.y) / self.scale,
+        )
+    }
+
+    pub fn viewport_rect(&self, viewport: &CanvasViewport, screen_bounds: Size) -> Rectangle {
+        let vp_tl = viewport.to_world(Point::ORIGIN);
+        let m_tl = self.world_to_minimap(vp_tl);
+        let m_w = (screen_bounds.width / viewport.zoom()) * self.scale;
+        let m_h = (screen_bounds.height / viewport.zoom()) * self.scale;
+        Rectangle::new(m_tl, Size::new(m_w, m_h))
+    }
+}
+
+/// Beregner optimal viewport for at centrere og fitte alle noder på lærredet
+pub fn compute_fit_to_view<N: CanvasNode>(nodes: &[N], screen_bounds: Size) -> CanvasViewport {
+    if nodes.is_empty() {
+        return CanvasViewport::default();
+    }
+    let mut min_x = f32::MAX;
+    let mut min_y = f32::MAX;
+    let mut max_x = f32::MIN;
+    let mut max_y = f32::MIN;
+    for n in nodes {
+        let (nx, ny) = n.position();
+        let (nw, nh) = n.size();
+        min_x = min_x.min(nx);
+        min_y = min_y.min(ny);
+        max_x = max_x.max(nx + nw);
+        max_y = max_y.max(ny + nh);
+    }
+    let center_x = (min_x + max_x) / 2.0;
+    let center_y = (min_y + max_y) / 2.0;
+    let world_w = (max_x - min_x).max(100.0) + 120.0;
+    let world_h = (max_y - min_y).max(100.0) + 120.0;
+
+    let zoom_x = screen_bounds.width / world_w;
+    let zoom_y = screen_bounds.height / world_h;
+    let target_zoom = zoom_x.min(zoom_y).clamp(CanvasViewport::MIN_ZOOM, 1.0);
+
+    let pan = Vector::new(
+        screen_bounds.width / 2.0 - center_x * target_zoom,
+        screen_bounds.height / 2.0 - center_y * target_zoom,
+    );
+    CanvasViewport::new(pan, target_zoom)
 }
 
 /// Afstand fra punkt p til linjesegment a-b
@@ -352,13 +468,63 @@ where
         self.on_edge_created = Some(Box::new(handler));
         self
     }
+
+    pub const PANEL_WIDTH: f32 = 180.0;
+    pub const PANEL_HEIGHT: f32 = 148.0;
+    pub const PANEL_MARGIN: f32 = 16.0;
+    pub const MINIMAP_HEIGHT: f32 = 104.0;
+    pub const TOOLBAR_HEIGHT: f32 = 32.0;
+
+    pub fn floating_panel_rect(bounds: Rectangle) -> Rectangle {
+        let x = bounds.width - Self::PANEL_WIDTH - Self::PANEL_MARGIN;
+        let y = bounds.height - Self::PANEL_HEIGHT - Self::PANEL_MARGIN;
+        Rectangle::new(
+            Point::new(x, y),
+            Size::new(Self::PANEL_WIDTH, Self::PANEL_HEIGHT),
+        )
+    }
+
+    pub fn minimap_rect(panel_rect: Rectangle) -> Rectangle {
+        Rectangle::new(
+            Point::new(panel_rect.x + 6.0, panel_rect.y + 6.0),
+            Size::new(panel_rect.width - 12.0, Self::MINIMAP_HEIGHT),
+        )
+    }
+
+    pub fn zoom_out_button_rect(panel_rect: Rectangle) -> Rectangle {
+        Rectangle::new(
+            Point::new(panel_rect.x + 8.0, panel_rect.y + 116.0),
+            Size::new(26.0, 24.0),
+        )
+    }
+
+    pub fn zoom_label_rect(panel_rect: Rectangle) -> Rectangle {
+        Rectangle::new(
+            Point::new(panel_rect.x + 38.0, panel_rect.y + 116.0),
+            Size::new(48.0, 24.0),
+        )
+    }
+
+    pub fn zoom_in_button_rect(panel_rect: Rectangle) -> Rectangle {
+        Rectangle::new(
+            Point::new(panel_rect.x + 90.0, panel_rect.y + 116.0),
+            Size::new(26.0, 24.0),
+        )
+    }
+
+    pub fn fit_view_button_rect(panel_rect: Rectangle) -> Rectangle {
+        Rectangle::new(
+            Point::new(panel_rect.x + 120.0, panel_rect.y + 116.0),
+            Size::new(52.0, 24.0),
+        )
+    }
 }
 
 impl<'a, Message, N, E, R> Program<Message, Theme, Renderer> for DiagramCanvas<'a, Message, N, E, R>
 where
     N: CanvasNode,
     E: CanvasEdge,
-    R: Fn(&mut Frame, &N, bool, CanvasViewport),
+    R: Fn(&mut Frame, &N, bool, CanvasViewport) + 'a,
 {
     type State = DiagramCanvasState;
 
@@ -430,6 +596,61 @@ where
 
                 state.panning_start = None;
                 state.is_panning_space = false;
+
+                // 0. Tjek om der klikkes på det svævende ergonomi-panel eller miniaturekort (Minimap)
+                let panel_rect = Self::floating_panel_rect(bounds);
+                if panel_rect.contains(cursor_pos) {
+                    let minimap_rect = Self::minimap_rect(panel_rect);
+                    let zoom_in_rect = Self::zoom_in_button_rect(panel_rect);
+                    let zoom_out_rect = Self::zoom_out_button_rect(panel_rect);
+                    let fit_rect = Self::fit_view_button_rect(panel_rect);
+                    let zoom_label_rect = Self::zoom_label_rect(panel_rect);
+
+                    if zoom_in_rect.contains(cursor_pos) {
+                        let mut new_vp = self.viewport;
+                        new_vp.zoom_at(Point::new(bounds.width / 2.0, bounds.height / 2.0), 1.15);
+                        return Some(
+                            Action::publish((self.on_viewport_changed)(new_vp)).and_capture(),
+                        );
+                    }
+                    if zoom_out_rect.contains(cursor_pos) {
+                        let mut new_vp = self.viewport;
+                        new_vp.zoom_at(
+                            Point::new(bounds.width / 2.0, bounds.height / 2.0),
+                            1.0 / 1.15,
+                        );
+                        return Some(
+                            Action::publish((self.on_viewport_changed)(new_vp)).and_capture(),
+                        );
+                    }
+                    if fit_rect.contains(cursor_pos) || zoom_label_rect.contains(cursor_pos) {
+                        let new_vp = compute_fit_to_view(self.nodes, bounds.size());
+                        return Some(
+                            Action::publish((self.on_viewport_changed)(new_vp)).and_capture(),
+                        );
+                    }
+                    if minimap_rect.contains(cursor_pos) {
+                        state.is_panning_minimap = true;
+                        let transform = MinimapTransform::compute(
+                            self.nodes,
+                            &self.viewport,
+                            bounds.size(),
+                            minimap_rect,
+                        );
+                        let world_pt = transform.minimap_to_world(cursor_pos);
+                        let mut new_vp = self.viewport;
+                        let new_pan = Vector::new(
+                            bounds.width / 2.0 - world_pt.x * self.viewport.zoom(),
+                            bounds.height / 2.0 - world_pt.y * self.viewport.zoom(),
+                        );
+                        new_vp.set_pan(new_pan);
+                        return Some(
+                            Action::publish((self.on_viewport_changed)(new_vp)).and_capture(),
+                        );
+                    }
+                    // Klik på panelbaggrund absorberes så diagramnoder bagved ikke påvirkes
+                    return Some(Action::capture());
+                }
 
                 let world_pos = self.viewport.to_world(cursor_pos);
 
@@ -537,6 +758,31 @@ where
                 Some(Action::publish((self.on_node_selected)(None)).and_capture())
             }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
+                if state.is_panning_minimap {
+                    let panel_rect = Self::floating_panel_rect(bounds);
+                    let minimap_rect = Self::minimap_rect(panel_rect);
+                    let transform = MinimapTransform::compute(
+                        self.nodes,
+                        &self.viewport,
+                        bounds.size(),
+                        minimap_rect,
+                    );
+                    let clamped_pos = Point::new(
+                        cursor_pos.x.clamp(minimap_rect.x, minimap_rect.x + minimap_rect.width),
+                        cursor_pos
+                            .y
+                            .clamp(minimap_rect.y, minimap_rect.y + minimap_rect.height),
+                    );
+                    let world_pt = transform.minimap_to_world(clamped_pos);
+                    let mut new_vp = self.viewport;
+                    let new_pan = Vector::new(
+                        bounds.width / 2.0 - world_pt.x * self.viewport.zoom(),
+                        bounds.height / 2.0 - world_pt.y * self.viewport.zoom(),
+                    );
+                    new_vp.set_pan(new_pan);
+                    return Some(Action::publish((self.on_viewport_changed)(new_vp)).and_capture());
+                }
+
                 if let Some((start_pos, initial_pan)) = state.panning_start {
                     let total_delta = cursor_pos - start_pos;
                     let mut new_vp = self.viewport;
@@ -582,6 +828,10 @@ where
                 Some(Action::capture())
             }
             Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => {
+                if state.is_panning_minimap {
+                    state.is_panning_minimap = false;
+                    return Some(Action::capture());
+                }
                 state.panning_start = None;
                 let was_panning_space = state.is_panning_space;
                 state.is_panning_space = false;
@@ -914,7 +1164,138 @@ where
             }
         }
 
-        vec![frame.into_geometry()]
+        // 7. Svævende kontrolpanel og miniaturekort (Minimap) i skærmkoordinater
+        let mut overlay_frame = Frame::new(renderer, bounds.size());
+        let panel_rect = Self::floating_panel_rect(bounds);
+        let minimap_rect = Self::minimap_rect(panel_rect);
+        let zoom_in_rect = Self::zoom_in_button_rect(panel_rect);
+        let zoom_out_rect = Self::zoom_out_button_rect(panel_rect);
+        let fit_rect = Self::fit_view_button_rect(panel_rect);
+        let zoom_label_rect = Self::zoom_label_rect(panel_rect);
+
+        // A. Panelets baggrund og skygge (COSMIC semi-transparent glas-styling)
+        let panel_shadow = Path::rounded_rectangle(
+            Point::new(panel_rect.x, panel_rect.y + 3.0),
+            panel_rect.size(),
+            10.0.into(),
+        );
+        overlay_frame.fill(&panel_shadow, Color::from_rgba(0.08, 0.12, 0.20, 0.12));
+
+        let panel_path = Path::rounded_rectangle(
+            Point::new(panel_rect.x, panel_rect.y),
+            panel_rect.size(),
+            10.0.into(),
+        );
+        overlay_frame.fill(&panel_path, Color::from_rgba(1.0, 1.0, 1.0, 0.92));
+        overlay_frame.stroke(
+            &panel_path,
+            Stroke::default()
+                .with_color(ThemeColors::SLATE_200)
+                .with_width(1.0),
+        );
+
+        // B. Minimap baggrund
+        let minimap_bg = Path::rounded_rectangle(
+            Point::new(minimap_rect.x, minimap_rect.y),
+            minimap_rect.size(),
+            6.0.into(),
+        );
+        overlay_frame.fill(&minimap_bg, Color::from_rgba(0.96, 0.97, 0.985, 0.95));
+        overlay_frame.stroke(
+            &minimap_bg,
+            Stroke::default()
+                .with_color(Color::from_rgba(0.85, 0.88, 0.92, 0.8))
+                .with_width(0.8),
+        );
+
+        // C. Noder i minimappet
+        let transform = MinimapTransform::compute(
+            self.nodes,
+            &self.viewport,
+            bounds.size(),
+            minimap_rect,
+        );
+        for node in self.nodes {
+            let (nx, ny) = node.position();
+            let (nw, nh) = node.size();
+            let top_left = transform.world_to_minimap(Point::new(nx, ny));
+            let mini_w = (nw * transform.scale).max(3.0);
+            let mini_h = (nh * transform.scale).max(3.0);
+
+            let is_selected = self.selected_node_id == Some(node.id());
+            let node_rect = Path::rounded_rectangle(
+                top_left,
+                Size::new(mini_w, mini_h),
+                1.5.into(),
+            );
+            let node_color = if is_selected {
+                ThemeColors::PRIMARY
+            } else {
+                Color::from_rgb(0.55, 0.62, 0.72)
+            };
+            overlay_frame.fill(&node_rect, node_color);
+        }
+
+        // D. Viewport ramme i minimappet
+        let vp_box = transform.viewport_rect(&self.viewport, bounds.size());
+        let vp_path = Path::rounded_rectangle(
+            Point::new(vp_box.x, vp_box.y),
+            vp_box.size(),
+            2.0.into(),
+        );
+        overlay_frame.fill(&vp_path, Color::from_rgba(0.23, 0.51, 0.96, 0.16));
+        overlay_frame.stroke(
+            &vp_path,
+            Stroke::default()
+                .with_color(ThemeColors::PRIMARY)
+                .with_width(1.2),
+        );
+
+        // E. Knapper i værktøjslinjen (–, 100%, +, ⊡ Fit)
+        let draw_btn = |f: &mut Frame, r: Rectangle, label: &str, fsize: f32, is_accent: bool| {
+            let btn_path = Path::rounded_rectangle(
+                Point::new(r.x, r.y),
+                r.size(),
+                5.0.into(),
+            );
+            let bg = if is_accent {
+                Color::from_rgba(0.23, 0.51, 0.96, 0.12)
+            } else {
+                Color::from_rgba(0.93, 0.94, 0.96, 0.9)
+            };
+            f.fill(&btn_path, bg);
+            f.stroke(
+                &btn_path,
+                Stroke::default()
+                    .with_color(if is_accent {
+                        ThemeColors::PRIMARY
+                    } else {
+                        ThemeColors::SLATE_200
+                    })
+                    .with_width(0.8),
+            );
+            f.fill_text(Text {
+                content: label.to_string(),
+                position: Point::new(r.x + r.width / 2.0, r.y + r.height / 2.0),
+                color: if is_accent {
+                    ThemeColors::PRIMARY
+                } else {
+                    ThemeColors::SLATE_800
+                },
+                size: fsize.into(),
+                align_x: alignment::Horizontal::Center.into(),
+                align_y: alignment::Vertical::Center,
+                ..Default::default()
+            });
+        };
+
+        let zoom_pct = (self.viewport.zoom() * 100.0).round() as u32;
+        draw_btn(&mut overlay_frame, zoom_out_rect, "–", 14.0, false);
+        draw_btn(&mut overlay_frame, zoom_label_rect, &format!("{}%", zoom_pct), 11.0, false);
+        draw_btn(&mut overlay_frame, zoom_in_rect, "+", 14.0, false);
+        draw_btn(&mut overlay_frame, fit_rect, "⊡ Fit", 11.0, true);
+
+        vec![frame.into_geometry(), overlay_frame.into_geometry()]
     }
 }
 

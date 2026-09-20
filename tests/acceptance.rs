@@ -2973,14 +2973,13 @@ fn test_class_diagram_edge() {
 
 #[test]
 fn test_task023_canvas_floating_controls_and_minimap() {
-    use edge::features::concept_model::{ConceptGraph, DiagramEdge, DiagramNode};
-    use edge::features::concepts::{BelongsToDomain, Concept};
+    use edge::features::concept_model::{DiagramEdge, DiagramNode};
     use edge::ui::diagram_canvas::{
         render_concept_node, CanvasViewport, DiagramCanvas, DiagramCanvasState,
     };
     use iced::mouse::{self, Cursor};
     use iced::widget::canvas::{Event, Program};
-    use iced::{Point, Rectangle, Size, Vector};
+    use iced::{Point, Rectangle, Size};
     use std::sync::Arc;
     use uuid::Uuid;
 
@@ -3002,14 +3001,14 @@ fn test_task023_canvas_floating_controls_and_minimap() {
         160.0,
         80.0,
     );
-    // Node placeret i nederste højre hjørne under det svævende panel (830, 660)
+    // Node placeret i nederste højre hjørne under det svævende panel (800..980, 630..750)
     let n_under_panel = DiagramNode::custom(
         Uuid::new_v4(),
         "NodeUnderPanel".to_string(),
-        830.0,
-        660.0,
-        150.0,
-        70.0,
+        800.0,
+        630.0,
+        180.0,
+        120.0,
     );
     let nodes = vec![n1.clone(), n2.clone(), n_under_panel.clone()];
     let edges: Vec<DiagramEdge> = vec![];
@@ -3105,12 +3104,37 @@ fn test_task023_canvas_floating_controls_and_minimap() {
         "Klik på zoom-in knap skal forøge viewport zoom!"
     );
 
-    // D. Zoom Out (-) kontrol
+    // D. Zoom Out (-) kontrol på næste frame med opdateret viewport
+    let sel_c2 = Arc::clone(&selected_node);
+    let vp_c2 = Arc::clone(&last_viewport);
+    let canvas_zoomed = DiagramCanvas::new(
+        &nodes,
+        &edges,
+        None,
+        *last_viewport.lock().unwrap(),
+        true,
+        false,
+        render_concept_node,
+        move |id| {
+            *sel_c2.lock().unwrap() = id;
+        },
+        |_, _, _| (),
+        |_, _| (),
+        |_| (),
+        move |vp| {
+            *vp_c2.lock().unwrap() = vp;
+        },
+    );
     let zoom_out_click = Point::new(
         zoom_out_rect.x + zoom_out_rect.width / 2.0,
         zoom_out_rect.y + zoom_out_rect.height / 2.0,
     );
-    let action = canvas.update(&mut state, &press_event, bounds, Cursor::Available(zoom_out_click));
+    let action = canvas_zoomed.update(
+        &mut state,
+        &press_event,
+        bounds,
+        Cursor::Available(zoom_out_click),
+    );
     assert!(action.is_some());
     assert!(
         (last_viewport.lock().unwrap().zoom() - 1.0).abs() < 0.05,
@@ -3151,9 +3175,9 @@ fn test_task023_canvas_floating_controls_and_minimap() {
     let temp_dir = std::env::temp_dir();
     let file_path = temp_dir.join(format!("test_task023_{}.fda", Uuid::new_v4()));
     let mut app = App::new_with_path(Some(file_path.clone()));
-    app.update(Message::SelectTab(Tab::ConceptModel));
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
     let _ = app.view();
-    app.update(Message::SelectTab(Tab::InformationModel));
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
     let _ = app.view();
 
     let _ = std::fs::remove_file(&file_path);
