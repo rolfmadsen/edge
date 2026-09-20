@@ -865,7 +865,7 @@ impl App {
                 self.file_dialog_mode = None;
             }
             Message::OpenModelRules => {
-                let url = "https://arkitektur.digst.dk/modelregler";
+                let url = "https://arkitektur.digst.dk/node/770";
                 if let Err(err) = open_browser(url) {
                     eprintln!("Kunne ikke åbne browser for {}: {}", url, err);
                 }
