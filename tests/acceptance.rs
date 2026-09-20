@@ -4049,3 +4049,53 @@ async fn test_task029_e2e_collab_sync_and_presence() {
     );
     assert_eq!(guest.collab_state(), CollabState::None);
 }
+
+#[test]
+fn test_task_030_canvas_ergonomics_and_edge_geometry() {
+    let mut app = App::default();
+
+    // 1. Opret kilde- og målbegreb samt relation
+    let c1 = Concept::new("Person", "En person", BelongsToDomain::Yes);
+    let c2 = Concept::new("Kunde", "En kunde", BelongsToDomain::Yes);
+    let id1 = app.project_mut().add_concept(c1).unwrap();
+    let id2 = app.project_mut().add_concept(c2).unwrap();
+    let node1 = app.project().concept_graph().find_node_by_concept(id1).unwrap().id();
+    let node2 = app.project().concept_graph().find_node_by_concept(id2).unwrap().id();
+    app.project_mut().concept_graph_mut().add_relation(node2, node1, RelationKind::Generalization);
+
+    // Vælg relationen
+    let _ = app.update(Message::GraphEdgeSelected(Some((node2, node1))));
+    assert_eq!(app.selected_edge(), Some((node2, node1)));
+
+    // AC5: Enkeltklik på canvas (GraphNodeSelected(None)) deaktiverer valgt relation
+    let _ = app.update(Message::GraphNodeSelected(None));
+    assert_eq!(app.selected_edge(), None, "Valgt relation skal fravælges ved klik på tomt canvas");
+
+    // Samme for Informationsmodellen
+    let _ = app.update(Message::CreateInformationClass);
+    let cls_id = app.project().information_model().classes()[0].id();
+    let info_node = app.project().information_graph().find_node_by_class(cls_id).unwrap().id();
+    let _ = app.update(Message::InfoEdgeSelected(Some((info_node, info_node))));
+    assert!(app.selected_info_edge().is_some());
+    let _ = app.update(Message::SelectInfoGraphNode(None));
+    assert_eq!(app.selected_info_edge(), None, "Valgt info relation skal fravælges ved klik på tomt canvas");
+
+    // AC2 & AC3: Opret klasse på koordinater (CreateInformationClassAt)
+    let _ = app.update(Message::CreateInformationClassAt(450.0, 320.0));
+    let classes = app.project().information_model().classes();
+    let new_cls = classes.last().unwrap();
+    let new_node = app.project().information_graph().find_node_by_class(new_cls.id()).unwrap();
+    // Skal være placeret omkring (450, 320) og ikke i fast modulo-gitter
+    assert!((new_node.x() - (450.0 - 200.0 / 2.0)).abs() < 2.0);
+    assert!((new_node.y() - (320.0 - 90.0 / 2.0)).abs() < 2.0);
+
+    // AC2: CreateConceptAtCenter & CreateInformationClassAtCenter
+    let _ = app.update(Message::CreateConceptAtCenter);
+    assert!(app.is_quick_create_open(), "CreateConceptAtCenter skal åbne quick_create modal");
+    let _ = app.update(Message::QuickCreateCancel);
+
+    // AC4: EdgeRouter geometry test for Generalisering vs Komposition
+    assert_eq!(edge::ui::edge_router::ARROW_HEAD_LENGTH, 14.0);
+    assert_eq!(edge::ui::edge_router::DIAMOND_LENGTH, 14.0);
+}
+
