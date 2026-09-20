@@ -8,6 +8,7 @@ use crate::features::model::{ModelMetadata, ModelProject, ModelStatus};
 use crate::ui::concept_editor::ConceptEditorState;
 use crate::ui::concept_model_view;
 use crate::ui::concept_table;
+use crate::ui::diagram_canvas::{CanvasEdge, CanvasNode};
 use crate::ui::information_model_view;
 use crate::ui::theme::{
     card_container_style, modal_backdrop_style, modal_card_style, modern_input_style,
@@ -1111,6 +1112,33 @@ impl App {
                     self.selected_graph_node_id = None;
                 }
             }
+            ConceptDiagramNodeAdded(concept_id) => {
+                if !self
+                    .project
+                    .concept_graph()
+                    .is_concept_on_diagram(concept_id)
+                {
+                    if let Some(concept) = self.project.get_concept(concept_id).cloned() {
+                        self.project.concept_graph_mut().add_node(&concept);
+                    }
+                }
+            }
+            ConceptDiagramNodeRemoved(concept_id) => {
+                if let Some(node) = self
+                    .project
+                    .concept_graph()
+                    .find_node_by_concept(concept_id)
+                {
+                    let node_id = node.id();
+                    self.project.concept_graph_mut().remove_node(node_id);
+                }
+                if self
+                    .selected_graph_node_id
+                    .is_some_and(|nid| self.project.concept_graph().find_node(nid).is_none())
+                {
+                    self.selected_graph_node_id = None;
+                }
+            }
             InformationClassAdded(class) => {
                 let class_id = class.id();
                 if !self
@@ -1138,6 +1166,7 @@ impl App {
             }
             InformationClassUpdated(class) => {
                 let class_id = class.id();
+                let attr_count = class.attributes().len();
                 if let Some(existing) = self
                     .project
                     .information_model_mut()
@@ -1147,36 +1176,246 @@ impl App {
                 {
                     *existing = class;
                 }
+                self.project
+                    .information_graph_mut()
+                    .update_class_dimensions(class_id, attr_count);
+                let ig = self.project.information_graph_mut();
+                let nodes: Vec<crate::features::concept_model::DiagramNode> =
+                    ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
+                let edges: Vec<crate::features::concept_model::DiagramEdge> =
+                    ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
+                let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                for r in routes {
+                    ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                }
             }
             InformationClassDeleted(class_id) => {
                 self.project.remove_information_class(class_id);
                 if self.selected_info_class_id == Some(class_id) {
                     self.selected_info_class_id = None;
                 }
+                if let Some(nid) = self.selected_info_graph_node_id {
+                    if self.project.information_graph().find_node(nid).is_none() {
+                        self.selected_info_graph_node_id = None;
+                    }
+                }
+            }
+            ClassDiagramNodeAdded(class_id) => {
+                if !self
+                    .project
+                    .information_graph()
+                    .is_class_on_diagram(class_id)
+                {
+                    let attr_count = self
+                        .project
+                        .information_model()
+                        .get_class(class_id)
+                        .map(|c| c.attributes().len())
+                        .unwrap_or(0);
+                    self.project
+                        .information_graph_mut()
+                        .add_node(class_id, attr_count);
+                }
+            }
+            ClassDiagramNodeRemoved(class_id) => {
+                if let Some(node) = self
+                    .project
+                    .information_graph()
+                    .find_node_by_class(class_id)
+                {
+                    let node_id = node.id();
+                    self.project.information_graph_mut().remove_node(node_id);
+                }
+                if let Some(nid) = self.selected_info_graph_node_id {
+                    if self.project.information_graph().find_node(nid).is_none() {
+                        self.selected_info_graph_node_id = None;
+                    }
+                }
             }
             RelationAdded(rel) => {
-                self.project
-                    .concept_graph_mut()
-                    .add_relation_full(rel.id, rel.from, rel.to, rel.kind, rel.label);
+                if self
+                    .project
+                    .concept_graph()
+                    .find_edge(rel.from, rel.to)
+                    .is_none()
+                {
+                    self.project
+                        .concept_graph_mut()
+                        .add_relation_full(rel.id, rel.from, rel.to, rel.kind, rel.label);
+                    if let Some(directed) = rel.directed {
+                        self.project
+                            .concept_graph_mut()
+                            .update_edge_directed(rel.from, rel.to, directed);
+                    }
+                    let cg = self.project.concept_graph_mut();
+                    let nodes = cg.nodes().to_vec();
+                    let edges = cg.edges().to_vec();
+                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                    for r in routes {
+                        cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                    }
+                }
             }
-            RelationDeleted(rel_id) => {
-                self.project
+            RelationUpdated(rel) => {
+                if let Some(edge) = self
+                    .project
                     .concept_graph_mut()
-                    .remove_relation_by_id(rel_id);
+                    .find_edge_mut(rel.from, rel.to)
+                {
+                    edge.set_kind(rel.kind);
+                    edge.set_label(rel.label);
+                    if let Some(directed) = rel.directed {
+                        edge.set_directed(directed);
+                    }
+                    let cg = self.project.concept_graph_mut();
+                    let nodes = cg.nodes().to_vec();
+                    let edges = cg.edges().to_vec();
+                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                    for r in routes {
+                        cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                    }
+                }
+            }
+            RelationDeleted { from, to } => {
+                self.project.concept_graph_mut().remove_relation(from, to);
+                if self.selected_edge == Some((from, to)) || self.selected_edge == Some((to, from))
+                {
+                    self.selected_edge = None;
+                }
+            }
+            ClassRelationAdded {
+                from_class,
+                to_class,
+                kind,
+                label,
+                source_multiplicity,
+                target_multiplicity,
+                directed,
+            } => {
+                let ig = self.project.information_graph();
+                if let (Some(from_node), Some(to_node)) = (
+                    ig.find_node_by_class(from_class),
+                    ig.find_node_by_class(to_class),
+                ) {
+                    let from_id = from_node.id();
+                    let to_id = to_node.id();
+                    if self
+                        .project
+                        .information_graph()
+                        .find_edge(from_id, to_id)
+                        .is_none()
+                    {
+                        self.project
+                            .information_graph_mut()
+                            .add_relation_with_multiplicities(
+                                from_id,
+                                to_id,
+                                kind,
+                                label,
+                                source_multiplicity,
+                                target_multiplicity,
+                            );
+                        if let Some(dir) = directed {
+                            self.project
+                                .information_graph_mut()
+                                .update_edge_directed(from_id, to_id, dir);
+                        }
+                    } else if let Some(edge) = self
+                        .project
+                        .information_graph_mut()
+                        .find_edge_mut(from_id, to_id)
+                    {
+                        edge.set_kind(kind);
+                        edge.set_label(label);
+                        edge.set_source_multiplicity(source_multiplicity);
+                        edge.set_target_multiplicity(target_multiplicity);
+                        if let Some(dir) = directed {
+                            edge.set_directed(dir);
+                        }
+                    }
+                    let ig = self.project.information_graph_mut();
+                    let nodes: Vec<crate::features::concept_model::DiagramNode> =
+                        ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
+                    let edges: Vec<crate::features::concept_model::DiagramEdge> =
+                        ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
+                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                    for r in routes {
+                        ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                    }
+                }
+            }
+            ClassRelationDeleted {
+                from_class,
+                to_class,
+            } => {
+                let ig = self.project.information_graph();
+                if let (Some(from_node), Some(to_node)) = (
+                    ig.find_node_by_class(from_class),
+                    ig.find_node_by_class(to_class),
+                ) {
+                    let from_id = from_node.id();
+                    let to_id = to_node.id();
+                    self.project
+                        .information_graph_mut()
+                        .remove_relation(from_id, to_id);
+                    if self.selected_info_edge == Some((from_id, to_id))
+                        || self.selected_info_edge == Some((to_id, from_id))
+                    {
+                        self.selected_info_edge = None;
+                    }
+                }
             }
             NodeMoved { id, x, y } => {
                 if let Some(node) = self.project.concept_graph_mut().find_node_mut(id) {
                     node.set_position(x, y);
+                    let cg = self.project.concept_graph_mut();
+                    let nodes = cg.nodes().to_vec();
+                    let edges = cg.edges().to_vec();
+                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                    for r in routes {
+                        cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                    }
                 } else if let Some(node) = self
                     .project
                     .concept_graph_mut()
                     .find_node_by_concept_mut(id)
                 {
                     node.set_position(x, y);
+                    let cg = self.project.concept_graph_mut();
+                    let nodes = cg.nodes().to_vec();
+                    let edges = cg.edges().to_vec();
+                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                    for r in routes {
+                        cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                    }
                 } else if let Some(class_node) =
                     self.project.information_graph_mut().find_node_mut(id)
                 {
                     class_node.set_position(x, y);
+                    let ig = self.project.information_graph_mut();
+                    let nodes: Vec<crate::features::concept_model::DiagramNode> =
+                        ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
+                    let edges: Vec<crate::features::concept_model::DiagramEdge> =
+                        ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
+                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                    for r in routes {
+                        ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                    }
+                } else if let Some(class_node) = self
+                    .project
+                    .information_graph_mut()
+                    .find_node_by_class_mut(id)
+                {
+                    class_node.set_position(x, y);
+                    let ig = self.project.information_graph_mut();
+                    let nodes: Vec<crate::features::concept_model::DiagramNode> =
+                        ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
+                    let edges: Vec<crate::features::concept_model::DiagramEdge> =
+                        ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
+                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                    for r in routes {
+                        ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                    }
                 }
             }
         }
@@ -1184,6 +1423,9 @@ impl App {
     }
 
     pub fn apply_snapshot(&mut self, snapshot: crate::features::model::ModelProject) {
+        if self.collab_state.is_host() {
+            return;
+        }
         self.project = snapshot;
         self.selected_graph_node_id = None;
         self.selected_edge = None;
@@ -1740,10 +1982,33 @@ impl App {
                 let graph = self.project.concept_graph();
                 if graph.find_node(from).is_some() && graph.find_node(to).is_some() {
                     if graph.find_edge(from, to).is_none() {
-                        self.project.concept_graph_mut().add_relation(
+                        let rel_id = Uuid::new_v4();
+                        self.project.concept_graph_mut().add_relation_full(
+                            rel_id,
                             from,
                             to,
                             RelationKind::Association,
+                            None,
+                        );
+                        let cg = self.project.concept_graph_mut();
+                        let nodes = cg.nodes().to_vec();
+                        let edges = cg.edges().to_vec();
+                        let routes =
+                            crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                        for r in routes {
+                            cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                        }
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::RelationAdded(
+                                crate::features::collab::protocol::Relation::with_all(
+                                    rel_id,
+                                    from,
+                                    to,
+                                    RelationKind::Association,
+                                    None,
+                                    Some(true),
+                                ),
+                            ),
                         );
                         self.trigger_autosave();
                     }
@@ -1758,6 +2023,27 @@ impl App {
                     .concept_graph_mut()
                     .update_edge_kind(from, to, kind)
                 {
+                    let label = self
+                        .project
+                        .concept_graph()
+                        .find_edge(from, to)
+                        .and_then(|e| e.label().map(String::from));
+                    let directed = self
+                        .project
+                        .concept_graph()
+                        .find_edge(from, to)
+                        .and_then(|e| e.directed());
+                    let rel = crate::features::collab::protocol::Relation::with_all(
+                        Uuid::new_v4(),
+                        from,
+                        to,
+                        kind,
+                        label,
+                        directed,
+                    );
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::RelationUpdated(rel),
+                    );
                     self.trigger_autosave();
                 }
             }
@@ -1770,8 +2056,30 @@ impl App {
                 if self
                     .project
                     .concept_graph_mut()
-                    .update_edge_label(from, to, lbl)
+                    .update_edge_label(from, to, lbl.clone())
                 {
+                    let kind = self
+                        .project
+                        .concept_graph()
+                        .find_edge(from, to)
+                        .map(|e| e.kind())
+                        .unwrap_or(RelationKind::Association);
+                    let directed = self
+                        .project
+                        .concept_graph()
+                        .find_edge(from, to)
+                        .and_then(|e| e.directed());
+                    let rel = crate::features::collab::protocol::Relation::with_all(
+                        Uuid::new_v4(),
+                        from,
+                        to,
+                        kind,
+                        lbl,
+                        directed,
+                    );
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::RelationUpdated(rel),
+                    );
                     self.trigger_autosave();
                 }
             }
@@ -1781,12 +2089,53 @@ impl App {
                     .concept_graph_mut()
                     .update_edge_directed(from, to, directed)
                 {
+                    let kind = self
+                        .project
+                        .concept_graph()
+                        .find_edge(from, to)
+                        .map(|e| e.kind())
+                        .unwrap_or(RelationKind::Association);
+                    let label = self
+                        .project
+                        .concept_graph()
+                        .find_edge(from, to)
+                        .and_then(|e| e.label().map(String::from));
+                    let rel = crate::features::collab::protocol::Relation::with_all(
+                        Uuid::new_v4(),
+                        from,
+                        to,
+                        kind,
+                        label,
+                        Some(directed),
+                    );
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::RelationUpdated(rel),
+                    );
                     self.trigger_autosave();
                 }
             }
             Message::GraphReverseEdge(from, to) => {
                 if self.project.concept_graph_mut().reverse_relation(from, to) {
                     self.selected_edge = Some((to, from));
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::RelationDeleted {
+                            from,
+                            to,
+                        },
+                    );
+                    if let Some(edge) = self.project.concept_graph().find_edge(to, from) {
+                        let rel = crate::features::collab::protocol::Relation::with_all(
+                            Uuid::new_v4(),
+                            to,
+                            from,
+                            edge.kind(),
+                            edge.label().map(String::from),
+                            edge.directed(),
+                        );
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::RelationAdded(rel),
+                        );
+                    }
                     self.trigger_autosave();
                 }
             }
@@ -1794,20 +2143,68 @@ impl App {
                 Tab::ConceptModel => {
                     if let Some((from, to)) = self.selected_edge.take() {
                         self.project.concept_graph_mut().remove_relation(from, to);
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::RelationDeleted {
+                                from,
+                                to,
+                            },
+                        );
                         self.trigger_autosave();
                     } else if let Some(node_id) = self.selected_graph_node_id.take() {
+                        let concept_id = self
+                            .project
+                            .concept_graph()
+                            .find_node(node_id)
+                            .map(|n| n.concept_id());
                         self.project.concept_graph_mut().remove_node(node_id);
+                        if let Some(cid) = concept_id {
+                            self.broadcast_mutation(
+                                &crate::features::collab::protocol::ModelMutation::ConceptDiagramNodeRemoved(
+                                    cid,
+                                ),
+                            );
+                        }
                         self.trigger_autosave();
                     }
                 }
                 Tab::InformationModel => {
                     if let Some((from, to)) = self.selected_info_edge.take() {
+                        let from_class = self
+                            .project
+                            .information_graph()
+                            .find_node(from)
+                            .map(|n| n.class_id());
+                        let to_class = self
+                            .project
+                            .information_graph()
+                            .find_node(to)
+                            .map(|n| n.class_id());
                         self.project
                             .information_graph_mut()
                             .remove_relation(from, to);
+                        if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                            self.broadcast_mutation(
+                                &crate::features::collab::protocol::ModelMutation::ClassRelationDeleted {
+                                    from_class: fc,
+                                    to_class: tc,
+                                },
+                            );
+                        }
                         self.trigger_autosave();
                     } else if let Some(node_id) = self.selected_info_graph_node_id.take() {
+                        let class_id = self
+                            .project
+                            .information_graph()
+                            .find_node(node_id)
+                            .map(|n| n.class_id());
                         self.project.information_graph_mut().remove_node(node_id);
+                        if let Some(cid) = class_id {
+                            self.broadcast_mutation(
+                                &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeRemoved(
+                                    cid,
+                                ),
+                            );
+                        }
                         self.trigger_autosave();
                     }
                 }
@@ -1906,11 +2303,17 @@ impl App {
                                 } else {
                                     None
                                 };
-                                let rel = crate::features::collab::protocol::Relation::with_label(
+                                let rel = crate::features::collab::protocol::Relation::with_all(
+                                    Uuid::new_v4(),
                                     from.id,
                                     to.id,
                                     dialog.kind,
                                     label.clone(),
+                                    if dialog.kind == RelationKind::Association {
+                                        Some(true)
+                                    } else {
+                                        None
+                                    },
                                 );
                                 self.broadcast_mutation(
                                     &crate::features::collab::protocol::ModelMutation::RelationAdded(
@@ -1923,6 +2326,19 @@ impl App {
                                     dialog.kind,
                                     label,
                                 );
+                                let cg = self.project.concept_graph_mut();
+                                let nodes = cg.nodes().to_vec();
+                                let edges = cg.edges().to_vec();
+                                let routes =
+                                    crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                                for r in routes {
+                                    cg.update_edge_ports(
+                                        r.from,
+                                        r.to,
+                                        Some(r.from_side),
+                                        Some(r.to_side),
+                                    );
+                                }
                                 self.relation_dialog = None;
                                 self.trigger_autosave();
                             }
@@ -1943,7 +2359,7 @@ impl App {
                     self.selected_edge = None;
                 }
                 self.broadcast_mutation(
-                    &crate::features::collab::protocol::ModelMutation::RelationDeleted(from),
+                    &crate::features::collab::protocol::ModelMutation::RelationDeleted { from, to },
                 );
                 self.trigger_autosave();
             }
@@ -1960,14 +2376,31 @@ impl App {
                     if let Some(concept) = self.project.get_concept(concept_id).cloned() {
                         let new_id = self.project.concept_graph_mut().add_node(&concept);
                         self.selected_graph_node_id = Some(new_id);
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::ConceptDiagramNodeAdded(
+                                concept_id,
+                            ),
+                        );
                         self.trigger_autosave();
                     }
                 }
             }
             Message::RemoveConceptFromDiagram(node_id) => {
+                let concept_id = self
+                    .project
+                    .concept_graph()
+                    .find_node(node_id)
+                    .map(|n| n.concept_id());
                 self.project.concept_graph_mut().remove_node(node_id);
                 if self.selected_graph_node_id == Some(node_id) {
                     self.selected_graph_node_id = None;
+                }
+                if let Some(cid) = concept_id {
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::ConceptDiagramNodeRemoved(
+                            cid,
+                        ),
+                    );
                 }
                 self.trigger_autosave();
             }
@@ -2032,6 +2465,13 @@ impl App {
                                         &crate::features::collab::protocol::ModelMutation::ConceptAdded(
                                             concept,
                                         ),
+                                    );
+                                    self.broadcast_mutation(
+                                        &crate::features::collab::protocol::ModelMutation::NodeMoved {
+                                            id: concept_id,
+                                            x,
+                                            y,
+                                        },
                                     );
                                     self.quick_create = None;
                                     self.trigger_autosave();
@@ -2137,6 +2577,13 @@ impl App {
                         &crate::features::collab::protocol::ModelMutation::InformationClassAdded(
                             cls,
                         ),
+                    );
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::NodeMoved {
+                            id,
+                            x: nx,
+                            y: ny,
+                        },
                     );
                 }
                 self.trigger_autosave();
@@ -2255,12 +2702,24 @@ impl App {
             Message::AddConceptToInformationClass(class_id, opt) => {
                 if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
                     class.add_concept_id(opt.id);
+                    let cls = class.clone();
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                            cls,
+                        ),
+                    );
                     self.trigger_autosave();
                 }
             }
             Message::RemoveConceptFromInformationClass(class_id, concept_id) => {
                 if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
                     class.remove_concept_id(concept_id);
+                    let cls = class.clone();
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                            cls,
+                        ),
+                    );
                     self.trigger_autosave();
                 }
             }
@@ -2282,17 +2741,29 @@ impl App {
                 self.trigger_autosave();
             }
             Message::AddAttributeToClass(class_id) => {
-                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                let cls_opt = if let Some(class) =
+                    self.project.information_model_mut().get_class_mut(class_id)
+                {
                     let attr = Attribute::new(
                         "",
                         PrimitiveType::CharacterString,
                         Multiplicity::exactly_one(),
                     );
                     class.add_attribute(attr);
-                    let attr_count = class.attributes().len();
+                    Some(class.clone())
+                } else {
+                    None
+                };
+                if let Some(cls) = cls_opt {
+                    let attr_count = cls.attributes().len();
                     self.project
                         .information_graph_mut()
                         .update_class_dimensions(class_id, attr_count);
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                            cls,
+                        ),
+                    );
                     self.trigger_autosave();
                 }
             }
@@ -2309,6 +2780,12 @@ impl App {
                             name
                         };
                         attr.set_name(final_name);
+                        let cls = class.clone();
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                                cls,
+                            ),
+                        );
                         self.trigger_autosave();
                     }
                 }
@@ -2321,6 +2798,12 @@ impl App {
                         .find(|a| a.id() == attr_id)
                     {
                         attr.set_data_type(dt);
+                        let cls = class.clone();
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                                cls,
+                            ),
+                        );
                         self.trigger_autosave();
                     }
                 }
@@ -2333,6 +2816,12 @@ impl App {
                         .find(|a| a.id() == attr_id)
                     {
                         attr.set_multiplicity(m);
+                        let cls = class.clone();
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                                cls,
+                            ),
+                        );
                         self.trigger_autosave();
                     }
                 }
@@ -2345,6 +2834,12 @@ impl App {
                         .find(|a| a.id() == attr_id)
                     {
                         attr.add_concept_id(opt.id);
+                        let cls = class.clone();
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                                cls,
+                            ),
+                        );
                         self.trigger_autosave();
                     }
                 }
@@ -2357,6 +2852,12 @@ impl App {
                         .find(|a| a.id() == attr_id)
                     {
                         attr.remove_concept_id(concept_id);
+                        let cls = class.clone();
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                                cls,
+                            ),
+                        );
                         self.trigger_autosave();
                     }
                 }
@@ -2373,17 +2874,35 @@ impl App {
                         } else {
                             attr.clear_concept_ids();
                         }
+                        let cls = class.clone();
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                                cls,
+                            ),
+                        );
                         self.trigger_autosave();
                     }
                 }
             }
             Message::DeleteAttribute(class_id, attr_id) => {
-                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                let cls_opt = if let Some(class) =
+                    self.project.information_model_mut().get_class_mut(class_id)
+                {
                     class.remove_attribute(attr_id);
-                    let attr_count = class.attributes().len();
+                    Some(class.clone())
+                } else {
+                    None
+                };
+                if let Some(cls) = cls_opt {
+                    let attr_count = cls.attributes().len();
                     self.project
                         .information_graph_mut()
                         .update_class_dimensions(class_id, attr_count);
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                            cls,
+                        ),
+                    );
                     self.trigger_autosave();
                 }
             }
@@ -2405,20 +2924,47 @@ impl App {
                     .add_node(class_id, attr_count);
                 self.selected_info_class_id = Some(class_id);
                 self.selected_info_graph_node_id = Some(node_id);
+                self.broadcast_mutation(
+                    &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeAdded(
+                        class_id,
+                    ),
+                );
                 self.trigger_autosave();
             }
             Message::RemoveClassFromDiagram(node_id) => {
+                let class_id = self
+                    .project
+                    .information_graph()
+                    .find_node(node_id)
+                    .map(|n| n.class_id());
                 self.project.information_graph_mut().remove_node(node_id);
                 if self.selected_info_graph_node_id == Some(node_id) {
                     self.selected_info_graph_node_id = None;
                 }
+                if let Some(cid) = class_id {
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeRemoved(
+                            cid,
+                        ),
+                    );
+                }
                 self.trigger_autosave();
             }
             Message::UpdateClassNodePosition(node_id, x, y) => {
+                let (final_x, final_y) = if self.info_snap_to_grid {
+                    (
+                        (x / crate::features::concept_model::GRID_SIZE).round()
+                            * crate::features::concept_model::GRID_SIZE,
+                        (y / crate::features::concept_model::GRID_SIZE).round()
+                            * crate::features::concept_model::GRID_SIZE,
+                    )
+                } else {
+                    (x, y)
+                };
                 let ig = self.project.information_graph_mut();
-                ig.update_node_position(node_id, x, y);
+                ig.update_node_position(node_id, final_x, final_y);
+                let class_id_opt = ig.find_node(node_id).map(|n| n.class_id());
 
-                use crate::ui::diagram_canvas::{CanvasEdge, CanvasNode};
                 let d_nodes: Vec<crate::features::concept_model::DiagramNode> =
                     ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
                 let d_edges: Vec<crate::features::concept_model::DiagramEdge> =
@@ -2427,7 +2973,8 @@ impl App {
                 for r in routes {
                     ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
                 }
-                self.broadcast_node_moved_throttled(node_id, x, y);
+                let broadcast_id = class_id_opt.unwrap_or(node_id);
+                self.broadcast_node_moved_throttled(broadcast_id, final_x, final_y);
                 self.trigger_autosave();
             }
             Message::SelectInfoGraphNode(node_id_opt) => {
@@ -2454,12 +3001,35 @@ impl App {
                 }
                 let graph = self.project.information_graph();
                 if graph.find_node(from).is_some() && graph.find_node(to).is_some() {
+                    let from_class = graph.find_node(from).unwrap().class_id();
+                    let to_class = graph.find_node(to).unwrap().class_id();
                     if graph.find_edge(from, to).is_none() {
                         self.project.information_graph_mut().add_relation(
                             from,
                             to,
                             RelationKind::Association,
                             None,
+                        );
+                        let ig = self.project.information_graph_mut();
+                        let nodes: Vec<crate::features::concept_model::DiagramNode> =
+                            ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
+                        let edges: Vec<crate::features::concept_model::DiagramEdge> =
+                            ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
+                        let routes =
+                            crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                        for r in routes {
+                            ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                        }
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
+                                from_class,
+                                to_class,
+                                kind: RelationKind::Association,
+                                label: None,
+                                source_multiplicity: None,
+                                target_multiplicity: None,
+                                directed: Some(true),
+                            },
                         );
                         self.trigger_autosave();
                     }
@@ -2470,15 +3040,89 @@ impl App {
                 }
             }
             Message::InfoUpdateEdgeKind(from, to, kind) => {
+                let from_class = self
+                    .project
+                    .information_graph()
+                    .find_node(from)
+                    .map(|n| n.class_id());
+                let to_class = self
+                    .project
+                    .information_graph()
+                    .find_node(to)
+                    .map(|n| n.class_id());
+                let label = self
+                    .project
+                    .information_graph()
+                    .find_edge(from, to)
+                    .and_then(|e| e.label().map(String::from));
+                let src_mult = self
+                    .project
+                    .information_graph()
+                    .find_edge(from, to)
+                    .and_then(|e| e.source_multiplicity());
+                let tgt_mult = self
+                    .project
+                    .information_graph()
+                    .find_edge(from, to)
+                    .and_then(|e| e.target_multiplicity());
+                let directed = self
+                    .project
+                    .information_graph()
+                    .find_edge(from, to)
+                    .and_then(|e| e.directed());
                 if self
                     .project
                     .information_graph_mut()
                     .update_edge_kind(from, to, kind)
                 {
+                    if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
+                                from_class: fc,
+                                to_class: tc,
+                                kind,
+                                label,
+                                source_multiplicity: src_mult,
+                                target_multiplicity: tgt_mult,
+                                directed,
+                            },
+                        );
+                    }
                     self.trigger_autosave();
                 }
             }
             Message::InfoUpdateEdgeLabel(from, to, label) => {
+                let from_class = self
+                    .project
+                    .information_graph()
+                    .find_node(from)
+                    .map(|n| n.class_id());
+                let to_class = self
+                    .project
+                    .information_graph()
+                    .find_node(to)
+                    .map(|n| n.class_id());
+                let kind = self
+                    .project
+                    .information_graph()
+                    .find_edge(from, to)
+                    .map(|e| e.kind())
+                    .unwrap_or(RelationKind::Association);
+                let src_mult = self
+                    .project
+                    .information_graph()
+                    .find_edge(from, to)
+                    .and_then(|e| e.source_multiplicity());
+                let tgt_mult = self
+                    .project
+                    .information_graph()
+                    .find_edge(from, to)
+                    .and_then(|e| e.target_multiplicity());
+                let directed = self
+                    .project
+                    .information_graph()
+                    .find_edge(from, to)
+                    .and_then(|e| e.directed());
                 let lbl = if label.trim().is_empty() {
                     None
                 } else {
@@ -2487,45 +3131,164 @@ impl App {
                 if self
                     .project
                     .information_graph_mut()
-                    .update_edge_label(from, to, lbl)
+                    .update_edge_label(from, to, lbl.clone())
                 {
+                    if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
+                                from_class: fc,
+                                to_class: tc,
+                                kind,
+                                label: lbl,
+                                source_multiplicity: src_mult,
+                                target_multiplicity: tgt_mult,
+                                directed,
+                            },
+                        );
+                    }
                     self.trigger_autosave();
                 }
             }
             Message::InfoUpdateEdgeSourceMultiplicity(from, to, mult) => {
+                let from_class = self
+                    .project
+                    .information_graph()
+                    .find_node(from)
+                    .map(|n| n.class_id());
+                let to_class = self
+                    .project
+                    .information_graph()
+                    .find_node(to)
+                    .map(|n| n.class_id());
                 if self
                     .project
                     .information_graph_mut()
                     .update_edge_source_multiplicity(from, to, mult)
                 {
+                    if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                        if let Some(edge) = self.project.information_graph().find_edge(from, to) {
+                            self.broadcast_mutation(
+                                &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
+                                    from_class: fc,
+                                    to_class: tc,
+                                    kind: edge.kind(),
+                                    label: edge.label().map(String::from),
+                                    source_multiplicity: mult,
+                                    target_multiplicity: edge.target_multiplicity(),
+                                    directed: edge.directed(),
+                                },
+                            );
+                        }
+                    }
                     self.trigger_autosave();
                 }
             }
             Message::InfoUpdateEdgeTargetMultiplicity(from, to, mult) => {
+                let from_class = self
+                    .project
+                    .information_graph()
+                    .find_node(from)
+                    .map(|n| n.class_id());
+                let to_class = self
+                    .project
+                    .information_graph()
+                    .find_node(to)
+                    .map(|n| n.class_id());
                 if self
                     .project
                     .information_graph_mut()
                     .update_edge_target_multiplicity(from, to, mult)
                 {
+                    if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                        if let Some(edge) = self.project.information_graph().find_edge(from, to) {
+                            self.broadcast_mutation(
+                                &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
+                                    from_class: fc,
+                                    to_class: tc,
+                                    kind: edge.kind(),
+                                    label: edge.label().map(String::from),
+                                    source_multiplicity: edge.source_multiplicity(),
+                                    target_multiplicity: mult,
+                                    directed: edge.directed(),
+                                },
+                            );
+                        }
+                    }
                     self.trigger_autosave();
                 }
             }
             Message::InfoToggleEdgeDirected(from, to, directed) => {
+                let from_class = self
+                    .project
+                    .information_graph()
+                    .find_node(from)
+                    .map(|n| n.class_id());
+                let to_class = self
+                    .project
+                    .information_graph()
+                    .find_node(to)
+                    .map(|n| n.class_id());
                 if self
                     .project
                     .information_graph_mut()
                     .update_edge_directed(from, to, directed)
                 {
+                    if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                        if let Some(edge) = self.project.information_graph().find_edge(from, to) {
+                            self.broadcast_mutation(
+                                &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
+                                    from_class: fc,
+                                    to_class: tc,
+                                    kind: edge.kind(),
+                                    label: edge.label().map(String::from),
+                                    source_multiplicity: edge.source_multiplicity(),
+                                    target_multiplicity: edge.target_multiplicity(),
+                                    directed: Some(directed),
+                                },
+                            );
+                        }
+                    }
                     self.trigger_autosave();
                 }
             }
             Message::InfoReverseEdge(from, to) => {
+                let from_class = self
+                    .project
+                    .information_graph()
+                    .find_node(from)
+                    .map(|n| n.class_id());
+                let to_class = self
+                    .project
+                    .information_graph()
+                    .find_node(to)
+                    .map(|n| n.class_id());
                 if self
                     .project
                     .information_graph_mut()
                     .reverse_relation(from, to)
                 {
                     self.selected_info_edge = Some((to, from));
+                    if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::ClassRelationDeleted {
+                                from_class: fc,
+                                to_class: tc,
+                            },
+                        );
+                        if let Some(edge) = self.project.information_graph().find_edge(to, from) {
+                            self.broadcast_mutation(
+                                &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
+                                    from_class: tc,
+                                    to_class: fc,
+                                    kind: edge.kind(),
+                                    label: edge.label().map(String::from),
+                                    source_multiplicity: edge.source_multiplicity(),
+                                    target_multiplicity: edge.target_multiplicity(),
+                                    directed: edge.directed(),
+                                },
+                            );
+                        }
+                    }
                     self.trigger_autosave();
                 }
             }
@@ -2536,6 +3299,16 @@ impl App {
                 self.trigger_autosave();
             }
             Message::DeleteClassRelation(from, to) => {
+                let from_class = self
+                    .project
+                    .information_graph()
+                    .find_node(from)
+                    .map(|n| n.class_id());
+                let to_class = self
+                    .project
+                    .information_graph()
+                    .find_node(to)
+                    .map(|n| n.class_id());
                 self.project
                     .information_graph_mut()
                     .remove_relation(from, to);
@@ -2543,6 +3316,14 @@ impl App {
                     || self.selected_info_edge == Some((to, from))
                 {
                     self.selected_info_edge = None;
+                }
+                if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::ClassRelationDeleted {
+                            from_class: fc,
+                            to_class: tc,
+                        },
+                    );
                 }
                 self.trigger_autosave();
             }
@@ -2644,11 +3425,51 @@ impl App {
                                     } else {
                                         (dlg.source_multiplicity, dlg.target_multiplicity)
                                     };
+                                let graph = self.project.information_graph();
+                                let from_class = graph.find_node(from.id).map(|n| n.class_id());
+                                let to_class = graph.find_node(to.id).map(|n| n.class_id());
                                 self.project
                                     .information_graph_mut()
                                     .add_relation_with_multiplicities(
-                                        from.id, to.id, dlg.kind, label, src_mult, tgt_mult,
+                                        from.id,
+                                        to.id,
+                                        dlg.kind,
+                                        label.clone(),
+                                        src_mult,
+                                        tgt_mult,
                                     );
+                                let ig = self.project.information_graph_mut();
+                                let nodes: Vec<crate::features::concept_model::DiagramNode> =
+                                    ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
+                                let edges: Vec<crate::features::concept_model::DiagramEdge> =
+                                    ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
+                                let routes =
+                                    crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                                for r in routes {
+                                    ig.update_edge_ports(
+                                        r.from,
+                                        r.to,
+                                        Some(r.from_side),
+                                        Some(r.to_side),
+                                    );
+                                }
+                                if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                                    self.broadcast_mutation(
+                                        &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
+                                            from_class: fc,
+                                            to_class: tc,
+                                            kind: dlg.kind,
+                                            label,
+                                            source_multiplicity: src_mult,
+                                            target_multiplicity: tgt_mult,
+                                            directed: if dlg.kind == RelationKind::Association {
+                                                Some(true)
+                                            } else {
+                                                None
+                                            },
+                                        },
+                                    );
+                                }
                                 self.info_relation_dialog = None;
                                 self.trigger_autosave();
                             }

@@ -1,6 +1,6 @@
 use crate::features::concept_model::RelationKind;
 use crate::features::concepts::Concept;
-use crate::features::information_model::InformationClass;
+use crate::features::information_model::{InformationClass, Multiplicity};
 use crate::features::model::ModelProject;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -13,6 +13,8 @@ pub struct Relation {
     pub to: Uuid,
     pub kind: RelationKind,
     pub label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub directed: Option<bool>,
 }
 
 impl Relation {
@@ -23,6 +25,11 @@ impl Relation {
             to,
             kind,
             label: None,
+            directed: if kind == RelationKind::Association {
+                Some(true)
+            } else {
+                None
+            },
         }
     }
 
@@ -33,6 +40,11 @@ impl Relation {
             to,
             kind,
             label,
+            directed: if kind == RelationKind::Association {
+                Some(true)
+            } else {
+                None
+            },
         }
     }
 
@@ -49,6 +61,29 @@ impl Relation {
             to,
             kind,
             label,
+            directed: if kind == RelationKind::Association {
+                Some(true)
+            } else {
+                None
+            },
+        }
+    }
+
+    pub fn with_all(
+        id: Uuid,
+        from: Uuid,
+        to: Uuid,
+        kind: RelationKind,
+        label: Option<String>,
+        directed: Option<bool>,
+    ) -> Self {
+        Self {
+            id,
+            from,
+            to,
+            kind,
+            label,
+            directed,
         }
     }
 }
@@ -59,12 +94,40 @@ pub enum ModelMutation {
     ConceptAdded(Concept),
     ConceptUpdated(Concept),
     ConceptDeleted(Uuid),
+    ConceptDiagramNodeAdded(Uuid),
+    ConceptDiagramNodeRemoved(Uuid),
     InformationClassAdded(InformationClass),
     InformationClassUpdated(InformationClass),
     InformationClassDeleted(Uuid),
+    ClassDiagramNodeAdded(Uuid),
+    ClassDiagramNodeRemoved(Uuid),
     RelationAdded(Relation),
-    RelationDeleted(Uuid),
-    NodeMoved { id: Uuid, x: f32, y: f32 },
+    RelationUpdated(Relation),
+    RelationDeleted {
+        from: Uuid,
+        to: Uuid,
+    },
+    ClassRelationAdded {
+        from_class: Uuid,
+        to_class: Uuid,
+        kind: RelationKind,
+        label: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        source_multiplicity: Option<Multiplicity>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        target_multiplicity: Option<Multiplicity>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        directed: Option<bool>,
+    },
+    ClassRelationDeleted {
+        from_class: Uuid,
+        to_class: Uuid,
+    },
+    NodeMoved {
+        id: Uuid,
+        x: f32,
+        y: f32,
+    },
 }
 
 /// Overordnet E2EE netværksprotokol for live kollaboration.

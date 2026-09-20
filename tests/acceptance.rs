@@ -3602,7 +3602,6 @@ fn test_mutation_bridge() {
         RelationKind::Association,
         Some("kører på".to_string()),
     );
-    let rel_id = rel.id;
 
     let mutations = vec![
         ModelMutation::ConceptAdded(concept.clone()),
@@ -3612,7 +3611,28 @@ fn test_mutation_bridge() {
         ModelMutation::InformationClassUpdated(updated_class.clone()),
         ModelMutation::InformationClassDeleted(class_id),
         ModelMutation::RelationAdded(rel.clone()),
-        ModelMutation::RelationDeleted(rel_id),
+        ModelMutation::RelationUpdated(rel.clone()),
+        ModelMutation::RelationDeleted {
+            from: concept_id,
+            to: rel.to,
+        },
+        ModelMutation::ConceptDiagramNodeAdded(concept_id),
+        ModelMutation::ConceptDiagramNodeRemoved(concept_id),
+        ModelMutation::ClassDiagramNodeAdded(class_id),
+        ModelMutation::ClassDiagramNodeRemoved(class_id),
+        ModelMutation::ClassRelationAdded {
+            from_class: class_id,
+            to_class: uuid::Uuid::new_v4(),
+            kind: RelationKind::Association,
+            label: Some("har".to_string()),
+            source_multiplicity: None,
+            target_multiplicity: None,
+            directed: Some(true),
+        },
+        ModelMutation::ClassRelationDeleted {
+            from_class: class_id,
+            to_class: uuid::Uuid::new_v4(),
+        },
         ModelMutation::NodeMoved {
             id: concept_id,
             x: 250.0,
@@ -4005,9 +4025,9 @@ async fn test_task029_e2e_collab_sync_and_presence() {
     });
     let relay_url = format!("ws://{}", addr);
 
-    // 2. Opret Vært App og Gæst App
-    let mut host = App::new();
-    let mut guest = App::new();
+    // 2. Opret Vært App og Gæst App med isoleret in-memory model (uden disk fil)
+    let mut host = App::new_with_path(None);
+    let mut guest = App::new_with_path(None);
 
     // Vært konfigurerer custom relay og starter session
     let _ = host.update(Message::OpenStartSessionModal);
@@ -4142,6 +4162,68 @@ async fn test_task029_e2e_collab_sync_and_presence() {
         "Vært modtog ikke nodeflytning foretaget af Gæst"
     );
 
+    // 5b. Vært tilføjer et ekstra begreb og forbinder med en kant -> synkroniseres til Gæst
+    let second_concept = Concept::new("Afgiftstype", "Klassifikation", BelongsToDomain::Yes);
+    let second_concept_id = second_concept.id();
+    host.apply_mutation(ModelMutation::ConceptAdded(second_concept.clone()));
+    host.broadcast_mutation(&ModelMutation::ConceptAdded(second_concept.clone()));
+
+    for _ in 0..15 {
+        if let Ok(Some(ev)) = tokio::time::timeout(
+            Duration::from_millis(100),
+            next_registered_collab_event(guest_sub_id),
+        )
+        .await
+        {
+            let _ = guest.update(Message::CollabNetworkEventReceived(ev));
+            if guest
+                .project()
+                .concepts()
+                .iter()
+                .any(|c| c.id() == second_concept_id)
+            {
+                break;
+            }
+        }
+    }
+
+    let host_n1 = host
+        .project()
+        .concept_graph()
+        .find_node_by_concept(concept_id)
+        .unwrap()
+        .id();
+    let host_n2 = host
+        .project()
+        .concept_graph()
+        .find_node_by_concept(second_concept_id)
+        .unwrap()
+        .id();
+
+    // Vært forbinder noderne via Message::GraphEdgeCreated
+    let _ = host.update(Message::GraphEdgeCreated(host_n1, host_n2));
+
+    // Pump events til Gæst
+    let mut guest_received_edge = false;
+    for _ in 0..15 {
+        if let Ok(Some(ev)) = tokio::time::timeout(
+            Duration::from_millis(100),
+            next_registered_collab_event(guest_sub_id),
+        )
+        .await
+        {
+            let _ = guest.update(Message::CollabNetworkEventReceived(ev));
+            if guest.project().concept_graph().edges().len() == 1 {
+                guest_received_edge = true;
+                break;
+            }
+        }
+    }
+    assert!(
+        guest_received_edge,
+        "Gæst modtog ikke kanten/relationen oprettet af Vært via GraphEdgeCreated"
+    );
+
     // 6. Vært afbryder sessionen -> Gæst modtager notice og advarsel
     let _ = host.update(Message::CollabDisconnect);
     assert_eq!(host.collab_state(), CollabState::None);
@@ -4170,7 +4252,7 @@ async fn test_task029_e2e_collab_sync_and_presence() {
 
 #[test]
 fn test_task_030_canvas_ergonomics_and_edge_geometry() {
-    let mut app = App::default();
+    let mut app = App::new_with_path(None);
 
     // 1. Opret kilde- og målbegreb samt relation
     let c1 = Concept::new("Person", "En person", BelongsToDomain::Yes);
@@ -4368,7 +4450,7 @@ fn test_task_031_fda_information_class_properties_and_rendering() {
     );
 
     // 3. AC3: App Message håndtering for abstrakte og lokale/fremmede klasser
-    let mut app = App::new();
+    let mut app = App::new_with_path(None);
     let cid = class_from_local.id();
     app.project_mut()
         .information_model_mut()
@@ -4492,7 +4574,6 @@ fn test_task033_rebranding_application_to_kant_defaults_and_compatibility() {
 fn test_host_rebroadcasts_snapshot_when_participant_count_rises() {
     let mut app = App::new_with_path(None);
 
-
     // --- Invariant 1: Gæst-rolle må ALDRIG sende snapshot ---
     // Sæt tilstand manuelt som gæst (ingen kanal = broadcast_snapshot returnerer tidligt)
     let _ = app.update(Message::CollabNetworkEventReceived(
@@ -4567,8 +4648,144 @@ fn test_collab_channel_connect_spawns_outside_tokio_runtime() {
     let event = rx.blocking_recv();
     assert_eq!(
         event,
-        Some(CollabNetworkEvent::StatusChanged(ConnectionStatus::Connecting)),
+        Some(CollabNetworkEvent::StatusChanged(
+            ConnectionStatus::Connecting
+        )),
         "Kanalen SKAL starte på baggrunds-runtime og udsende Connecting"
     );
     drop(channel);
+}
+
+#[test]
+fn test_task034_collab_edge_and_diagram_sync_lifecycle() {
+    use kant::features::collab::protocol::{ModelMutation, Relation};
+    use kant::features::concept_model::RelationKind;
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::information_model::InformationClass;
+
+    let mut guest_app = App::new_with_path(None);
+
+    // 1. Concept Model: Synkroniser noder
+    let c1 = Concept::new("Køretøj", "Transportmiddel", BelongsToDomain::Yes);
+    let c2 = Concept::new("Motor", "Drivmiddel", BelongsToDomain::Yes);
+    let c1_id = c1.id();
+    let c2_id = c2.id();
+
+    guest_app.apply_mutation(ModelMutation::ConceptAdded(c1));
+    guest_app.apply_mutation(ModelMutation::ConceptAdded(c2));
+    guest_app.apply_mutation(ModelMutation::ConceptDiagramNodeAdded(c1_id));
+    guest_app.apply_mutation(ModelMutation::ConceptDiagramNodeAdded(c2_id));
+
+    assert_eq!(guest_app.project().concept_graph().nodes().len(), 2);
+
+    // 2. Concept Model: Synkroniser kant/relation (RelationAdded)
+    let rel = Relation::with_all(
+        uuid::Uuid::new_v4(),
+        c1_id,
+        c2_id,
+        RelationKind::Association,
+        Some("har del".to_string()),
+        Some(true),
+    );
+    guest_app.apply_mutation(ModelMutation::RelationAdded(rel.clone()));
+
+    assert_eq!(
+        guest_app.project().concept_graph().edges().len(),
+        1,
+        "Gæst skal have 1 relation efter RelationAdded"
+    );
+
+    // 3. Concept Model: Opdater relation (RelationUpdated)
+    let mut updated_rel = rel.clone();
+    updated_rel.kind = RelationKind::Composition;
+    updated_rel.label = Some("består af".to_string());
+    guest_app.apply_mutation(ModelMutation::RelationUpdated(updated_rel));
+
+    let n1 = guest_app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(c1_id)
+        .unwrap()
+        .id();
+    let n2 = guest_app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(c2_id)
+        .unwrap()
+        .id();
+    let edge = guest_app
+        .project()
+        .concept_graph()
+        .find_edge(n1, n2)
+        .expect("Kant skal eksistere");
+    assert_eq!(edge.kind(), RelationKind::Composition);
+    assert_eq!(edge.label(), Some("består af"));
+
+    // 4. Concept Model: Slet relation (RelationDeleted)
+    guest_app.apply_mutation(ModelMutation::RelationDeleted {
+        from: c1_id,
+        to: c2_id,
+    });
+    assert_eq!(
+        guest_app.project().concept_graph().edges().len(),
+        0,
+        "Relation skal være slettet på gæsten"
+    );
+
+    // 5. Information Model: Synkroniser klasser og diagram noder
+    let cls1 = InformationClass::new("KøretøjKlasse");
+    let cls2 = InformationClass::new("MotorKlasse");
+    let cls1_id = cls1.id();
+    let cls2_id = cls2.id();
+
+    guest_app.apply_mutation(ModelMutation::InformationClassAdded(cls1));
+    guest_app.apply_mutation(ModelMutation::InformationClassAdded(cls2));
+    guest_app.apply_mutation(ModelMutation::ClassDiagramNodeAdded(cls1_id));
+    guest_app.apply_mutation(ModelMutation::ClassDiagramNodeAdded(cls2_id));
+
+    assert_eq!(guest_app.project().information_graph().nodes().len(), 2);
+
+    // 6. Information Model: Flyt node (NodeMoved via class UUID)
+    guest_app.apply_mutation(ModelMutation::NodeMoved {
+        id: cls1_id,
+        x: 450.0,
+        y: 650.0,
+    });
+    let node1 = guest_app
+        .project()
+        .information_graph()
+        .find_node_by_class(cls1_id)
+        .expect("Klassenode skal findes");
+    assert_eq!(
+        (node1.x(), node1.y()),
+        (450.0, 650.0),
+        "Klassenode position skal opdateres på gæst"
+    );
+
+    // 7. Information Model: Tilføj relation (ClassRelationAdded)
+    guest_app.apply_mutation(ModelMutation::ClassRelationAdded {
+        from_class: cls1_id,
+        to_class: cls2_id,
+        kind: RelationKind::Association,
+        label: Some("benytter".to_string()),
+        source_multiplicity: None,
+        target_multiplicity: None,
+        directed: Some(true),
+    });
+    assert_eq!(
+        guest_app.project().information_graph().edges().len(),
+        1,
+        "Gæst skal have 1 klasse-relation efter ClassRelationAdded"
+    );
+
+    // 8. Information Model: Slet relation (ClassRelationDeleted)
+    guest_app.apply_mutation(ModelMutation::ClassRelationDeleted {
+        from_class: cls1_id,
+        to_class: cls2_id,
+    });
+    assert_eq!(
+        guest_app.project().information_graph().edges().len(),
+        0,
+        "Klasse-relation skal være slettet på gæsten"
+    );
 }
