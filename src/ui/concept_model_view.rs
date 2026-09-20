@@ -599,11 +599,9 @@ pub fn view<'a>(
                         Some(Message::GraphNodeSelected(None)),
                     );
 
-                    let mut insp = column![
-                        header,
-                        text(title).size(16).color(ThemeColors::SLATE_900),
-                    ]
-                    .spacing(8);
+                    let mut insp =
+                        column![header, text(title).size(16).color(ThemeColors::SLATE_900),]
+                            .spacing(8);
 
                     if let Some(c) = concept {
                         insp = insp.push(
@@ -732,7 +730,6 @@ pub fn view<'a>(
             ],
         )
     };
-
 
     row![left_palette, center_content, right_inspector]
         .spacing(12)

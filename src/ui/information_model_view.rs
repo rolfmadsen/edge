@@ -764,7 +764,11 @@ pub fn view<'a>(
 
             let header = crate::ui::inspector_panel::panel_header(
                 crate::ui::inspector_panel::PROPERTIES_TITLE,
-                Some(("Klasse", ThemeColors::FDA_SAND, ThemeColors::FDA_SAND_BORDER)),
+                Some((
+                    "Klasse",
+                    ThemeColors::FDA_SAND,
+                    ThemeColors::FDA_SAND_BORDER,
+                )),
                 Some(Message::SelectInformationClass(None)),
             );
 

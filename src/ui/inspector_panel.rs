@@ -48,10 +48,7 @@ pub fn panel_header<'a>(
 
 /// Sektionstitel med ensartet typografi på tværs af inspectorer.
 pub fn section_header<'a>(title: &'a str) -> Element<'a, Message> {
-    text(title)
-        .size(12)
-        .color(ThemeColors::SLATE_700)
-        .into()
+    text(title).size(12).color(ThemeColors::SLATE_700).into()
 }
 
 /// Generisk container til højre sidepanel med fast bredde og COSMIC card styling.

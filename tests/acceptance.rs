@@ -2086,7 +2086,10 @@ fn test_directed_association_half_arrow_and_reversal() {
         "Association skal være rettet som standard"
     );
 
-    let routes = EdgeRouter::route_edges(&[node_a.clone(), node_b.clone()], &[edge_assoc.clone()]);
+    let routes = EdgeRouter::route_edges(
+        &[node_a.clone(), node_b.clone()],
+        std::slice::from_ref(&edge_assoc),
+    );
     assert_eq!(routes.len(), 1);
     let route = &routes[0];
 
@@ -2225,7 +2228,7 @@ fn test_directed_association_half_arrow_and_reversal() {
 
     // 7. Filtrering af "+ Fra begreb..." når klasse med samme navn allerede findes
     let c_c = Concept::new("KlasseC", "C", BelongsToDomain::Yes);
-    let concepts_list = vec![c_a.clone(), c_c.clone()];
+    let concepts_list = [c_a.clone(), c_c.clone()];
     let existing_class_names: std::collections::HashSet<String> = app
         .project()
         .information_model()
@@ -2504,9 +2507,11 @@ fn test_task020_harmonized_inspector_and_guidance_panels() {
     let c2 = Concept::new("Etage", "Vandret del af bygning", BelongsToDomain::Yes);
     let node2_id = app.project_mut().concept_graph_mut().add_node(&c2);
     app.project_mut().concepts_mut().push(c2);
-    app.project_mut()
-        .concept_graph_mut()
-        .add_relation(node_id, node2_id, RelationKind::Composition);
+    app.project_mut().concept_graph_mut().add_relation(
+        node_id,
+        node2_id,
+        RelationKind::Composition,
+    );
     let _ = app.update(Message::GraphEdgeSelected(Some((node_id, node2_id))));
     assert_eq!(app.selected_edge(), Some((node_id, node2_id)));
     {
@@ -2576,4 +2581,3 @@ fn test_task020_harmonized_inspector_and_guidance_panels() {
         let _ = app.view();
     }
 }
-
