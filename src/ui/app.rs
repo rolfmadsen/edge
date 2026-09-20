@@ -362,7 +362,14 @@ pub fn current_timestamp() -> String {
         let mut now: libc::time_t = 0;
         libc::time(&mut now);
         let mut tm: libc::tm = std::mem::zeroed();
-        if !libc::localtime_r(&now, &mut tm).is_null() {
+
+        #[cfg(windows)]
+        let success = libc::localtime_s(&mut tm, &now) == 0;
+
+        #[cfg(not(windows))]
+        let success = !libc::localtime_r(&now, &mut tm).is_null();
+
+        if success {
             format!("{:02}:{:02}:{:02}", tm.tm_hour, tm.tm_min, tm.tm_sec)
         } else {
             "00:00:00".to_string()
