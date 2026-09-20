@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 028: Samarbejds-UI, Start/Join Modaler & Live Deltagerstatus"
 description: "Integration af Samarbejde i desktop-headeren, Cosmic Glass modaler for Start Session (Host med servervalg) og Join Session (Guest med 1-klik token paste) samt live tilstedeværelses- og forbindelsesindikator"
-status: in_progress
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-20T11:55:00Z" }
 tags: [collaboration, ui, iced, cosmic-glass, modals, presets, presence]
 ---
 
 # Task 028: Samarbejds-UI, Start/Join Modaler & Live Deltagerstatus
 
-**Status**: `IN_PROGRESS`
+**Status**: `DONE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-20`
 
@@ -35,14 +35,14 @@ tags: [collaboration, ui, iced, cosmic-glass, modals, presets, presence]
    - Knap til at forlade sessionen eller afslutte sessionen med advarsel til gæster.
 
 ## 📋 Acceptance Criteria
-- [ ] Header-baren indeholder et `🌐 Samarbejde` menupunkt med valgmulighederne: `Start session (Vært)...`, `Deltag i session (Gæst)...` samt `Afbryd session` (når aktiv).
-- [ ] Værtsdialogen lader brugeren vælge mellem server-presets eller indtaste en custom URL.
-- [ ] Værtsdialogen genererer en gyldig sessionskode og tilbyder en "Kopiér kode" knap med visuel "Kopieret! ✓" feedback.
-- [ ] Gæstedialogen validerer den indsatte kode øjeblikkeligt og viser klar fejlmeddelelse, hvis formatet er ugyldigt.
-- [ ] Statusbaren eller headeren viser en diskret pille med grøn indikator og antal deltagere under en aktiv session.
-- [ ] Hvis værten afslutter sessionen, præsenteres gæsten for en dialog med mulighed for at "Gemme som kopi..." før lærredet ryddes eller sessionen lukkes.
-- [ ] Modalerne følger Cosmic Glass designsystemet (ensartet typografi, transparens, mørkt tema, focus rings og tastaturnavigation via Esc/Enter).
-- [ ] `cargo test` og `cargo clippy -- -D warnings` passerer 100%.
+- [x] Header-baren indeholder et `🌐 Samarbejde` menupunkt med valgmulighederne: `Start session (Vært)...`, `Deltag i session (Gæst)...` samt `Afbryd session` (når aktiv).
+- [x] Værtsdialogen lader brugeren vælge mellem server-presets eller indtaste en custom URL.
+- [x] Værtsdialogen genererer en gyldig sessionskode og tilbyder en "Kopiér kode" knap med visuel "Kopieret! ✓" feedback.
+- [x] Gæstedialogen validerer den indsatte kode øjeblikkeligt og viser klar fejlmeddelelse, hvis formatet er ugyldigt.
+- [x] Statusbaren eller headeren viser en diskret pille med grøn indikator og antal deltagere under en aktiv session.
+- [x] Hvis værten afslutter sessionen, præsenteres gæsten for en dialog med mulighed for at "Gemme som kopi..." før lærredet ryddes eller sessionen lukkes.
+- [x] Modalerne følger Cosmic Glass designsystemet (ensartet typografi, transparens, mørkt tema, focus rings og tastaturnavigation via Esc/Enter).
+- [x] `cargo test` og `cargo clippy -- -D warnings` passerer 100%.
 
 ## 🚫 Must NOT
 - Må IKKE tillade opstart af simultane sessioner i samme klientvindue.
@@ -51,8 +51,10 @@ tags: [collaboration, ui, iced, cosmic-glass, modals, presets, presence]
 
 ## 📝 Revisions
 - 2026-09-20: Oprettet som opgave 4 i E2EE Live Collaboration serien jf. ADR 008.
+- 2026-09-20: Implementeret og verificeret i Task 028 TDD-løkken.
 
 ## 🧪 Verifikation
-- `cargo test test_collab_ui`
-- `cargo test`
-- `cargo clippy -- -D warnings`
+- `cargo test test_task028_collab_ui_modals_and_presence`
+- `cargo test --workspace`
+- `cargo clippy --workspace -- -D warnings`
+- `cargo fmt --check`
