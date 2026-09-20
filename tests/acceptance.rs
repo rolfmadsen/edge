@@ -3236,61 +3236,71 @@ fn test_task023_canvas_floating_controls_and_minimap() {
 }
 
 #[test]
-fn test_task024_header_burger_menu_and_new_project_onboarding() {
+fn test_task024_desktop_menu_bar_and_sidebar_toggle() {
+    use edge::ui::app::MenuType;
+
     let mut app = App::new_with_path(None);
 
-    // 1. Initial tilstand: burger-menu skal være lukket
+    // 1. Initial tilstand
+    assert_eq!(app.active_menu(), None, "Ingen menu skal være åben ved start");
     assert!(
-        !app.is_burger_menu_open(),
-        "Burger-menu skal starte som lukket"
+        app.is_left_sidebar_visible(),
+        "Venstre sidebar skal være synlig som standard"
     );
 
-    // 2. ToggleBurgerMenu åbner menuen
-    let _ = app.update(Message::ToggleBurgerMenu);
+    // 2. Test Sidebar Toggle
+    let _ = app.update(Message::ToggleLeftSidebar);
     assert!(
-        app.is_burger_menu_open(),
-        "ToggleBurgerMenu skal åbne burger-menuen"
+        !app.is_left_sidebar_visible(),
+        "Sidebar skal være skjult efter ToggleLeftSidebar"
+    );
+    let _ = app.update(Message::ToggleLeftSidebar);
+    assert!(
+        app.is_left_sidebar_visible(),
+        "Sidebar skal være synlig igen efter ToggleLeftSidebar"
     );
 
-    // 3. CloseBurgerMenu lukker menuen
-    let _ = app.update(Message::CloseBurgerMenu);
-    assert!(
-        !app.is_burger_menu_open(),
-        "CloseBurgerMenu skal lukke burger-menuen"
-    );
+    // 3. Test Filer og Hjælp menuer
+    let _ = app.update(Message::ToggleMenu(MenuType::File));
+    assert_eq!(app.active_menu(), Some(MenuType::File));
 
-    // 4. Åbn igen og test Nyt Projekt onboarding
-    let _ = app.update(Message::ToggleBurgerMenu);
-    assert!(app.is_burger_menu_open());
+    let _ = app.update(Message::ToggleMenu(MenuType::Help));
+    assert_eq!(app.active_menu(), Some(MenuType::Help));
 
-    // Udfør NewProject: menuen skal lukkes og Modelomslag skal åbnes automatisk
+    let _ = app.update(Message::CloseMenu);
+    assert_eq!(app.active_menu(), None);
+
+    // 4. Test Nyt Projekt onboarding
+    let _ = app.update(Message::ToggleMenu(MenuType::File));
+    assert_eq!(app.active_menu(), Some(MenuType::File));
+
     let _ = app.update(Message::NewProject);
-    assert!(
-        !app.is_burger_menu_open(),
-        "NewProject skal automatisk lukke burger-menuen"
+    assert_eq!(
+        app.active_menu(),
+        None,
+        "NewProject skal automatisk lukke menuen"
     );
     assert!(
         app.metadata_modal().is_some(),
-        "NewProject skal automatisk åbne Modelomslag & Metadata for hurtig onboarding"
+        "NewProject skal automatisk åbne Modelomslag & Metadata"
     );
 
-    // 5. Test at OpenProjectDialog og OpenMetadataModal også lukker menuen
+    // 5. Test Escape lukker aktiv menu
     let _ = app.update(Message::CloseMetadataModal);
-    let _ = app.update(Message::ToggleBurgerMenu);
-    assert!(app.is_burger_menu_open());
-    let _ = app.update(Message::OpenMetadataModal);
-    assert!(!app.is_burger_menu_open());
-    assert!(app.metadata_modal().is_some());
+    let _ = app.update(Message::ToggleMenu(MenuType::File));
+    assert_eq!(app.active_menu(), Some(MenuType::File));
+    let _ = app.update(Message::EscapePressed);
+    assert_eq!(app.active_menu(), None);
 
-    let _ = app.update(Message::CloseMetadataModal);
-    let _ = app.update(Message::ToggleBurgerMenu);
-    assert!(app.is_burger_menu_open());
-    let _ = app.update(Message::OpenProjectDialog);
-    assert!(!app.is_burger_menu_open());
+    // 6. Test rendering af UI med menu åben og sidebar sammenklappet
+    let _ = app.update(Message::ToggleLeftSidebar);
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    let _ = app.view();
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    let _ = app.view();
 
-    // 6. Test rendering af UI med åben burger-menu
-    let _ = app.update(Message::CloseFileDialog);
-    let _ = app.update(Message::ToggleBurgerMenu);
-    assert!(app.is_burger_menu_open());
+    let _ = app.update(Message::ToggleMenu(MenuType::File));
+    let _ = app.view();
+    let _ = app.update(Message::ToggleMenu(MenuType::Help));
     let _ = app.view();
 }

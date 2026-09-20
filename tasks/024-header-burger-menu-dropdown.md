@@ -1,49 +1,44 @@
 ---
 type: Task Package
-title: "Task 024: Header Burger-menu & Modelomslag Onboarding"
-description: "Placering af fil- og projekthandlinger under en klassisk burger-menu i øverste venstre hjørne samt automatisk visning af Modelomslag ved oprettelse af nyt projekt"
+title: "Task 024: Desktop Menulinje & Sidebar Toggle (Cosmic Files Mønster)"
+description: "Implementering af klassisk integreret desktop-menulinje (Filer & Hjælp), [◨] sidebar-toggle til at klappe venstre palet sammen for lærredsfokus, samt Modelomslag onboarding ved Nyt Projekt inspireret af Cosmic Files"
 status: active
-generated: { by: process:antigravity-task-init, at: "2026-09-20T11:30:00Z" }
-tags: [ui, ergonomics, navigation, burger-menu, header, modal]
+generated: { by: process:antigravity-task-init, at: "2026-09-20T11:38:00Z" }
+tags: [ui, ergonomics, navigation, desktop-menu, sidebar-toggle, cosmic-style, modal]
 ---
 
-# Task 024: Header Burger-menu & Modelomslag Onboarding
+# Task 024: Desktop Menulinje & Sidebar Toggle (Cosmic Files Mønster)
 
 **Status**: `ACTIVE`
 **Intent**: `🔄 ENHANCEMENT`
 **Oprettet**: `2026-09-20`
 
 ## 🎯 Formål
-1. Rense top-baren for overskydende knapper ved at introducere en stilren burger-menu (`☰`) til venstre ved brandet ("Edge v0.1").
-2. Samle alle fil- og modelhandlinger i en overskuelig dropdown-menu:
-   - `+ Nyt projekt`
-   - `📁 Åbn projekt...`
-   - `💾 Gem projekt`
-   - `💾 Gem som...`
-   - `📋 Modelomslag & Metadata`
-   - `📖 FDA Modelregler v2.1 ↗`
-3. Sikre intuitiv dismissal: klik på `☰` toggler, klik uden for menuen lukker, og valg af et punkt lukker menuen og udfører handlingen.
-4. Onboarding: Når et nyt projekt oprettes via `+ Nyt projekt`, vises Modelomslaget automatisk, så brugeren straks kan udfylde titel, domæneområde og ansvarlig organisation.
+1. Erstatte de overfyldte header-knapper (+ Nyt, Åbn, Gem, Gem som, Modelomslag) med en elegant, integreret desktop-menulinje (`Filer` og `Hjælp`) i overensstemmelse med System76's Iced-baserede Cosmic Files design.
+2. Implementere en `[◨]` Sidebar Toggle knap i header-baren (og `Ctrl+B` genvej), der lader brugeren klappe venstre repository-palet sammen for at opnå maksimalt fokus og fuld bredde til model-canvaset.
+3. Onboarding: Når et nyt projekt oprettes via `Filer -> ➕ Nyt projekt`, vises Modelomslaget automatisk, så brugeren straks kan udfylde titel, domæneområde og ansvarlig organisation.
+4. Sikre desktop dismissal: Klik uden for en åben menu eller tryk på Escape lukker menuen.
 
 ## 📋 Acceptance Criteria
-- [ ] Burger-menu knap (`☰`) er placeret i venstre side af header-baren ved logoet.
-- [ ] De 4 tidligere knapper (+ Nyt, Åbn, Gem, Gem som) og den separate "📋 Modelomslag"-knap er fjernet fra header-baren for et rent og fokuseret udtryk.
+- [ ] Header-baren har en `[◨]` panel-toggle knap yderst til venstre.
+- [ ] Integrerede desktop menupunkter `Filer` og `Hjælp` er placeret ved siden af logoet.
+- [ ] De 4 tidligere fritstående knapper (+ Nyt, Åbn, Gem, Gem som) og den separate "📋 Modelomslag"-knap er fjernet fra header-baren.
 - [ ] Fane-vælgeren (Begrebsliste, Begrebsmodel, Informationsmodel) forbliver centreret i header-baren.
-- [ ] Klik på `☰` åbner en flyout/dropdown-menu med tydelige ikoner og tekster for alle handlinger.
-- [ ] Klik på et menupunkt udfører handlingen og lukker menuen.
-- [ ] Klik uden for dropdown-menuen lukker menuen uden utilsigtede bivirkninger.
+- [ ] Klik på `Filer` åbner dropdown med: `➕ Nyt projekt`, `📁 Åbn projekt...`, `💾 Gem`, `💾 Gem som...` samt `📋 Modelomslag & Metadata...`.
+- [ ] Klik på `Hjælp` åbner dropdown med: `📖 FDA Modelregler v2.1 ↗` samt `ℹ️ Om Edge FDA Modeller...`.
+- [ ] Klik på `[◨]` (eller `Ctrl+B`) klapper venstre-paletten sammen/ud i både Begrebsmodel og Informationsmodel, så diagrammet får fuld bredde.
 - [ ] Oprettelse af nyt projekt (`Message::NewProject`) åbner automatisk Modelomslag & Metadata modalen.
 - [ ] `cargo test` og `cargo clippy -- -D warnings` passerer 100% uden fejl eller advarsler.
 
 ## 🚫 Must NOT
 - Må IKKE fjerne eller bryde nogen eksisterende filgemme- eller åbne-funktioner.
-- Må IKKE tillade overlappende modaler med burger-menuen åben.
+- Må IKKE tillade overlappende modaler med en åben menu.
 - Må IKKE foretage remote git push.
 
 ## 📝 Revisions
-- 2026-09-20: Oprettet efter sparring om ergonomi og header-forenkling.
+- 2026-09-20: Oprettet og raffineret fra mobil burger-menu til autentisk Cosmic Files desktop-menulinje + sidebar toggle.
 
 ## 🧪 Verifikation
-- `cargo test test_burger_menu`
+- `cargo test test_task024`
 - `cargo test`
 - `cargo clippy -- -D warnings`
