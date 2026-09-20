@@ -3234,3 +3234,63 @@ fn test_task023_canvas_floating_controls_and_minimap() {
 
     let _ = std::fs::remove_file(&file_path);
 }
+
+#[test]
+fn test_task024_header_burger_menu_and_new_project_onboarding() {
+    let mut app = App::new_with_path(None);
+
+    // 1. Initial tilstand: burger-menu skal være lukket
+    assert!(
+        !app.is_burger_menu_open(),
+        "Burger-menu skal starte som lukket"
+    );
+
+    // 2. ToggleBurgerMenu åbner menuen
+    let _ = app.update(Message::ToggleBurgerMenu);
+    assert!(
+        app.is_burger_menu_open(),
+        "ToggleBurgerMenu skal åbne burger-menuen"
+    );
+
+    // 3. CloseBurgerMenu lukker menuen
+    let _ = app.update(Message::CloseBurgerMenu);
+    assert!(
+        !app.is_burger_menu_open(),
+        "CloseBurgerMenu skal lukke burger-menuen"
+    );
+
+    // 4. Åbn igen og test Nyt Projekt onboarding
+    let _ = app.update(Message::ToggleBurgerMenu);
+    assert!(app.is_burger_menu_open());
+
+    // Udfør NewProject: menuen skal lukkes og Modelomslag skal åbnes automatisk
+    let _ = app.update(Message::NewProject);
+    assert!(
+        !app.is_burger_menu_open(),
+        "NewProject skal automatisk lukke burger-menuen"
+    );
+    assert!(
+        app.metadata_modal().is_some(),
+        "NewProject skal automatisk åbne Modelomslag & Metadata for hurtig onboarding"
+    );
+
+    // 5. Test at OpenProjectDialog og OpenMetadataModal også lukker menuen
+    let _ = app.update(Message::CloseMetadataModal);
+    let _ = app.update(Message::ToggleBurgerMenu);
+    assert!(app.is_burger_menu_open());
+    let _ = app.update(Message::OpenMetadataModal);
+    assert!(!app.is_burger_menu_open());
+    assert!(app.metadata_modal().is_some());
+
+    let _ = app.update(Message::CloseMetadataModal);
+    let _ = app.update(Message::ToggleBurgerMenu);
+    assert!(app.is_burger_menu_open());
+    let _ = app.update(Message::OpenProjectDialog);
+    assert!(!app.is_burger_menu_open());
+
+    // 6. Test rendering af UI med åben burger-menu
+    let _ = app.update(Message::CloseFileDialog);
+    let _ = app.update(Message::ToggleBurgerMenu);
+    assert!(app.is_burger_menu_open());
+    let _ = app.view();
+}
