@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 019: Palette UX: Header-Handlinger og Direkte Søge-Nærhed"
 description: "Reorganisering af venstre palet i Begrebsmodel og Informationsmodel, så opret-knapper flyttes op i headerlinjen og søgefeltet støder direkte op til den filtrerede liste"
-status: pending
+status: active
 generated: { by: process:antigravity-task-init, at: "2026-09-20T09:55:00Z" }
 tags: [ui, ux, palette, search, layout, visual-hierarchy]
 ---
 
 # Task 019: Palette UX: Header-Handlinger og Direkte Søge-Nærhed
 
-**Status**: `PENDING`
+**Status**: `ACTIVE`
 **Intent**: `🔄 ENHANCEMENT`
 **Oprettet**: `2026-09-20`
 
