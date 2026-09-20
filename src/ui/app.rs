@@ -231,7 +231,8 @@ impl StartSessionModalState {
     }
 
     pub fn current_url(&self) -> &str {
-        if (self.preset == RelayServerPreset::Custom || self.preset == RelayServerPreset::InternalOrg)
+        if (self.preset == RelayServerPreset::Custom
+            || self.preset == RelayServerPreset::InternalOrg)
             && !self.custom_url.is_empty()
         {
             &self.custom_url
@@ -244,7 +245,8 @@ impl StartSessionModalState {
         self.preset = preset;
         let room = self.ticket.room_id.clone();
         let key = self.ticket.key.clone();
-        let target_url = if (preset == RelayServerPreset::Custom || preset == RelayServerPreset::InternalOrg)
+        let target_url = if (preset == RelayServerPreset::Custom
+            || preset == RelayServerPreset::InternalOrg)
             && !self.custom_url.is_empty()
         {
             self.custom_url.as_str()
@@ -256,7 +258,8 @@ impl StartSessionModalState {
 
     pub fn set_custom_url(&mut self, url: String) {
         self.custom_url = url.clone();
-        if self.preset == RelayServerPreset::Custom || self.preset == RelayServerPreset::InternalOrg {
+        if self.preset == RelayServerPreset::Custom || self.preset == RelayServerPreset::InternalOrg
+        {
             let room = self.ticket.room_id.clone();
             let key = self.ticket.key.clone();
             self.ticket = crate::features::collab::SessionTicket::new(url, room, key);
@@ -680,7 +683,8 @@ impl App {
                         join_session_modal: None,
                         guest_ended_notice: None,
                         collab_participant_count: 1,
-                        collab_connection_status: crate::features::collab::ConnectionStatus::Disconnected,
+                        collab_connection_status:
+                            crate::features::collab::ConnectionStatus::Disconnected,
                     };
                 }
             }
@@ -914,8 +918,7 @@ impl App {
             self.collab_state = CollabState::None;
             self.collab_channel = None;
             self.collab_key = None;
-            self.collab_connection_status =
-                crate::features::collab::ConnectionStatus::Disconnected;
+            self.collab_connection_status = crate::features::collab::ConnectionStatus::Disconnected;
             self.guest_ended_notice = Some(GuestEndedNoticeModalState {
                 message: "Værten har afsluttet sessionen. Vil du gemme en kopi af modellen lokalt?"
                     .to_string(),
@@ -3025,51 +3028,61 @@ impl App {
                     .size(12)
                     .color(ThemeColors::TEXT_MUTED);
 
-                let validation_feedback: Element<Message> = if let Some(ticket) = &modal_state.parsed_ticket {
-                    container(
-                        row![
-                            text("✓").size(14).color(iced::Color::from_rgb(0.12, 0.65, 0.35)),
-                            Space::new().width(6),
-                            text(format!(
-                                "Gyldig kode (Server: {} | Rum: {})",
-                                ticket.relay_url,
-                                ticket.room_id.as_str()
-                            ))
-                            .size(12)
-                            .color(iced::Color::from_rgb(0.12, 0.65, 0.35)),
-                        ]
-                        .align_y(Alignment::Center),
-                    )
-                    .padding([4, 8])
-                    .into()
-                } else if let Some(err) = &modal_state.error_message {
-                    container(
-                        row![
-                            text("⚠️").size(12),
-                            Space::new().width(6),
-                            text(err).size(12).color(iced::Color::from_rgb(0.85, 0.20, 0.20)),
-                        ]
-                        .align_y(Alignment::Center),
-                    )
-                    .padding([4, 8])
-                    .into()
-                } else {
-                    container(
-                        text("Format: edge:v1:<base64-payload>")
-                            .size(11)
-                            .color(ThemeColors::TEXT_MUTED),
-                    )
-                    .padding([4, 8])
-                    .into()
-                };
+                let validation_feedback: Element<Message> =
+                    if let Some(ticket) = &modal_state.parsed_ticket {
+                        container(
+                            row![
+                                text("✓")
+                                    .size(14)
+                                    .color(iced::Color::from_rgb(0.12, 0.65, 0.35)),
+                                Space::new().width(6),
+                                text(format!(
+                                    "Gyldig kode (Server: {} | Rum: {})",
+                                    ticket.relay_url,
+                                    ticket.room_id.as_str()
+                                ))
+                                .size(12)
+                                .color(iced::Color::from_rgb(0.12, 0.65, 0.35)),
+                            ]
+                            .align_y(Alignment::Center),
+                        )
+                        .padding([4, 8])
+                        .into()
+                    } else if let Some(err) = &modal_state.error_message {
+                        container(
+                            row![
+                                text("⚠️").size(12),
+                                Space::new().width(6),
+                                text(err)
+                                    .size(12)
+                                    .color(iced::Color::from_rgb(0.85, 0.20, 0.20)),
+                            ]
+                            .align_y(Alignment::Center),
+                        )
+                        .padding([4, 8])
+                        .into()
+                    } else {
+                        container(
+                            text("Format: edge:v1:<base64-payload>")
+                                .size(11)
+                                .color(ThemeColors::TEXT_MUTED),
+                        )
+                        .padding([4, 8])
+                        .into()
+                    };
 
                 let token_field = column![
-                    text("Sessionskode *").size(12).color(ThemeColors::SLATE_700),
-                    text_input("Indsæt sessionskode her (f.eks. edge:v1:...)", &modal_state.token_input)
-                        .style(modern_input_style)
-                        .on_input(Message::CollabJoinTokenChanged)
-                        .padding(8)
-                        .width(Length::Fill),
+                    text("Sessionskode *")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                    text_input(
+                        "Indsæt sessionskode her (f.eks. edge:v1:...)",
+                        &modal_state.token_input
+                    )
+                    .style(modern_input_style)
+                    .on_input(Message::CollabJoinTokenChanged)
+                    .padding(8)
+                    .width(Length::Fill),
                     validation_feedback,
                 ]
                 .spacing(4);
@@ -3093,13 +3106,7 @@ impl App {
                 .spacing(8)
                 .align_y(Alignment::Center);
 
-                let dialog_col = column![
-                    title_row,
-                    subtitle,
-                    token_field,
-                    actions,
-                ]
-                .spacing(14);
+                let dialog_col = column![title_row, subtitle, token_field, actions,].spacing(14);
 
                 let modal_card = container(dialog_col)
                     .style(modal_card_style)
@@ -3662,11 +3669,7 @@ impl App {
                             .color(ThemeColors::TEXT_MUTED),
                         Space::new().height(2),
                         if self.collab_state.is_active() {
-                            column![menu_item(
-                                "🔴",
-                                "Afbryd session",
-                                Message::CollabDisconnect
-                            )]
+                            column![menu_item("🔴", "Afbryd session", Message::CollabDisconnect)]
                         } else {
                             column![
                                 menu_item(

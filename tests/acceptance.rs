@@ -3710,10 +3710,7 @@ fn test_task028_collab_ui_modals_and_presence() {
 
     // Standard preset skal være Koyeb Cloud Frankfurt
     assert_eq!(start_modal.preset, RelayServerPreset::Koyeb);
-    assert_eq!(
-        start_modal.current_url(),
-        "wss://edge-relay.koyeb.app/ws"
-    );
+    assert_eq!(start_modal.current_url(), "wss://edge-relay.koyeb.app/ws");
     let token = start_modal.ticket.to_token();
     assert!(
         token.starts_with("edge:v1:"),
@@ -3721,7 +3718,9 @@ fn test_task028_collab_ui_modals_and_presence() {
     );
 
     // Skift til Lokal Docker preset
-    let _ = app.update(Message::CollabPresetSelected(RelayServerPreset::LocalDocker));
+    let _ = app.update(Message::CollabPresetSelected(
+        RelayServerPreset::LocalDocker,
+    ));
     let start_modal = app.start_session_modal().unwrap();
     assert_eq!(start_modal.preset, RelayServerPreset::LocalDocker);
     assert_eq!(start_modal.current_url(), "ws://localhost:8080/ws");
@@ -3733,10 +3732,7 @@ fn test_task028_collab_ui_modals_and_presence() {
     ));
     let start_modal = app.start_session_modal().unwrap();
     assert_eq!(start_modal.preset, RelayServerPreset::Custom);
-    assert_eq!(
-        start_modal.current_url(),
-        "wss://my-org-relay.internal/ws"
-    );
+    assert_eq!(start_modal.current_url(), "wss://my-org-relay.internal/ws");
 
     // Kopiér sessionsbillet
     assert!(!start_modal.copied);
@@ -3781,7 +3777,9 @@ fn test_task028_collab_ui_modals_and_presence() {
     assert!(!join_modal.is_valid());
 
     // Indtast ugyldig kode
-    let _ = app.update(Message::CollabJoinTokenChanged("ugyldig-tekst-uden-edge-prefix".to_string()));
+    let _ = app.update(Message::CollabJoinTokenChanged(
+        "ugyldig-tekst-uden-edge-prefix".to_string(),
+    ));
     let join_modal = app.join_session_modal().unwrap();
     assert!(!join_modal.is_valid());
     assert!(
