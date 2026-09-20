@@ -19,20 +19,20 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            artifact_name: edge-linux-x86_64
-            archive_file: edge-linux-x86_64.tar.gz
+            artifact_name: kant-linux-x86_64
+            archive_file: kant-linux-x86_64.tar.gz
             is_windows: false
 
           - target: aarch64-apple-darwin
             os: macos-latest
-            artifact_name: edge-macos-aarch64
-            archive_file: edge-macos-aarch64.tar.gz
+            artifact_name: kant-macos-aarch64
+            archive_file: kant-macos-aarch64.tar.gz
             is_windows: false
 
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            artifact_name: edge-windows-x86_64
-            archive_file: edge-windows-x86_64.zip
+            artifact_name: kant-windows-x86_64
+            archive_file: kant-windows-x86_64.zip
             is_windows: true
 
     steps:
@@ -66,8 +66,8 @@ jobs:
         if: ${{ !matrix.is_windows }}
         run: |
           mkdir -p dist
-          cp "target/${{ matrix.target }}/release/edge" dist/
-          chmod +x dist/edge
+          cp "target/${{ matrix.target }}/release/kant" dist/
+          chmod +x dist/kant
           cp README.md LICENSE dist/ 2>/dev/null || true
           tar -czf "${{ matrix.archive_file }}" -C dist .
           shasum -a 256 "${{ matrix.archive_file }}" > "${{ matrix.archive_file }}.sha256"
@@ -90,7 +90,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist
-          Copy-Item "target/${{ matrix.target }}/release/edge.exe" -Destination dist/
+          Copy-Item "target/${{ matrix.target }}/release/kant.exe" -Destination dist/
           if (Test-Path "README.md") { Copy-Item "README.md" -Destination dist/ }
           if (Test-Path "LICENSE") { Copy-Item "LICENSE" -Destination dist/ }
           Compress-Archive -Path dist/* -DestinationPath "${{ matrix.archive_file }}"

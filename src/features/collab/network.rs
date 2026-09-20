@@ -364,7 +364,7 @@ impl CollabChannel {
 mod tests {
     use super::*;
     use crate::features::collab::crypto::{decrypt, encrypt, CollabKey};
-    use edge_relay::{create_app, AppState, RelayConfig};
+    use kant_relay::{create_app, AppState, RelayConfig};
     use tokio::net::TcpListener;
 
     async fn spawn_ephemeral_relay() -> String {

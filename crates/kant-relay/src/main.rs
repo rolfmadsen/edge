@@ -1,4 +1,4 @@
-use edge_relay::{create_app, AppState, RelayConfig};
+use kant_relay::{create_app, AppState, RelayConfig};
 use std::env;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -10,7 +10,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info,tower_http=info,edge_relay=debug".into()),
+                .unwrap_or_else(|_| "info,tower_http=info,kant_relay=debug".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();

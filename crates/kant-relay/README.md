@@ -1,6 +1,6 @@
-# 📡 Edge Relay (`edge-relay`)
+# 📡 Kant Relay (`kant-relay`)
 
-Ultralet, in-memory, blind Axum WebSocket pub/sub relay til **Edge E2EE Realtids-kollaborering** ([ADR 008](../../docs/adr/008-e2ee-realtime-collaboration-and-stateless-relay.md)).
+Ultralet, in-memory, blind Axum WebSocket pub/sub relay til **Kant E2EE Realtids-kollaborering** ([ADR 008](../../docs/adr/008-e2ee-realtime-collaboration-and-stateless-relay.md)).
 
 [![Deploy to Koyeb](https://www.koyeb.com/static/images/deploy/button.svg)](https://app.koyeb.com/deploy?type=git&repository=github.com/rolfmadsen/edge&branch=main&env[PORT]=8080)
 
@@ -34,7 +34,7 @@ Ultralet, in-memory, blind Axum WebSocket pub/sub relay til **Edge E2EE Realtids
 
 ### Lokal afvikling via Cargo
 ```bash
-cargo run -p edge-relay
+cargo run -p kant-relay
 ```
 
 ### Docker Compose

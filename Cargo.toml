@@ -1,12 +1,12 @@
 [workspace]
 members = [
     ".",
-    "crates/edge-relay",
+    "crates/kant-relay",
 ]
 resolver = "2"
 
 [package]
-name = "edge"
+name = "kant"
 version = "0.1.0"
 edition = "2021"
 authors = ["Rolf Madsen"]
@@ -17,13 +17,13 @@ description = "Desktop applikation til FDA begrebs- og informationsmodellering i
 maintainer = "Rolf Madsen"
 copyright = "2026 Rolf Madsen"
 license-file = ["LICENSE", "0"]
-extended-description = "Edge er en moderne skrivebordsapplikation til FDA begrebs- og informationsmodellering bygget i Rust og Iced."
+extended-description = "Kant er en moderne skrivebordsapplikation til FDA begrebs- og informationsmodellering bygget i Rust og Iced."
 section = "graphics"
 priority = "optional"
 assets = [
-    ["target/x86_64-unknown-linux-gnu/release/edge", "usr/bin/edge", "755"],
-    ["assets/edge.desktop", "usr/share/applications/edge.desktop", "644"],
-    ["assets/icons/edge.svg", "usr/share/icons/hicolor/scalable/apps/edge.svg", "644"],
+    ["target/x86_64-unknown-linux-gnu/release/kant", "usr/bin/kant", "755"],
+    ["assets/kant.desktop", "usr/share/applications/kant.desktop", "644"],
+    ["assets/icons/kant.svg", "usr/share/icons/hicolor/scalable/apps/kant.svg", "644"],
 ]
 
 [dependencies]
@@ -44,5 +44,5 @@ bytes = "1.10"
 
 [dev-dependencies]
 proptest = "1.5"
-edge-relay = { path = "crates/edge-relay" }
+kant-relay = { path = "crates/kant-relay" }
 axum = "0.8"

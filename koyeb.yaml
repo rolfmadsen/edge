@@ -1,12 +1,12 @@
-# Koyeb App Specification for Edge Stateless In-Memory Relay
+# Koyeb App Specification for Kant Stateless In-Memory Relay
 # Documentation: https://www.koyeb.com/docs/reference/koyeb-yaml
 app:
-  name: edge-relay
+  name: kant-relay
 services:
-  - name: edge-relay-service
+  - name: kant-relay-service
     type: web
     docker:
-      dockerfile: crates/edge-relay/Dockerfile
+      dockerfile: crates/kant-relay/Dockerfile
     ports:
       - port: 8080
         path: /

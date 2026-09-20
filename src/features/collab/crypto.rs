@@ -171,7 +171,7 @@ pub struct SessionTicket {
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum SessionTicketError {
-    #[error("Ugyldigt sessionsbillet-præfiks (skal starte med 'edge:v1:')")]
+    #[error("Ugyldigt sessionsbillet-præfiks (skal starte med 'kant:v1:' eller 'edge:v1:')")]
     InvalidPrefix,
     #[error("Ugyldig base64-kodning: {0}")]
     InvalidBase64(String),
@@ -192,10 +192,10 @@ impl SessionTicket {
         }
     }
 
-    /// Serialiserer billetten til det kompakte, url-sikre format `edge:v1:<base64-payload>`.
+    /// Serialiserer billetten til det kompakte, url-sikre format `kant:v1:<base64-payload>`.
     pub fn to_ticket_string(&self) -> String {
         let json = serde_json::to_vec(self).expect("SessionTicket skal altid kunne serialiseres");
-        format!("edge:v1:{}", URL_SAFE_NO_PAD.encode(json))
+        format!("kant:v1:{}", URL_SAFE_NO_PAD.encode(json))
     }
 
     /// Alias for `to_ticket_string`.
@@ -208,12 +208,13 @@ impl SessionTicket {
         Self::from_ticket_string(s)
     }
 
-    /// Parser en sessionsbillet fra enten `edge:v1:<base64-payload>` eller
-    /// `edge:v1:<base64(server)>:<room_id>:<base64(key)>`.
+    /// Parser en sessionsbillet fra enten `kant:v1:<base64-payload>` / `edge:v1:...` eller
+    /// `kant:v1:<base64(server)>:<room_id>:<base64(key)>`.
     pub fn from_ticket_string(s: &str) -> Result<Self, SessionTicketError> {
         let trimmed = s.trim();
         let payload = trimmed
-            .strip_prefix("edge:v1:")
+            .strip_prefix("kant:v1:")
+            .or_else(|| trimmed.strip_prefix("edge:v1:"))
             .ok_or(SessionTicketError::InvalidPrefix)?;
 
         if payload.is_empty() {
@@ -319,26 +320,32 @@ mod tests {
     }
 
     #[test]
-    fn test_session_ticket_roundtrip_edge_v1() {
+    fn test_session_ticket_roundtrip_kant_v1() {
         let ticket = SessionTicket::new(
-            "https://edge.relay.internal",
+            "https://kant.relay.internal",
             RoomId::new("PEER-1234"),
             CollabKey::from_bytes([9u8; 32]),
         );
         let s = ticket.to_ticket_string();
-        assert!(s.starts_with("edge:v1:"));
+        assert!(s.starts_with("kant:v1:"));
         let parsed = SessionTicket::from_ticket_string(&s).expect("Billet skal parses");
         assert_eq!(ticket, parsed);
+
+        // Test bagudkompatibilitet med edge:v1: format
+        let edge_token = s.replacen("kant:v1:", "edge:v1:", 1);
+        let legacy_parsed = SessionTicket::from_ticket_string(&edge_token)
+            .expect("Legacy edge:v1: billet skal parses");
+        assert_eq!(ticket, legacy_parsed);
     }
 
     #[test]
     fn test_session_ticket_colon_format() {
-        let server = "https://relay.edge.internal";
+        let server = "https://relay.kant.internal";
         let room_id = RoomId::new("PEER-4821");
         let key = CollabKey::from_bytes([7u8; 32]);
 
         let s = format!(
-            "edge:v1:{}:{}:{}",
+            "kant:v1:{}:{}:{}",
             URL_SAFE_NO_PAD.encode(server),
             room_id.as_str(),
             key.to_base64()
@@ -358,8 +365,16 @@ mod tests {
 
     #[test]
     fn test_session_ticket_empty_payload() {
-        let result = SessionTicket::from_ticket_string("edge:v1:");
-        assert!(matches!(result, Err(SessionTicketError::InvalidFormat(_))));
+        let result_kant = SessionTicket::from_ticket_string("kant:v1:");
+        assert!(matches!(
+            result_kant,
+            Err(SessionTicketError::InvalidFormat(_))
+        ));
+        let result_edge = SessionTicket::from_ticket_string("edge:v1:");
+        assert!(matches!(
+            result_edge,
+            Err(SessionTicketError::InvalidFormat(_))
+        ));
     }
 
     // Property-based tests for tabsløs kryptering og auth-validering

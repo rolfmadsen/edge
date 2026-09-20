@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Kant
+GenericName=Modeleringsværktøj
+Comment=FDA begrebs- og informationsmodellering
+Exec=kant
+Icon=kant
+Terminal=false
+Type=Application
+Categories=Office;Development;Graphics;
+StartupNotify=true
+StartupWMClass=kant

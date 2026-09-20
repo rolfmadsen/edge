@@ -1,5 +1,5 @@
-use edge::features::concepts::{BelongsToDomain, Concept, ConceptValidator, ValidationError};
-use edge::features::information_model::Multiplicity;
+use kant::features::concepts::{BelongsToDomain, Concept, ConceptValidator, ValidationError};
+use kant::features::information_model::Multiplicity;
 use proptest::prelude::*;
 
 proptest! {

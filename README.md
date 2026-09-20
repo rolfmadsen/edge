@@ -1,10 +1,10 @@
-# Edge
+# Kant
 
 [![GitHub Release](https://img.shields.io/github/v/release/rolfmadsen/edge?color=blue&logo=github)](https://github.com/rolfmadsen/edge/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.80%2B-orange.svg)](https://www.rust-lang.org)
 
-**Edge** er en moderne, lynhurtig skrivebordsapplikation til FDA begrebs- og informationsmodellering bygget i [Rust](https://www.rust-lang.org) med den reaktive GUI-ramme [Iced](https://iced.rs).
+**Kant** er en moderne, lynhurtig skrivebordsapplikation til FDA begrebs- og informationsmodellering bygget i [Rust](https://www.rust-lang.org) med den reaktive GUI-ramme [Iced](https://iced.rs).
 
 Applikationen giver arkitekter og modelleringsfolk et visuelt lærred til opbygning af FDA-kompatible begrebs- og informationsmodeller med automatisk orthogonal relation-routing, live koncept-studio, multivalente egenskaber og robust JSON-persistens.
 
@@ -30,13 +30,13 @@ Installationspakker genereres automatisk ved hver ny version og findes under [Gi
 ### 🐧 Linux (x86_64)
 
 #### Metode A: Debian / Ubuntu / Mint / Pop!_OS (`.deb` — Anbefalet)
-Installerer Edge direkte i dit system og tilføjer programmet til din applikationsmenu med officielt logo:
+Installerer Kant direkte i dit system og tilføjer programmet til din applikationsmenu med officielt logo:
 1. Hent den seneste `.deb`-fil fra [GitHub Releases](https://github.com/rolfmadsen/edge/releases/latest).
 2. Dobbeltklik på den hentede fil for at åbne den i dit Software Center, eller kør i Terminal:
    ```bash
    sudo apt install ./edge_*_amd64.deb
    ```
-3. Start Edge fra dit skrivebords programstarter eller ved blot at skrive `edge` i en terminal.
+3. Start Kant fra dit skrivebords programstarter eller ved blot at skrive `edge` i en terminal.
 
 #### Metode B: Transportabel arkiv (`.tar.gz` — Alle distributioner)
 1. Hent `edge-linux-x86_64.tar.gz`.
@@ -47,7 +47,7 @@ Installerer Edge direkte i dit system og tilføjer programmet til din applikatio
    ./edge
    ```
 3. **Systemafhængigheder:**
-   Edge benytter Vulkan/OpenGL via `wgpu`. De fleste moderne desktop-distributioner har disse forudinstalleret. Ved en minimal installation:
+   Kant benytter Vulkan/OpenGL via `wgpu`. De fleste moderne desktop-distributioner har disse forudinstalleret. Ved en minimal installation:
    - **Ubuntu/Debian:** `sudo apt update && sudo apt install -y libwayland-client0 libx11-6 libxkbcommon0 libvulkan1`
    - **Fedora:** `sudo dnf install wayland-libs libX11 libxkbcommon vulkan-loader`
 
@@ -62,7 +62,7 @@ Installerer Edge direkte i dit system og tilføjer programmet til din applikatio
    ```
 3. **Placering:** Flyt den udpakkede `edge`-binær til din foretrukne mappe (f.eks. programmer eller `~/bin`).
 4. **Gatekeeper (Vigtigt ved første kørsel):**
-   Da Edge er et open source-projekt uden betalt Apple Developer-certifikat, vil macOS Gatekeeper advare om, at programmet kommer fra en uidentificeret udvikler.
+   Da Kant er et open source-projekt uden betalt Apple Developer-certifikat, vil macOS Gatekeeper advare om, at programmet kommer fra en uidentificeret udvikler.
    - **Nemmeste løsning:** Højreklik på `edge`-filen i Finder, vælg **Åbn**, og klik derefter på **Åbn** i advarselsdialogen.
    - **Alternativt via Terminal:** Fjern karantæne-flaget:
      ```bash
@@ -86,7 +86,7 @@ Installerer Edge direkte i dit system og tilføjer programmet til din applikatio
 
 ## 🛠️ Byg fra kildekode (For udviklere)
 
-Hvis du ønsker at bidrage til Edge eller bygge fra kildekoden, kræver det en fungerende Rust-installation.
+Hvis du ønsker at bidrage til Kant eller bygge fra kildekoden, kræver det en fungerende Rust-installation.
 
 ### 1. Forudsætninger
 - **Rust:** Installér via [rustup.rs](https://rustup.rs/) (Rust 1.80 eller nyere).

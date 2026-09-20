@@ -1,10 +1,10 @@
-use edge::features::concept_model::{ConceptGraph, RelationKind};
-use edge::features::concepts::{BelongsToDomain, Concept, ConceptValidator};
-use edge::features::information_model::{
+use kant::features::concept_model::{ConceptGraph, RelationKind};
+use kant::features::concepts::{BelongsToDomain, Concept, ConceptValidator};
+use kant::features::information_model::{
     Attribute, InformationClass, InformationModel, Multiplicity, PrimitiveType,
 };
-use edge::features::model::{ModelMetadata, ModelProject, ModelStatus};
-use edge::ui::app::{App, ConceptOption, Message, Tab};
+use kant::features::model::{ModelMetadata, ModelProject, ModelStatus};
+use kant::ui::app::{App, ConceptOption, Message, Tab};
 
 #[test]
 fn test_fda_project_initialization_and_metadata() {
@@ -149,7 +149,7 @@ fn test_fda_project_concept_crud() {
 
 #[test]
 fn test_concept_list_ui_crud_cycle() {
-    use edge::ui::app::ConceptFormField;
+    use kant::ui::app::ConceptFormField;
 
     let mut app = App::new_with_path(None);
     let _ = app.update(Message::SelectTab(Tab::ConceptList));
@@ -248,7 +248,7 @@ fn test_keyboard_navigation_and_shortcuts() {
 
     // Escape lukker også fildialog
     let _ = app.update(Message::OpenInlineFileDialog(
-        edge::ui::app::FileDialogMode::Open,
+        kant::ui::app::FileDialogMode::Open,
     ));
     assert!(app.is_file_dialog_open());
     let _ = app.update(Message::EscapePressed);
@@ -257,8 +257,8 @@ fn test_keyboard_navigation_and_shortcuts() {
 
 #[test]
 fn test_new_project_does_not_overwrite_disk_file() {
-    use edge::features::model::storage::ProjectStorage;
-    use edge::ui::app::ConceptFormField;
+    use kant::features::model::storage::ProjectStorage;
+    use kant::ui::app::ConceptFormField;
 
     let temp_dir = std::env::temp_dir();
     let file_path = temp_dir.join(format!(
@@ -307,7 +307,7 @@ fn test_new_project_does_not_overwrite_disk_file() {
 
 #[test]
 fn test_project_storage_roundtrip_and_atomic_save() {
-    use edge::features::model::storage::ProjectStorage;
+    use kant::features::model::storage::ProjectStorage;
 
     let temp_dir = std::env::temp_dir();
     let file_path = temp_dir.join(format!(
@@ -343,8 +343,8 @@ fn test_project_storage_roundtrip_and_atomic_save() {
 
 #[test]
 fn test_app_autosave_lifecycle() {
-    use edge::features::model::storage::ProjectStorage;
-    use edge::ui::app::ConceptFormField;
+    use kant::features::model::storage::ProjectStorage;
+    use kant::ui::app::ConceptFormField;
 
     let temp_dir = std::env::temp_dir();
     let file_path = temp_dir.join(format!(
@@ -394,8 +394,8 @@ fn test_app_autosave_lifecycle() {
 
 #[test]
 fn test_concept_graph_lifecycle_and_persistence() {
-    use edge::features::concept_model::RelationKind;
-    use edge::features::model::storage::ProjectStorage;
+    use kant::features::concept_model::RelationKind;
+    use kant::features::model::storage::ProjectStorage;
 
     let temp_dir = std::env::temp_dir();
     let file_path = temp_dir.join(format!(
@@ -504,11 +504,11 @@ fn test_concept_graph_lifecycle_and_persistence() {
 
 #[test]
 fn test_ui_theme_tokens_and_widget_styles() {
-    use edge::ui::theme::{
+    use iced::Theme;
+    use kant::ui::theme::{
         card_container_style, modal_backdrop_style, modal_card_style, modern_input_style,
         pill_container_style, primary_button_style, secondary_button_style, ThemeColors,
     };
-    use iced::Theme;
 
     let theme = Theme::Light;
 
@@ -557,7 +557,7 @@ fn test_app_modal_overlay_rendering() {
 
     // 1. Åbn fildialog og verificer at modal view renderes uden panic
     let _ = app.update(Message::OpenInlineFileDialog(
-        edge::ui::app::FileDialogMode::SaveAs,
+        kant::ui::app::FileDialogMode::SaveAs,
     ));
     assert!(app.is_file_dialog_open());
     let _ = app.view();
@@ -581,9 +581,9 @@ fn test_app_modal_overlay_rendering() {
 
 #[test]
 fn test_canvas_direct_concept_creation_and_node_editing() {
-    use edge::features::concept_model::NodeId;
-    use edge::features::model::storage::ProjectStorage;
-    use edge::ui::app::ConceptFormField;
+    use kant::features::concept_model::NodeId;
+    use kant::features::model::storage::ProjectStorage;
+    use kant::ui::app::ConceptFormField;
 
     let temp_dir = std::env::temp_dir();
     let file_path = temp_dir.join(format!(
@@ -741,10 +741,10 @@ fn test_canvas_direct_concept_creation_and_node_editing() {
 
 #[test]
 fn test_canvas_ergonomics_zoom_pan_grid() {
-    use edge::features::concept_model::{DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, GRID_SIZE};
-    use edge::features::concepts::{BelongsToDomain, Concept};
-    use edge::ui::graph_canvas::CanvasViewport;
     use iced::Point;
+    use kant::features::concept_model::{DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, GRID_SIZE};
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::graph_canvas::CanvasViewport;
 
     // 1. Verificer nodedimensioner og gitter-alignment
     assert_eq!(GRID_SIZE, 20.0, "Gitteret skal være 20px raster");
@@ -860,9 +860,9 @@ fn test_canvas_ergonomics_zoom_pan_grid() {
 
 #[test]
 fn test_orthogonal_edge_routing_and_ports() {
-    use edge::features::concept_model::{DiagramEdge, DiagramNode, RelationKind};
-    use edge::features::concepts::{BelongsToDomain, Concept};
-    use edge::ui::edge_router::{EdgeRouter, PortSide};
+    use kant::features::concept_model::{DiagramEdge, DiagramNode, RelationKind};
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::edge_router::{EdgeRouter, PortSide};
 
     // Opret test-begreber og noder
     let c_super = Concept::new("Superklasse", "Overordnet begreb", BelongsToDomain::Yes);
@@ -1231,10 +1231,7 @@ fn test_information_model_ui_crud_and_concept_linking() {
         .get_class(class_id)
         .unwrap();
     assert_eq!(class.name(), "BorgerKlasse");
-    assert_eq!(
-        class.description(),
-        Some("En klasse for borgere")
-    );
+    assert_eq!(class.description(), Some("En klasse for borgere"));
     assert!(class.concept_ids().contains(&c_id));
 
     // 6. Tilføj attribut
@@ -1413,10 +1410,10 @@ fn test_information_model_uml_canvas_and_studio_layout() {
 
 #[test]
 fn test_task_012_unified_diagram_canvas_and_concept_studio_layout() {
-    use edge::features::concept_model::{DiagramEdge, DiagramNode, RelationKind};
-    use edge::features::concepts::{BelongsToDomain, Concept};
-    use edge::features::information_model::{ClassDiagramEdge, ClassDiagramNode};
-    use edge::ui::diagram_canvas::{CanvasEdge, CanvasNode};
+    use kant::features::concept_model::{DiagramEdge, DiagramNode, RelationKind};
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::information_model::{ClassDiagramEdge, ClassDiagramNode};
+    use kant::ui::diagram_canvas::{CanvasEdge, CanvasNode};
     use uuid::Uuid;
 
     // 1. Verificer abstraktionerne for CanvasNode og CanvasEdge
@@ -1501,10 +1498,10 @@ fn test_task_012_unified_diagram_canvas_and_concept_studio_layout() {
 
 #[test]
 fn test_task_012_grid_resize_and_information_model_relations_inspector() {
-    use edge::features::concept_model::RelationKind;
-    use edge::features::information_model::InformationClass;
-    use edge::ui::diagram_canvas::CanvasViewport;
     use iced::{Point, Rectangle, Size};
+    use kant::features::concept_model::RelationKind;
+    use kant::features::information_model::InformationClass;
+    use kant::ui::diagram_canvas::CanvasViewport;
 
     // 1. Verificer at grid beregning dækker vilkårlige vinduesstørrelser uden fordoblet transformation
     let vp = CanvasViewport::new(iced::Vector::new(15.0, 25.0), 1.0);
@@ -1573,8 +1570,8 @@ fn test_task_012_grid_resize_and_information_model_relations_inspector() {
 
 #[test]
 fn test_class_node_height_grows_in_grid_size_increments_and_aligns_with_grid() {
-    use edge::features::concept_model::GRID_SIZE;
-    use edge::features::information_model::InformationClass;
+    use kant::features::concept_model::GRID_SIZE;
+    use kant::features::information_model::InformationClass;
 
     let mut app = App::new_with_path(None);
     let _ = app.update(Message::SelectTab(Tab::InformationModel));
@@ -1891,9 +1888,9 @@ fn test_information_model_interactive_edges_drag_to_connect_and_inspector_crud()
 
 #[test]
 fn test_composition_edge_has_diamond_at_source_node() {
-    use edge::features::concept_model::{DiagramEdge, DiagramNode, RelationKind};
-    use edge::features::concepts::{BelongsToDomain, Concept};
-    use edge::ui::edge_router::{EdgeRouter, PortSide};
+    use kant::features::concept_model::{DiagramEdge, DiagramNode, RelationKind};
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::edge_router::{EdgeRouter, PortSide};
 
     let c_whole = Concept::new("Bil", "Et motorkøretøj", BelongsToDomain::Yes);
     let c_part = Concept::new("Motor", "En fremdriftsmaskine", BelongsToDomain::Yes);
@@ -1930,9 +1927,9 @@ fn test_composition_edge_has_diamond_at_source_node() {
 
 #[test]
 fn test_edges_do_not_cross_unnecessarily_when_sorted_vertically() {
-    use edge::features::concept_model::{DiagramEdge, DiagramNode, RelationKind};
-    use edge::features::concepts::{BelongsToDomain, Concept};
-    use edge::ui::edge_router::EdgeRouter;
+    use kant::features::concept_model::{DiagramEdge, DiagramNode, RelationKind};
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::edge_router::EdgeRouter;
 
     let c_person = Concept::new("Person", "En person", BelongsToDomain::Yes);
     let c_cpr = Concept::new("CprPerson", "CPR person", BelongsToDomain::Yes);
@@ -1975,9 +1972,9 @@ fn test_edges_do_not_cross_unnecessarily_when_sorted_vertically() {
 
 #[test]
 fn test_stateful_edge_port_hysteresis_and_persistence() {
-    use edge::features::concept_model::{DiagramEdge, DiagramNode, PortSide, RelationKind};
-    use edge::features::concepts::{BelongsToDomain, Concept};
-    use edge::ui::edge_router::EdgeRouter;
+    use kant::features::concept_model::{DiagramEdge, DiagramNode, PortSide, RelationKind};
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::edge_router::EdgeRouter;
 
     let c_person = Concept::new("Person", "En person", BelongsToDomain::Yes);
     let c_test = Concept::new("TestKlasse", "En testklasse", BelongsToDomain::Yes);
@@ -2067,11 +2064,11 @@ fn test_stateful_edge_port_hysteresis_and_persistence() {
 
 #[test]
 fn test_directed_association_half_arrow_and_reversal() {
-    use edge::features::concept_model::{DiagramEdge, DiagramNode, PortSide, RelationKind};
-    use edge::features::concepts::{BelongsToDomain, Concept};
-    use edge::features::information_model::ClassGraph;
-    use edge::ui::edge_router::EdgeRouter;
     use iced::Point;
+    use kant::features::concept_model::{DiagramEdge, DiagramNode, PortSide, RelationKind};
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::information_model::ClassGraph;
+    use kant::ui::edge_router::EdgeRouter;
 
     let c_a = Concept::new("KlasseA", "A", BelongsToDomain::Yes);
     let c_b = Concept::new("KlasseB", "B", BelongsToDomain::Yes);
@@ -2151,7 +2148,7 @@ fn test_directed_association_half_arrow_and_reversal() {
     assert_eq!(rev_edge.label(), Some("forbinder"));
 
     // 4. ConceptGraph reversal og retning
-    use edge::features::concept_model::ConceptGraph;
+    use kant::features::concept_model::ConceptGraph;
     let mut cgraph = ConceptGraph::new();
     let cn1 = cgraph.add_node(&c_a);
     let cn2 = cgraph.add_node(&c_b);
@@ -2167,7 +2164,7 @@ fn test_directed_association_half_arrow_and_reversal() {
     assert!(cgraph.find_edge(cn2, cn1).is_some());
 
     // 5. App Message håndtering
-    use edge::ui::app::{App, Message};
+    use kant::ui::app::{App, Message};
     let mut app = App::new_with_path(None);
     let app_n1 = app.project_mut().concept_graph_mut().add_node(&c_a);
     let app_n2 = app.project_mut().concept_graph_mut().add_node(&c_b);
@@ -2192,7 +2189,7 @@ fn test_directed_association_half_arrow_and_reversal() {
         .is_some());
 
     // 6. Informationsmodel Message håndtering
-    use edge::features::information_model::InformationClass;
+    use kant::features::information_model::InformationClass;
     let cl_a = app
         .project_mut()
         .information_model_mut()
@@ -2270,28 +2267,28 @@ fn test_task_017_model_metadata_modal_and_3phase_tabs() {
 
     // 3. Opdater metadatafelter i modalen
     let _ = app.update(Message::UpdateMetadataField(
-        edge::ui::app::MetadataField::Name,
+        kant::ui::app::MetadataField::Name,
         "Danmarks Grunddatamodel".to_string(),
     ));
     let _ = app.update(Message::UpdateMetadataField(
-        edge::ui::app::MetadataField::Description,
+        kant::ui::app::MetadataField::Description,
         "Fællesoffentlig referencemodel".to_string(),
     ));
     let _ = app.update(Message::UpdateMetadataStatus(ModelStatus::Approved));
     let _ = app.update(Message::UpdateMetadataField(
-        edge::ui::app::MetadataField::DomainArea,
+        kant::ui::app::MetadataField::DomainArea,
         "Tværoffentlig Grunddata".to_string(),
     ));
     let _ = app.update(Message::UpdateMetadataField(
-        edge::ui::app::MetadataField::ResponsibleOrg,
+        kant::ui::app::MetadataField::ResponsibleOrg,
         "Digitaliseringsstyrelsen".to_string(),
     ));
     let _ = app.update(Message::UpdateMetadataField(
-        edge::ui::app::MetadataField::Uri,
+        kant::ui::app::MetadataField::Uri,
         "https://data.gov.dk/model/core/grunddata".to_string(),
     ));
     let _ = app.update(Message::UpdateMetadataField(
-        edge::ui::app::MetadataField::Version,
+        kant::ui::app::MetadataField::Version,
         "2.1.0".to_string(),
     ));
 
@@ -2310,13 +2307,13 @@ fn test_task_017_model_metadata_modal_and_3phase_tabs() {
     assert_eq!(meta.responsible_org(), "Digitaliseringsstyrelsen");
     assert_eq!(meta.uri(), "https://data.gov.dk/model/core/grunddata");
     assert_eq!(meta.version(), "2.1.0");
-    assert_eq!(app.save_status(), &edge::ui::app::SaveStatus::Unsaved);
+    assert_eq!(app.save_status(), &kant::ui::app::SaveStatus::Unsaved);
 
     // 5. Test annullering via Escape / Close
     let _ = app.update(Message::OpenMetadataModal);
     assert!(app.metadata_modal().is_some());
     let _ = app.update(Message::UpdateMetadataField(
-        edge::ui::app::MetadataField::Name,
+        kant::ui::app::MetadataField::Name,
         "Uønsket ændring".to_string(),
     ));
     let _ = app.update(Message::EscapePressed);
@@ -2354,7 +2351,7 @@ fn test_metadata_modal_default_placeholders_allow_direct_typing() {
 fn test_task018_footer_timestamp_and_model_rules_link() {
     // 1. Nyt projekt starter som Unsaved med "Nyt projekt" tekst
     let mut app = App::new_with_path(None);
-    assert_eq!(app.save_status(), &edge::ui::app::SaveStatus::Unsaved);
+    assert_eq!(app.save_status(), &kant::ui::app::SaveStatus::Unsaved);
     assert!(app.footer_status_text().contains("⚠️ Nyt projekt"));
 
     // 2. Åbning af modelregler via Message::OpenModelRules
@@ -2367,7 +2364,7 @@ fn test_task018_footer_timestamp_and_model_rules_link() {
     let _ = app.update(Message::SaveProjectToFile(file_path.clone()));
 
     match app.save_status() {
-        edge::ui::app::SaveStatus::Saved { path, timestamp } => {
+        kant::ui::app::SaveStatus::Saved { path, timestamp } => {
             assert_eq!(path, &file_path.display().to_string());
             assert_eq!(timestamp.len(), 8); // "HH:MM:SS"
             let parts: Vec<&str> = timestamp.split(':').collect();
@@ -2390,12 +2387,12 @@ fn test_task018_footer_timestamp_and_model_rules_link() {
     // 5. Ændringer efter gemning viser '⚠️ Ikke gemte ændringer'
     let _ = app.update(Message::OpenMetadataModal);
     let _ = app.update(Message::UpdateMetadataField(
-        edge::ui::app::MetadataField::Name,
+        kant::ui::app::MetadataField::Name,
         "Opdateret navn".to_string(),
     ));
     let _ = app.update(Message::SaveMetadataModal);
 
-    assert_eq!(app.save_status(), &edge::ui::app::SaveStatus::Unsaved);
+    assert_eq!(app.save_status(), &kant::ui::app::SaveStatus::Unsaved);
     assert_eq!(app.footer_status_text(), "⚠️ Ikke gemte ændringer");
 
     let _ = std::fs::remove_file(&file_path);
@@ -2471,7 +2468,7 @@ fn test_task019_palette_header_actions_and_search_affinity() {
 
 #[test]
 fn test_task020_harmonized_inspector_and_guidance_panels() {
-    use edge::ui::inspector_panel::{GUIDANCE_TITLE, PROPERTIES_TITLE};
+    use kant::ui::inspector_panel::{GUIDANCE_TITLE, PROPERTIES_TITLE};
 
     assert_eq!(PROPERTIES_TITLE, "Egenskaber");
     assert_eq!(GUIDANCE_TITLE, "Vejledning");
@@ -2725,8 +2722,8 @@ fn test_attribute_lineage() {
 
 #[test]
 fn test_task022_information_model_association_multiplicities() {
-    use edge::features::information_model::ClassDiagramEdge;
-    use edge::ui::diagram_canvas::CanvasEdge;
+    use kant::features::information_model::ClassDiagramEdge;
+    use kant::ui::diagram_canvas::CanvasEdge;
 
     let temp_dir = std::env::temp_dir();
     let file_path = temp_dir.join(format!(
@@ -2827,12 +2824,12 @@ fn test_task022_information_model_association_multiplicities() {
     // 3. Test oprettelsesdialogen for relationer med multipliciteter
     let _ = app.update(Message::OpenInfoRelationDialog);
     let _ = app.update(Message::InfoRelationFromChanged(
-        edge::ui::app::NodeOption {
+        kant::ui::app::NodeOption {
             id: node_kunde_id,
             label: "Kunde".to_string(),
         },
     ));
-    let _ = app.update(Message::InfoRelationToChanged(edge::ui::app::NodeOption {
+    let _ = app.update(Message::InfoRelationToChanged(kant::ui::app::NodeOption {
         id: node_ordre_id,
         label: "Ordre".to_string(),
     }));
@@ -2973,13 +2970,13 @@ fn test_class_diagram_edge() {
 
 #[test]
 fn test_task023_canvas_floating_controls_and_minimap() {
-    use edge::features::concept_model::{DiagramEdge, DiagramNode};
-    use edge::ui::diagram_canvas::{
-        render_concept_node, CanvasViewport, DiagramCanvas, DiagramCanvasState,
-    };
     use iced::mouse::{self, Cursor};
     use iced::widget::canvas::{Event, Program};
     use iced::{Point, Rectangle, Size};
+    use kant::features::concept_model::{DiagramEdge, DiagramNode};
+    use kant::ui::diagram_canvas::{
+        render_concept_node, CanvasViewport, DiagramCanvas, DiagramCanvasState,
+    };
     use std::sync::Arc;
     use uuid::Uuid;
 
@@ -3237,7 +3234,7 @@ fn test_task023_canvas_floating_controls_and_minimap() {
 
 #[test]
 fn test_task024_desktop_menu_bar_and_sidebar_toggle() {
-    use edge::ui::app::MenuType;
+    use kant::ui::app::MenuType;
 
     let mut app = App::new_with_path(None);
 
@@ -3311,13 +3308,13 @@ fn test_task024_desktop_menu_bar_and_sidebar_toggle() {
 
 #[tokio::test]
 async fn test_task_026_e2ee_crypto_and_network_channel() {
-    use edge::features::collab::crypto::{
+    use kant::features::collab::crypto::{
         decrypt, encrypt, CollabKey, CryptoError, RoomId, SessionTicket,
     };
-    use edge::features::collab::network::{
+    use kant::features::collab::network::{
         build_relay_ws_url, CollabChannel, CollabNetworkEvent, ConnectionStatus,
     };
-    use edge_relay::{create_app, AppState, RelayConfig};
+    use kant_relay::{create_app, AppState, RelayConfig};
     use std::time::Duration;
     use tokio::net::TcpListener;
 
@@ -3345,16 +3342,22 @@ async fn test_task_026_e2ee_crypto_and_network_channel() {
 
     // 3. Sessionsbillet (Token) serialisering og parsing
     let ticket = SessionTicket::new(
-        "https://relay.edge.internal",
+        "https://relay.kant.internal",
         room_id.clone(),
         host_key.clone(),
     );
     let ticket_str = ticket.to_ticket_string();
-    assert!(ticket_str.starts_with("edge:v1:"));
+    assert!(ticket_str.starts_with("kant:v1:"));
 
     let parsed_ticket =
         SessionTicket::from_ticket_string(&ticket_str).expect("Billet skal parses uden fejl");
     assert_eq!(ticket, parsed_ticket);
+
+    // Verificer bagudkompatibilitet for ældre edge:v1: billetter
+    let legacy_ticket_str = ticket_str.replacen("kant:v1:", "edge:v1:", 1);
+    let parsed_legacy = SessionTicket::from_ticket_string(&legacy_ticket_str)
+        .expect("Ældre edge:v1: billet skal parses fejlfrit");
+    assert_eq!(ticket, parsed_legacy);
 
     // 4. ChaCha20-Poly1305 kryptering og dekryptering af model-data
     let model_data = br#"{"name":"FDA Grunddata Model","version":"1.0.0"}"#;
@@ -3453,13 +3456,13 @@ async fn test_task_026_e2ee_crypto_and_network_channel() {
 
 #[test]
 fn test_mutation_bridge() {
-    use edge::features::collab::crypto::{decrypt, encrypt, CollabKey};
-    use edge::features::collab::protocol::{CollabPayload, ModelMutation, Relation};
-    use edge::features::concept_model::RelationKind;
-    use edge::features::concepts::{BelongsToDomain, Concept};
-    use edge::features::information_model::InformationClass;
-    use edge::features::model::{ModelMetadata, ModelProject, ModelStatus};
-    use edge::ui::app::{App, Message};
+    use kant::features::collab::crypto::{decrypt, encrypt, CollabKey};
+    use kant::features::collab::protocol::{CollabPayload, ModelMutation, Relation};
+    use kant::features::concept_model::RelationKind;
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::information_model::InformationClass;
+    use kant::features::model::{ModelMetadata, ModelProject, ModelStatus};
+    use kant::ui::app::{App, Message};
 
     // 1. Serde Roundtrip for CollabPayload and ModelMutation variants
     let concept = Concept::new(
@@ -3626,9 +3629,9 @@ fn test_mutation_bridge() {
 
 #[test]
 fn test_guest_autosave_suppressed() {
-    use edge::features::collab::protocol::ModelMutation;
-    use edge::features::concepts::{BelongsToDomain, Concept};
-    use edge::ui::app::{App, CollabState, Message};
+    use kant::features::collab::protocol::ModelMutation;
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::app::{App, CollabState, Message};
 
     // 1. Initialiser midlertidig diskfil
     let temp_dir = std::env::temp_dir();
@@ -3695,8 +3698,8 @@ fn test_guest_autosave_suppressed() {
 
 #[test]
 fn test_task028_collab_ui_modals_and_presence() {
-    use edge::features::collab::crypto::{CollabKey, RoomId, SessionTicket};
-    use edge::ui::app::{App, CollabState, MenuType, Message, RelayServerPreset};
+    use kant::features::collab::crypto::{CollabKey, RoomId, SessionTicket};
+    use kant::ui::app::{App, CollabState, MenuType, Message, RelayServerPreset};
 
     let mut app = App::new_with_path(None);
 
@@ -3716,11 +3719,11 @@ fn test_task028_collab_ui_modals_and_presence() {
 
     // Standard preset skal være Koyeb Cloud Frankfurt
     assert_eq!(start_modal.preset, RelayServerPreset::Koyeb);
-    assert_eq!(start_modal.current_url(), "wss://edge-relay.koyeb.app/ws");
+    assert_eq!(start_modal.current_url(), "wss://kant-relay.koyeb.app/ws");
     let token = start_modal.ticket.to_token();
     assert!(
-        token.starts_with("edge:v1:"),
-        "Sessionsbillet skal have det standardiserede edge:v1: præfiks"
+        token.starts_with("kant:v1:"),
+        "Sessionsbillet skal have det standardiserede kant:v1: præfiks"
     );
 
     // Skift til Lokal Docker preset
@@ -3815,7 +3818,7 @@ fn test_task028_collab_ui_modals_and_presence() {
         "Gæstedialog skal lukkes ved tilslutning"
     );
     assert_eq!(app.collab_state(), CollabState::Guest);
-    app.set_collab_connection_status(edge::features::collab::ConnectionStatus::Connected);
+    app.set_collab_connection_status(kant::features::collab::ConnectionStatus::Connected);
     assert_eq!(
         app.collab_status_summary(),
         "Live: Gæst (Forbundet til Vært)"
@@ -3854,18 +3857,18 @@ fn test_task028_collab_ui_modals_and_presence() {
 
     // Verificer rendering under aktiv session
     app.set_collab_state(CollabState::Host);
-    app.set_collab_connection_status(edge::features::collab::ConnectionStatus::Connected);
+    app.set_collab_connection_status(kant::features::collab::ConnectionStatus::Connected);
     let _ = app.view();
     app.set_collab_state(CollabState::None);
 }
 
 #[tokio::test]
 async fn test_task029_e2e_collab_sync_and_presence() {
-    use edge::features::collab::network::next_registered_collab_event;
-    use edge::features::collab::protocol::ModelMutation;
-    use edge::features::concepts::{BelongsToDomain, Concept};
-    use edge::ui::app::{App, CollabState, Message, RelayServerPreset};
-    use edge_relay::{create_app, AppState, RelayConfig};
+    use kant::features::collab::network::next_registered_collab_event;
+    use kant::features::collab::protocol::ModelMutation;
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::app::{App, CollabState, Message, RelayServerPreset};
+    use kant_relay::{create_app, AppState, RelayConfig};
     use std::time::Duration;
     use tokio::net::TcpListener;
 
@@ -4164,7 +4167,7 @@ fn test_task_030_canvas_ergonomics_and_edge_geometry() {
 
     // AC4: Rute knæk-symmetri:
     // To noder placeret under en forældre-node skal have identisk mid_y knækhøjde uanset om relationen er Generalisering eller Komposition
-    use edge::features::concept_model::{DiagramEdge, DiagramNode};
+    use kant::features::concept_model::{DiagramEdge, DiagramNode};
     let parent = DiagramNode::new(&c1, 300.0, 50.0);
     let child_gen = DiagramNode::new(
         &Concept::new("SubGen", "def", BelongsToDomain::Yes),
@@ -4181,7 +4184,7 @@ fn test_task_030_canvas_ergonomics_and_edge_geometry() {
 
     let test_nodes = vec![parent.clone(), child_gen.clone(), child_comp.clone()];
     let test_edges = vec![edge_g, edge_c];
-    let routed = edge::ui::edge_router::EdgeRouter::route_edges(&test_nodes, &test_edges);
+    let routed = kant::ui::edge_router::EdgeRouter::route_edges(&test_nodes, &test_edges);
     assert_eq!(routed.len(), 2);
     let route_gen = routed
         .iter()
@@ -4202,9 +4205,9 @@ fn test_task_030_canvas_ergonomics_and_edge_geometry() {
 
 #[test]
 fn test_task_031_fda_information_class_properties_and_rendering() {
-    use edge::features::concepts::{BelongsToDomain, Concept};
-    use edge::features::information_model::InformationClass;
-    use edge::ui::app::{App, Message};
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::information_model::InformationClass;
+    use kant::ui::app::{App, Message};
 
     // 1. AC1: Standard initialisering af InformationClass
     let mut class = InformationClass::new("Køretøj");
@@ -4294,8 +4297,8 @@ fn test_task_031_fda_information_class_properties_and_rendering() {
 
 #[test]
 fn test_task033_rebranding_application_to_kant_defaults_and_compatibility() {
-    use edge::features::model::storage::ProjectStorage;
-    use edge::ui::file_dialog::scan_local_project_files;
+    use kant::features::model::storage::ProjectStorage;
+    use kant::ui::file_dialog::scan_local_project_files;
     use std::path::PathBuf;
 
     // 1. Standard filsti skal være model.kant.json
@@ -4318,9 +4321,41 @@ fn test_task033_rebranding_application_to_kant_defaults_and_compatibility() {
 
     let scanned = scan_local_project_files(&temp_dir);
     assert!(scanned.contains(&kant_file), "Skal finde .kant.json");
-    assert!(scanned.contains(&edge_file), "Skal finde ældre .edge.json for bagudkompatibilitet");
-    assert!(!scanned.contains(&other_file), "Skal ignorere irrelevante filer");
+    assert!(
+        scanned.contains(&edge_file),
+        "Skal finde ældre .edge.json for bagudkompatibilitet"
+    );
+    assert!(
+        !scanned.contains(&other_file),
+        "Skal ignorere irrelevante filer"
+    );
 
     let _ = std::fs::remove_dir_all(&temp_dir);
-}
 
+    // 3. Kollaborering: sessionsbillet har præfiks kant:v1: og accepterer edge:v1:
+    use kant::features::collab::crypto::{CollabKey, RoomId, SessionTicket};
+    let ticket = SessionTicket::new(
+        "wss://kant-relay.koyeb.app/ws",
+        RoomId::new("RUM-1"),
+        CollabKey::generate(),
+    );
+    let token = ticket.to_token();
+    assert!(
+        token.starts_with("kant:v1:"),
+        "Billet skal starte med kant:v1:"
+    );
+    let parsed = SessionTicket::from_token(&token).expect("Billet skal deserialiseres");
+    assert_eq!(ticket, parsed);
+
+    let legacy_token = token.replacen("kant:v1:", "edge:v1:", 1);
+    let legacy_parsed =
+        SessionTicket::from_token(&legacy_token).expect("Legacy edge:v1: skal deserialiseres");
+    assert_eq!(ticket, legacy_parsed);
+
+    // 4. RelayPreset standard URL skal pege på kant-relay
+    use kant::ui::app::RelayServerPreset;
+    assert_eq!(
+        RelayServerPreset::Koyeb.default_url(),
+        "wss://kant-relay.koyeb.app/ws"
+    );
+}

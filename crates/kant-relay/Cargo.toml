@@ -1,10 +1,10 @@
 [package]
-name = "edge-relay"
+name = "kant-relay"
 version = "0.1.0"
 edition = "2021"
 authors = ["Rolf Madsen"]
 license = "MIT"
-description = "Ultralet, in-memory, blind Axum WebSocket pub/sub relay for Edge E2EE kollaborering"
+description = "Ultralet, in-memory, blind Axum WebSocket pub/sub relay for Kant E2EE kollaborering"
 
 [dependencies]
 axum = { version = "0.8", features = ["ws"] }

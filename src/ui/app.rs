@@ -192,7 +192,7 @@ impl RelayServerPreset {
 
     pub fn default_url(&self) -> &'static str {
         match self {
-            Self::Koyeb => "wss://edge-relay.koyeb.app/ws",
+            Self::Koyeb => "wss://kant-relay.koyeb.app/ws",
             Self::InternalOrg => "wss://collab.intern.org/ws",
             Self::LocalDocker => "ws://localhost:8080/ws",
             Self::Custom => "",
@@ -1581,7 +1581,7 @@ impl App {
                     .as_ref()
                     .and_then(|p| p.file_name())
                     .and_then(|f| f.to_str())
-                    .unwrap_or("model.edge.json")
+                    .unwrap_or("model.kant.json")
                     .to_string();
 
                 return Task::perform(
@@ -1604,7 +1604,7 @@ impl App {
                     .current_file_path
                     .as_ref()
                     .map(|p| p.display().to_string())
-                    .unwrap_or_else(|| "model.edge.json".to_string());
+                    .unwrap_or_else(|| "model.kant.json".to_string());
             }
             Message::CloseFileDialog => {
                 self.file_dialog_mode = None;
@@ -2783,7 +2783,7 @@ impl App {
         let brand_section = row![
             sidebar_toggle_btn,
             Space::new().width(10),
-            text("Edge").size(18).color(ThemeColors::PRIMARY),
+            text("Kant").size(18).color(ThemeColors::PRIMARY),
             Space::new().width(4),
             container(text("FDA v2.1").size(10).color(ThemeColors::PRIMARY))
                 .style(|_theme: &iced::Theme| container::Style {
@@ -3266,7 +3266,7 @@ impl App {
                         .into()
                     } else {
                         container(
-                            text("Format: edge:v1:<base64-payload>")
+                            text("Format: kant:v1:<base64-payload>")
                                 .size(11)
                                 .color(ThemeColors::TEXT_MUTED),
                         )
@@ -3279,7 +3279,7 @@ impl App {
                         .size(12)
                         .color(ThemeColors::SLATE_700),
                     text_input(
-                        "Indsæt sessionskode her (f.eks. edge:v1:...)",
+                        "Indsæt sessionskode her (f.eks. kant:v1:...)",
                         &modal_state.token_input
                     )
                     .style(modern_input_style)
@@ -3404,7 +3404,7 @@ impl App {
                     .color(ThemeColors::TEXT_MUTED),
                 row![
                     text_input(
-                        "Filsti (f.eks. model.edge.json)...",
+                        "Filsti (f.eks. model.kant.json)...",
                         &self.file_dialog_input
                     )
                     .style(modern_input_style)
@@ -3439,7 +3439,7 @@ impl App {
                         let name = f
                             .file_name()
                             .and_then(|n| n.to_str())
-                            .unwrap_or("model.edge.json")
+                            .unwrap_or("model.kant.json")
                             .to_string();
                         chip_row = chip_row.push(
                             button(text(format!("📄 {}", name)).size(11))

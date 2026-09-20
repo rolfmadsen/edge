@@ -1,5 +1,5 @@
-use edge_relay::{create_app, AppState, RelayConfig};
 use futures_util::{SinkExt, StreamExt};
+use kant_relay::{create_app, AppState, RelayConfig};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;

@@ -21,7 +21,7 @@ pub struct ProjectStorage;
 
 impl ProjectStorage {
     pub fn default_project_path() -> PathBuf {
-        PathBuf::from("model.edge.json")
+        PathBuf::from("model.kant.json")
     }
 
     /// Gemmer et FDA modelprojekt deterministisk og atomisk til disk.
