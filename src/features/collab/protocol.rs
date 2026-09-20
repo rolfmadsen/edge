@@ -75,3 +75,50 @@ pub enum CollabPayload {
     /// Inkrementel mutation under aktiv redigering.
     Mutation(ModelMutation),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::features::concepts::BelongsToDomain;
+
+    #[test]
+    fn test_relation_constructors() {
+        let from = Uuid::new_v4();
+        let to = Uuid::new_v4();
+        let rel = Relation::new(from, to, RelationKind::Generalization);
+        assert_eq!(rel.from, from);
+        assert_eq!(rel.to, to);
+        assert_eq!(rel.kind, RelationKind::Generalization);
+        assert_eq!(rel.label, None);
+
+        let labeled = Relation::with_label(
+            from,
+            to,
+            RelationKind::Association,
+            Some("forbinder".to_string()),
+        );
+        assert_eq!(labeled.label, Some("forbinder".to_string()));
+
+        let fixed_id = Uuid::new_v4();
+        let with_id = Relation::with_id(
+            fixed_id,
+            from,
+            to,
+            RelationKind::Composition,
+            Some("indeholder".to_string()),
+        );
+        assert_eq!(with_id.id, fixed_id);
+    }
+
+    #[test]
+    fn test_payload_roundtrip_json() {
+        let concept = Concept::new("Vej", "Færdselsareal", BelongsToDomain::Yes);
+        let mutation = ModelMutation::ConceptAdded(concept);
+        let payload = CollabPayload::Mutation(mutation);
+
+        let serialized = serde_json::to_string(&payload).expect("Serialization fejlede");
+        let deserialized: CollabPayload =
+            serde_json::from_str(&serialized).expect("Deserialization fejlede");
+        assert_eq!(payload, deserialized);
+    }
+}
