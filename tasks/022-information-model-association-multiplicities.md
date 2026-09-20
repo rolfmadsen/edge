@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 022: Informationsmodel: Multipliciteter på UML Associationer"
 description: "Implementering af kilde- og mål-multipliciteter på relationer i informationsmodellen jf. FDA Modelreglerne v2.1 §6"
-status: pending
+status: active
 generated: { by: process:antigravity-task-init, at: "2026-09-20T09:55:00Z" }
 tags: [domain, ui, information-model, uml, associations, multiplicity, fda-modelregler]
 ---
 
 # Task 022: Informationsmodel: Multipliciteter på UML Associationer
 
-**Status**: `PENDING`
+**Status**: `ACTIVE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-20`
 
