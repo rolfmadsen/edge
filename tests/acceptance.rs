@@ -3444,3 +3444,243 @@ async fn test_task_026_e2ee_crypto_and_network_channel() {
     host_channel.disconnect();
     guest_channel.disconnect();
 }
+
+#[test]
+fn test_mutation_bridge() {
+    use edge::features::collab::crypto::{decrypt, encrypt, CollabKey};
+    use edge::features::collab::protocol::{CollabPayload, ModelMutation, Relation};
+    use edge::features::concept_model::RelationKind;
+    use edge::features::concepts::{BelongsToDomain, Concept};
+    use edge::features::information_model::InformationClass;
+    use edge::features::model::{ModelMetadata, ModelProject, ModelStatus};
+    use edge::ui::app::{App, Message};
+
+    // 1. Serde Roundtrip for CollabPayload and ModelMutation variants
+    let concept = Concept::new(
+        "Vejkøretøj",
+        "Køretøj indrettet til færdsel på vej",
+        BelongsToDomain::Yes,
+    );
+    let concept_id = concept.id();
+    let mut updated_concept = concept.clone();
+    updated_concept.set_accepted_term(Some("Automobil".to_string()));
+
+    let class = InformationClass::new("Køretøj");
+    let class_id = class.id();
+    let mut updated_class = class.clone();
+    updated_class.set_description(Some("Opdateret beskrivelse af køretøj".to_string()));
+
+    let rel = Relation::with_label(
+        concept_id,
+        uuid::Uuid::new_v4(),
+        RelationKind::Association,
+        Some("kører på".to_string()),
+    );
+    let rel_id = rel.id;
+
+    let mutations = vec![
+        ModelMutation::ConceptAdded(concept.clone()),
+        ModelMutation::ConceptUpdated(updated_concept.clone()),
+        ModelMutation::ConceptDeleted(concept_id),
+        ModelMutation::InformationClassAdded(class.clone()),
+        ModelMutation::InformationClassUpdated(updated_class.clone()),
+        ModelMutation::InformationClassDeleted(class_id),
+        ModelMutation::RelationAdded(rel.clone()),
+        ModelMutation::RelationDeleted(rel_id),
+        ModelMutation::NodeMoved {
+            id: concept_id,
+            x: 250.0,
+            y: 350.0,
+        },
+    ];
+
+    for mutation in &mutations {
+        let payload = CollabPayload::Mutation(mutation.clone());
+        let json = serde_json::to_string(&payload).expect("Mutation serialization fejlede");
+        let deserialized: CollabPayload =
+            serde_json::from_str(&json).expect("Mutation deserialization fejlede");
+        assert_eq!(payload, deserialized);
+    }
+
+    // 2. Snapshot Payload roundtrip
+    let test_proj = ModelProject::new(ModelMetadata::new(
+        "Kollaborativ Testmodel",
+        "Testbeskrivelse",
+        "https://data.gov.dk/model/test",
+        "Digitaliseringsstyrelsen",
+        "Testdomæne",
+        "1.0.0",
+        ModelStatus::Draft,
+    ));
+    let snap_payload = CollabPayload::Snapshot(test_proj.clone());
+    let snap_json = serde_json::to_string(&snap_payload).expect("Snapshot serialization fejlede");
+    let snap_deserialized: CollabPayload =
+        serde_json::from_str(&snap_json).expect("Snapshot deserialization fejlede");
+    assert_eq!(snap_payload, snap_deserialized);
+
+    // 3. E2EE kryptering og dekryptering af CollabPayload
+    let key = CollabKey::generate();
+    let payload_bytes = serde_json::to_vec(&CollabPayload::Mutation(ModelMutation::ConceptAdded(
+        concept.clone(),
+    )))
+    .unwrap();
+    let encrypted = encrypt(&key, &payload_bytes).expect("Payload kryptering fejlede");
+    let decrypted = decrypt(&key, &encrypted).expect("Payload dekryptering fejlede");
+    let recovered_payload: CollabPayload = serde_json::from_slice(&decrypted).unwrap();
+    assert_eq!(
+        recovered_payload,
+        CollabPayload::Mutation(ModelMutation::ConceptAdded(concept.clone()))
+    );
+
+    // 4. Live Mutation Application in App (in-memory mutation bridge)
+    let mut app = App::new_with_path(None);
+
+    // Tilføj begreb via CollabApplyMutation
+    let _ = app.update(Message::CollabApplyMutation(ModelMutation::ConceptAdded(
+        concept.clone(),
+    )));
+    assert_eq!(
+        app.project().concepts().len(),
+        1,
+        "ConceptAdded mutation skal tilføje begreb til App projekt"
+    );
+    assert_eq!(app.project().concepts()[0].preferred_term(), "Vejkøretøj");
+
+    // Flyt node via CollabApplyMutation
+    if let Some(node) = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(concept_id)
+    {
+        let node_id = node.id();
+        let _ = app.update(Message::CollabApplyMutation(ModelMutation::NodeMoved {
+            id: node_id,
+            x: 420.0,
+            y: 280.0,
+        }));
+        let updated_node = app
+            .project()
+            .concept_graph()
+            .find_node(node_id)
+            .expect("Node skal findes");
+        assert_eq!(updated_node.x(), 420.0);
+        assert_eq!(updated_node.y(), 280.0);
+    }
+
+    // Opdater begreb
+    let _ = app.update(Message::CollabApplyMutation(ModelMutation::ConceptUpdated(
+        updated_concept.clone(),
+    )));
+    assert_eq!(
+        app.project().concepts()[0].accepted_term(),
+        Some("Automobil")
+    );
+
+    // Tilføj og fjern informationsklasse
+    let _ = app.update(Message::CollabApplyMutation(
+        ModelMutation::InformationClassAdded(class.clone()),
+    ));
+    assert_eq!(
+        app.project().information_model().classes().len(),
+        1,
+        "InformationClassAdded skal tilføje klasse"
+    );
+    let _ = app.update(Message::CollabApplyMutation(
+        ModelMutation::InformationClassUpdated(updated_class.clone()),
+    ));
+    assert_eq!(
+        app.project().information_model().classes()[0].description(),
+        Some("Opdateret beskrivelse af køretøj")
+    );
+    let _ = app.update(Message::CollabApplyMutation(
+        ModelMutation::InformationClassDeleted(class_id),
+    ));
+    assert_eq!(
+        app.project().information_model().classes().len(),
+        0,
+        "InformationClassDeleted skal slette klasse"
+    );
+
+    // Fjern begreb
+    let _ = app.update(Message::CollabApplyMutation(ModelMutation::ConceptDeleted(
+        concept_id,
+    )));
+    assert_eq!(
+        app.project().concepts().len(),
+        0,
+        "ConceptDeleted skal slette begreb"
+    );
+
+    // Snapshot erstatning
+    let _ = app.update(Message::CollabApplySnapshot(Box::new(test_proj.clone())));
+    assert_eq!(app.project().metadata().name(), "Kollaborativ Testmodel");
+}
+
+#[test]
+fn test_guest_autosave_suppressed() {
+    use edge::features::collab::protocol::ModelMutation;
+    use edge::features::concepts::{BelongsToDomain, Concept};
+    use edge::ui::app::{App, CollabState, Message};
+
+    // 1. Initialiser midlertidig diskfil
+    let temp_dir = std::env::temp_dir();
+    let file_path = temp_dir.join(format!("test_task027_{}.edge.json", uuid::Uuid::new_v4()));
+
+    let mut app = App::new_with_path(Some(file_path.clone()));
+    assert_eq!(app.collab_state(), CollabState::None);
+
+    // Initial lagring med normal tilstand skal fungere (Host / Standalone)
+    app.trigger_autosave();
+    let initial_disk_data = std::fs::read_to_string(&file_path).expect("Læsning af fil fejlede");
+    assert!(
+        !initial_disk_data.is_empty(),
+        "Filen skal have indhold efter normal autosave"
+    );
+
+    // 2. Skift til Guest tilstand
+    app.set_collab_state(CollabState::Guest);
+    assert!(app.collab_state().is_guest());
+
+    // Skriv en specifik markør på disken
+    let disk_marker = "{\"MARKER\":\"DISK_SKAL_IKKE_OVERSKRIVES_AF_GUEST\"}";
+    std::fs::write(&file_path, disk_marker).expect("Skrivning af markør fejlede");
+
+    // 3. Modtag mutationer i hukommelsen (RAM)
+    let guest_concept = Concept::new(
+        "GæstBegreb",
+        "Dette begreb findes kun i RAM for gæsten",
+        BelongsToDomain::Yes,
+    );
+    let _ = app.update(Message::CollabApplyMutation(ModelMutation::ConceptAdded(
+        guest_concept,
+    )));
+
+    // 4. Kald trigger_autosave() og SaveProject under Guest-tilstand
+    app.trigger_autosave();
+    let _ = app.update(Message::SaveProject);
+
+    // 5. Invariant Assertion: Diskindholdet MÅ IKKE være ændret!
+    let disk_after_autosave = std::fs::read_to_string(&file_path).expect("Læsning af fil fejlede");
+    assert_eq!(
+        disk_after_autosave, disk_marker,
+        "Gæstens autosave må ALDRIG overskrive lokal diskfil!"
+    );
+
+    // 6. Skift til Host: Nu skal autosave skrive til disken
+    app.set_collab_state(CollabState::Host);
+    assert!(app.collab_state().is_host());
+    app.trigger_autosave();
+
+    let disk_after_host_autosave =
+        std::fs::read_to_string(&file_path).expect("Læsning af fil fejlede");
+    assert_ne!(
+        disk_after_host_autosave, disk_marker,
+        "Værten (Host) skal autosave godkendte ændringer til disk"
+    );
+    assert!(
+        disk_after_host_autosave.contains("GæstBegreb"),
+        "Værten skal gemme det tilføjede begreb på disk"
+    );
+
+    let _ = std::fs::remove_file(&file_path);
+}

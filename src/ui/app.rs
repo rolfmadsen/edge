@@ -256,10 +256,36 @@ pub enum MenuType {
     Help,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum CollabState {
+    #[default]
+    None,
+    Host,
+    Guest,
+}
+
+impl CollabState {
+    pub fn is_guest(&self) -> bool {
+        matches!(self, Self::Guest)
+    }
+
+    pub fn is_host(&self) -> bool {
+        matches!(self, Self::Host)
+    }
+
+    pub fn is_active(&self) -> bool {
+        !matches!(self, Self::None)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Message {
     SelectTab(Tab),
     NewProject,
+
+    // Live Kollaborering (Task 027)
+    CollabApplyMutation(crate::features::collab::protocol::ModelMutation),
+    CollabApplySnapshot(Box<crate::features::model::ModelProject>),
 
     // Desktop Menulinje & Sidebar Toggle (Task 024)
     ToggleMenu(MenuType),
@@ -425,6 +451,7 @@ pub struct App {
     metadata_modal: Option<ModelMetadataModalState>,
     active_menu: Option<MenuType>,
     show_left_sidebar: bool,
+    collab_state: CollabState,
 }
 
 impl Default for App {
@@ -476,6 +503,7 @@ impl App {
                         metadata_modal: None,
                         active_menu: None,
                         show_left_sidebar: true,
+                        collab_state: CollabState::None,
                     };
                 }
             }
@@ -517,6 +545,7 @@ impl App {
             metadata_modal: None,
             active_menu: None,
             show_left_sidebar: true,
+            collab_state: CollabState::None,
         }
     }
 
@@ -625,6 +654,22 @@ impl App {
         self.editor_state.as_ref()
     }
 
+    pub fn collab_state(&self) -> CollabState {
+        self.collab_state
+    }
+
+    pub fn set_collab_state(&mut self, state: CollabState) {
+        self.collab_state = state;
+    }
+
+    pub fn apply_mutation(&mut self, _mutation: crate::features::collab::protocol::ModelMutation) {
+        // RED stub
+    }
+
+    pub fn apply_snapshot(&mut self, _snapshot: crate::features::model::ModelProject) {
+        // RED stub
+    }
+
     pub fn trigger_autosave(&mut self) {
         if let Some(path) = &self.current_file_path {
             match ProjectStorage::save_to_file(&self.project, path) {
@@ -666,6 +711,12 @@ impl App {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            Message::CollabApplyMutation(mutation) => {
+                self.apply_mutation(mutation);
+            }
+            Message::CollabApplySnapshot(snapshot) => {
+                self.apply_snapshot(*snapshot);
+            }
             Message::SelectTab(tab) => {
                 self.active_tab = tab;
                 if tab == Tab::ConceptModel {
