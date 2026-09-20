@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 026: E2EE Klientside Krypto & WebSocket Netværkskanal"
 description: "Implementering af ChaCha20-Poly1305 kryptering/dekryptering i src/features/collab/crypto.rs, sessionsbillet (token) serialisering/parsing og tokio-tungstenite netværkskanal til Iced"
-status: pending
+status: active
 generated: { by: process:antigravity-task-init, at: "2026-09-20T11:55:00Z" }
 tags: [collaboration, crypto, chacha20poly1305, e2ee, websocket, tokio-tungstenite]
 ---
 
 # Task 026: E2EE Klientside Krypto & WebSocket Netværkskanal
 
-**Status**: `PENDING`
+**Status**: `ACTIVE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-20`
 
