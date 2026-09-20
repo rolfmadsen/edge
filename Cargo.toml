@@ -1,3 +1,10 @@
+[workspace]
+members = [
+    ".",
+    "crates/edge-relay",
+]
+resolver = "2"
+
 [package]
 name = "edge"
 version = "0.1.0"

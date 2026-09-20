@@ -1,0 +1,21 @@
+[package]
+name = "edge-relay"
+version = "0.1.0"
+edition = "2021"
+authors = ["Rolf Madsen"]
+license = "MIT"
+description = "Ultralet, in-memory, blind Axum WebSocket pub/sub relay for Edge E2EE kollaborering"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1.43", features = ["full"] }
+tower-http = { version = "0.6", features = ["trace", "cors"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+bytes = "1.10"
+futures-util = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+tokio-tungstenite = "0.26"
