@@ -1,27 +1,22 @@
 # Verification Report
  
-**Task ID**: `026-e2ee-crypto-and-network-channel`  
-**Task Title**: Task 026: E2EE Klientside Krypto & WebSocket Netværkskanal  
+**Task ID**: `027-collab-protocol-and-mutation-bridge`  
+**Task Title**: Task 027: Collab Protokol, Host/Guest Tilstande & Mutation Bridge  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Timestamp**: `2026-09-20T12:05:00Z`  
-**Head**: `832efed`  
+**Timestamp**: `2026-09-20T15:03:00Z`  
+**Head**: `90b4a73`  
  
 ## Acceptance Criteria
  
-- [x] `chacha20poly1305` og `tokio-tungstenite` tilføjes til `edge` dependencies.
-- [x] `src/features/collab/crypto.rs` implementerer `CollabKey::generate()`, `encrypt(...)` og `decrypt(...)`.
-- [x] `SessionTicket` struct kan serialiseres til/fra formatet `edge:v1:<base64-payload>` indeholdende relay URL, rum og nøgle samt kolon-formatet `edge:v1:<base64(server)>:<room_id>:<base64(key)>`.
-- [x] Enhedstests beviser:
-  - En vilkårlig byte-sekvens krypteres og dekrypteres fejlfrit med samme nøgle.
-  - Dekryptering med en anden nøgle fejler med `CryptoError::AuthenticationFailed`.
-  - Manipulerede ciphertexts fejler altid (integritetsbeskyttelse via Poly1305 auth tag).
-  - Truncated ciphertext afvises med `CryptoError::InvalidFormat`.
-- [x] `src/features/collab/network.rs` etablerer WebSocket-forbindelse til den specificerede relay-URL og det tilhørende rum.
-- [x] Netværkskanalen understøtter automatisk reconnection med exponential backoff ved kortvarige netværksudfald.
-- [x] Loopback-beskyttelse: Klienter modtager ikke deres egne ekko-frames.
-- [x] Invariant overholdt: Nøglen eksponeres ALDRIG i URL, headere eller query-parametre til relay-serveren.
-- [x] `cargo test` og `cargo clippy -- -D warnings` passerer 100% på tværs af hele workspacet (74 tests i alt).
+- [x] `CollabPayload` og `ModelMutation` er defineret med `serde::{Serialize, Deserialize}` i `src/features/collab/protocol.rs`.
+- [x] `src/ui/app.rs` udvides med `CollabState` (`None`, `Host`, `Guest`) med `is_guest()`, `is_host()` og `is_active()` helpers.
+- [x] Lokale handlinger i Begrebslisten, Begrebsmodellen og Informationsmodellen udsender tilhørende `ModelMutation`, når en session er aktiv (`broadcast_mutation`).
+- [x] Canvas drag af noder throttles (maks 15 Hz / 66 ms tærskel) for at undgå netværksmætning (`broadcast_node_moved_throttled`).
+- [x] Indgående hændelser muterer `ModelProject` i RAM uden ekko og opdaterer visningen for alle faner (`apply_mutation`).
+- [x] Automatiserede tests beviser, at hvis `CollabState == Guest`, foretages der **aldrig** skrivning til `model.edge.json` ved modtagelse af mutationer (`test_guest_autosave_suppressed`).
+- [x] Værten kan uploade et fuldt snapshot ved opstart, som gæsten indlæser som erstatning for sit RAM-projekt ved tilslutning (`CollabPayload::Snapshot`).
+- [x] `cargo test` og `cargo clippy -- -D warnings` passerer 100% på tværs af hele workspacet (78 tests i alt).
  
 ---
  
@@ -31,7 +26,7 @@
 |---|---|---|---|
 | `fmt` (`cargo fmt --check`) | `PASSED` | `0` | Formatteret i overensstemmelse med Rust standarder |
 | `lint` (`cargo clippy --workspace --all-targets -- -D warnings`) | `PASSED` | `0` | 0 advarsler på tværs af hele workspace |
-| `tests` (`cargo test --workspace`) | `PASSED` | `0` | 74/74 tests passed (inkl. proptests, unit- og acceptance tests) |
+| `tests` (`cargo test --workspace`) | `PASSED` | `0` | 78/78 tests passed (inkl. proptests, unit- og acceptance tests) |
 | `check` (`cargo check --workspace`) | `PASSED` | `0` | Fuld workspace kompilering uden fejl |
  
 ---

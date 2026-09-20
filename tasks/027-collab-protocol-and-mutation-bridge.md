@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 027: Collab Protokol, Host/Guest Tilstande & Mutation Bridge"
 description: "Definering af CollabPayload og ModelMutation, brobygning til Iced update-loopet, modtagelse af synkrone begivenheder samt disklås og deaktivering af autosave for Guest-klienten"
-status: in_progress
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-20T11:55:00Z" }
 tags: [collaboration, protocol, mutations, iced, autosave, disk-lock]
 ---
 
 # Task 027: Collab Protokol, Host/Guest Tilstande & Mutation Bridge
 
-**Status**: `IN_PROGRESS`
+**Status**: `DONE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-20`
 
@@ -30,14 +30,14 @@ tags: [collaboration, protocol, mutations, iced, autosave, disk-lock]
    - Gæsten forsynes i stedet med muligheden for manuelt at eksportere via "Gem som kopi...".
 
 ## 📋 Acceptance Criteria
-- [ ] `CollabPayload` og `ModelMutation` er defineret med `serde::{Serialize, Deserialize}`.
-- [ ] `src/ui/app.rs` udvides med `CollabState` (None, Host, Guest).
-- [ ] Lokale handlinger i Begrebslisten, Begrebsmodellen og Informationsmodellen udsender tilhørende `ModelMutation`, når en session er aktiv.
-- [ ] Canvas drag af noder throttles (maks 15 Hz) eller sendes ved `MouseReleased` for at undgå netværksmætning.
-- [ ] Indgående hændelser muterer `ModelProject` i RAM og opdaterer visningen for alle faner (Begrebsliste, Begrebsmodel, Informationsmodel).
-- [ ] Automatiserede tests beviser, at hvis `CollabState == Guest`, foretages der **aldrig** skrivning til `model.edge.json` ved modtagelse af mutationer.
-- [ ] Værten kan uploade et fuldt snapshot ved opstart, som gæsten indlæser som erstatning for sit RAM-projekt ved tilslutning.
-- [ ] `cargo test` og `cargo clippy -- -D warnings` passerer 100%.
+- [x] `CollabPayload` og `ModelMutation` er defineret med `serde::{Serialize, Deserialize}`.
+- [x] `src/ui/app.rs` udvides med `CollabState` (None, Host, Guest).
+- [x] Lokale handlinger i Begrebslisten, Begrebsmodellen og Informationsmodellen udsender tilhørende `ModelMutation`, når en session er aktiv.
+- [x] Canvas drag af noder throttles (maks 15 Hz) eller sendes ved `MouseReleased` for at undgå netværksmætning.
+- [x] Indgående hændelser muterer `ModelProject` i RAM og opdaterer visningen for alle faner (Begrebsliste, Begrebsmodel, Informationsmodel).
+- [x] Automatiserede tests beviser, at hvis `CollabState == Guest`, foretages der **aldrig** skrivning til `model.edge.json` ved modtagelse af mutationer.
+- [x] Værten kan uploade et fuldt snapshot ved opstart, som gæsten indlæser som erstatning for sit RAM-projekt ved tilslutning.
+- [x] `cargo test` og `cargo clippy -- -D warnings` passerer 100%.
 
 ## 🚫 Must NOT
 - Må IKKE overskrive gæstens lokale `model.edge.json` fil under nogen omstændigheder.
