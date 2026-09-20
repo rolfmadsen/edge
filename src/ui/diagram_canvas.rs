@@ -902,68 +902,54 @@ where
             {
                 if let Some(src_mult) = edge.source_multiplicity() {
                     let p_src = routed.points[0];
-                    let pos = match routed.from_side {
-                        PortSide::Right => Point::new(p_src.x + 14.0, p_src.y - 10.0),
-                        PortSide::Left => Point::new(p_src.x - 14.0, p_src.y - 10.0),
-                        PortSide::Top => Point::new(p_src.x + 10.0, p_src.y - 12.0),
-                        PortSide::Bottom => Point::new(p_src.x + 10.0, p_src.y + 12.0),
-                    };
-                    let approx_w = src_mult.len() as f32 * 6.5 + 8.0;
-                    let pill = Path::rounded_rectangle(
-                        Point::new(pos.x - approx_w / 2.0, pos.y - 7.0),
-                        Size::new(approx_w, 14.0),
-                        3.0.into(),
-                    );
-                    frame.fill(&pill, Color::from_rgba(1.0, 1.0, 1.0, 0.88));
-                    frame.fill_text(Text {
-                        content: src_mult,
-                        position: pos,
-                        color: if is_selected_edge {
-                            ThemeColors::PRIMARY
-                        } else {
-                            ThemeColors::SLATE_700
-                        },
-                        size: 10.5.into(),
-                        align_x: alignment::Horizontal::Center.into(),
-                        align_y: alignment::Vertical::Center,
-                        ..Default::default()
-                    });
+                    let pos = port_multiplicity_pos(p_src, routed.from_side);
+                    render_multiplicity_label(&mut frame, &src_mult, pos, is_selected_edge);
                 }
 
                 if let Some(tgt_mult) = edge.target_multiplicity() {
                     let p_tgt = *routed.points.last().unwrap_or(&routed.points[0]);
-                    let pos = match routed.to_side {
-                        PortSide::Left => Point::new(p_tgt.x - 14.0, p_tgt.y - 10.0),
-                        PortSide::Right => Point::new(p_tgt.x + 14.0, p_tgt.y - 10.0),
-                        PortSide::Top => Point::new(p_tgt.x + 10.0, p_tgt.y - 12.0),
-                        PortSide::Bottom => Point::new(p_tgt.x + 10.0, p_tgt.y + 12.0),
-                    };
-                    let approx_w = tgt_mult.len() as f32 * 6.5 + 8.0;
-                    let pill = Path::rounded_rectangle(
-                        Point::new(pos.x - approx_w / 2.0, pos.y - 7.0),
-                        Size::new(approx_w, 14.0),
-                        3.0.into(),
-                    );
-                    frame.fill(&pill, Color::from_rgba(1.0, 1.0, 1.0, 0.88));
-                    frame.fill_text(Text {
-                        content: tgt_mult,
-                        position: pos,
-                        color: if is_selected_edge {
-                            ThemeColors::PRIMARY
-                        } else {
-                            ThemeColors::SLATE_700
-                        },
-                        size: 10.5.into(),
-                        align_x: alignment::Horizontal::Center.into(),
-                        align_y: alignment::Vertical::Center,
-                        ..Default::default()
-                    });
+                    let pos = port_multiplicity_pos(p_tgt, routed.to_side);
+                    render_multiplicity_label(&mut frame, &tgt_mult, pos, is_selected_edge);
                 }
             }
         }
 
         vec![frame.into_geometry()]
     }
+}
+
+/// Beregner placering af multiplicitetstekst ved port
+fn port_multiplicity_pos(pt: Point, side: PortSide) -> Point {
+    match side {
+        PortSide::Right => Point::new(pt.x + 14.0, pt.y - 10.0),
+        PortSide::Left => Point::new(pt.x - 14.0, pt.y - 10.0),
+        PortSide::Top => Point::new(pt.x + 10.0, pt.y - 12.0),
+        PortSide::Bottom => Point::new(pt.x + 10.0, pt.y + 12.0),
+    }
+}
+
+/// Renderer multiplicitetstekst med baggrundspille
+fn render_multiplicity_label(frame: &mut Frame, text: &str, pos: Point, is_selected: bool) {
+    let approx_w = text.len() as f32 * 6.5 + 8.0;
+    let pill = Path::rounded_rectangle(
+        Point::new(pos.x - approx_w / 2.0, pos.y - 7.0),
+        Size::new(approx_w, 14.0),
+        3.0.into(),
+    );
+    frame.fill(&pill, Color::from_rgba(1.0, 1.0, 1.0, 0.88));
+    frame.fill_text(Text {
+        content: text.to_string(),
+        position: pos,
+        color: if is_selected {
+            ThemeColors::PRIMARY
+        } else {
+            ThemeColors::SLATE_700
+        },
+        size: 10.5.into(),
+        align_x: alignment::Horizontal::Center.into(),
+        align_y: alignment::Vertical::Center,
+        ..Default::default()
+    });
 }
 
 /// Standard rendering af FDA begrebsnode
