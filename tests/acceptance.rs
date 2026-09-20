@@ -2970,3 +2970,191 @@ fn test_task022_information_model_association_multiplicities() {
 fn test_class_diagram_edge() {
     test_task022_information_model_association_multiplicities();
 }
+
+#[test]
+fn test_task023_canvas_floating_controls_and_minimap() {
+    use edge::features::concept_model::{ConceptGraph, DiagramEdge, DiagramNode};
+    use edge::features::concepts::{BelongsToDomain, Concept};
+    use edge::ui::diagram_canvas::{
+        render_concept_node, CanvasViewport, DiagramCanvas, DiagramCanvasState,
+    };
+    use iced::mouse::{self, Cursor};
+    use iced::widget::canvas::{Event, Program};
+    use iced::{Point, Rectangle, Size, Vector};
+    use std::sync::Arc;
+    use uuid::Uuid;
+
+    // 1. Opret diagram med noder - herunder en node placeret nede i højre hjørne
+    // hvor det svævende kontrolpanel vil ligge på en 1000x800 skærm
+    let n1 = DiagramNode::custom(
+        Uuid::new_v4(),
+        "NodeA".to_string(),
+        100.0,
+        100.0,
+        160.0,
+        80.0,
+    );
+    let n2 = DiagramNode::custom(
+        Uuid::new_v4(),
+        "NodeB".to_string(),
+        400.0,
+        300.0,
+        160.0,
+        80.0,
+    );
+    // Node placeret i nederste højre hjørne under det svævende panel (830, 660)
+    let n_under_panel = DiagramNode::custom(
+        Uuid::new_v4(),
+        "NodeUnderPanel".to_string(),
+        830.0,
+        660.0,
+        150.0,
+        70.0,
+    );
+    let nodes = vec![n1.clone(), n2.clone(), n_under_panel.clone()];
+    let edges: Vec<DiagramEdge> = vec![];
+
+    let selected_node = Arc::new(std::sync::Mutex::new(None));
+    let last_viewport = Arc::new(std::sync::Mutex::new(CanvasViewport::default()));
+
+    let sel_clone = Arc::clone(&selected_node);
+    let vp_clone = Arc::clone(&last_viewport);
+
+    let canvas = DiagramCanvas::new(
+        &nodes,
+        &edges,
+        None,
+        CanvasViewport::default(),
+        true,
+        false,
+        render_concept_node,
+        move |id| {
+            *sel_clone.lock().unwrap() = id;
+        },
+        |_, _, _| (),
+        |_, _| (),
+        |_| (),
+        move |vp| {
+            *vp_clone.lock().unwrap() = vp;
+        },
+    );
+
+    let mut state = DiagramCanvasState::default();
+    let bounds = Rectangle::new(Point::ORIGIN, Size::new(1000.0, 800.0));
+
+    // A. Geometri: Hent rektangler for det svævende panel og kontrollerne
+    let panel_rect = DiagramCanvas::<
+        (),
+        DiagramNode,
+        DiagramEdge,
+        fn(&mut iced::widget::canvas::Frame, &DiagramNode, bool, CanvasViewport),
+    >::floating_panel_rect(bounds);
+    assert_eq!(panel_rect.width, 180.0);
+    assert_eq!(panel_rect.height, 148.0);
+    assert_eq!(panel_rect.x, 1000.0 - 180.0 - 16.0); // 804.0
+    assert_eq!(panel_rect.y, 800.0 - 148.0 - 16.0);  // 636.0
+
+    let minimap_rect = DiagramCanvas::<
+        (),
+        DiagramNode,
+        DiagramEdge,
+        fn(&mut iced::widget::canvas::Frame, &DiagramNode, bool, CanvasViewport),
+    >::minimap_rect(panel_rect);
+    let zoom_in_rect = DiagramCanvas::<
+        (),
+        DiagramNode,
+        DiagramEdge,
+        fn(&mut iced::widget::canvas::Frame, &DiagramNode, bool, CanvasViewport),
+    >::zoom_in_button_rect(panel_rect);
+    let zoom_out_rect = DiagramCanvas::<
+        (),
+        DiagramNode,
+        DiagramEdge,
+        fn(&mut iced::widget::canvas::Frame, &DiagramNode, bool, CanvasViewport),
+    >::zoom_out_button_rect(panel_rect);
+    let fit_rect = DiagramCanvas::<
+        (),
+        DiagramNode,
+        DiagramEdge,
+        fn(&mut iced::widget::canvas::Frame, &DiagramNode, bool, CanvasViewport),
+    >::fit_view_button_rect(panel_rect);
+
+    // B. Event isolation: Klik på kontrolpanelets baggrund (eller minimap) må IKKE vælge n_under_panel
+    let click_panel_bg = Point::new(panel_rect.x + 10.0, panel_rect.y + 10.0);
+    assert!(n_under_panel.contains(click_panel_bg.x, click_panel_bg.y));
+    let press_event = Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left));
+    let action = canvas.update(&mut state, &press_event, bounds, Cursor::Available(click_panel_bg));
+    assert!(action.is_some(), "Klik på kontrolpanelet skal captures");
+    assert_eq!(
+        *selected_node.lock().unwrap(),
+        None,
+        "Node under kontrolpanelet må IKKE blive valgt ved klik på panelet!"
+    );
+    let release_event = Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left));
+    let _ = canvas.update(&mut state, &release_event, bounds, Cursor::Available(click_panel_bg));
+
+    // C. Zoom In (+) kontrol
+    let zoom_in_click = Point::new(
+        zoom_in_rect.x + zoom_in_rect.width / 2.0,
+        zoom_in_rect.y + zoom_in_rect.height / 2.0,
+    );
+    let action = canvas.update(&mut state, &press_event, bounds, Cursor::Available(zoom_in_click));
+    assert!(action.is_some());
+    assert!(
+        last_viewport.lock().unwrap().zoom() > 1.05,
+        "Klik på zoom-in knap skal forøge viewport zoom!"
+    );
+
+    // D. Zoom Out (-) kontrol
+    let zoom_out_click = Point::new(
+        zoom_out_rect.x + zoom_out_rect.width / 2.0,
+        zoom_out_rect.y + zoom_out_rect.height / 2.0,
+    );
+    let action = canvas.update(&mut state, &press_event, bounds, Cursor::Available(zoom_out_click));
+    assert!(action.is_some());
+    assert!(
+        (last_viewport.lock().unwrap().zoom() - 1.0).abs() < 0.05,
+        "Klik på zoom-out knap skal reducere viewport zoom tilbage!"
+    );
+
+    // E. Fit to View (⊡) kontrol
+    let fit_click = Point::new(
+        fit_rect.x + fit_rect.width / 2.0,
+        fit_rect.y + fit_rect.height / 2.0,
+    );
+    let action = canvas.update(&mut state, &press_event, bounds, Cursor::Available(fit_click));
+    assert!(action.is_some(), "Klik på fit-view knap skal udløse viewport opdatering");
+
+    // F. Minimap interaktion: Klik i minimappet skal panorere viewporten
+    let minimap_click = Point::new(
+        minimap_rect.x + minimap_rect.width * 0.25,
+        minimap_rect.y + minimap_rect.height * 0.25,
+    );
+    let action = canvas.update(&mut state, &press_event, bounds, Cursor::Available(minimap_click));
+    assert!(action.is_some(), "Klik i minimap skal captures og udløse pan");
+    assert!(state.is_panning_minimap, "Minimap panning skal være aktiv under træk");
+
+    // Cursor move i minimap
+    let minimap_drag = Point::new(
+        minimap_rect.x + minimap_rect.width * 0.75,
+        minimap_rect.y + minimap_rect.height * 0.75,
+    );
+    let move_event = Event::Mouse(mouse::Event::CursorMoved { position: minimap_drag });
+    let action = canvas.update(&mut state, &move_event, bounds, Cursor::Available(minimap_drag));
+    assert!(action.is_some(), "Træk i minimap skal opdatere viewport kontinuerligt");
+
+    // Slip musen
+    let _ = canvas.update(&mut state, &release_event, bounds, Cursor::Available(minimap_drag));
+    assert!(!state.is_panning_minimap, "Minimap panning skal deaktiveres ved slip");
+
+    // G. Test i fuld App-kontekst for både Begrebsmodel og Informationsmodel
+    let temp_dir = std::env::temp_dir();
+    let file_path = temp_dir.join(format!("test_task023_{}.fda", Uuid::new_v4()));
+    let mut app = App::new_with_path(Some(file_path.clone()));
+    app.update(Message::SelectTab(Tab::ConceptModel));
+    let _ = app.view();
+    app.update(Message::SelectTab(Tab::InformationModel));
+    let _ = app.view();
+
+    let _ = std::fs::remove_file(&file_path);
+}
