@@ -1,6 +1,6 @@
 # Task 033: Rebranding af applikation fra Edge til Kant
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🔄 `REFACTOR`  
 **Dato**: `2026-09-20`  
 **Scope**: `Cargo.toml`, `src/main.rs`, `src/ui/`, `src/features/model/storage.rs`, `assets/`, `.github/workflows/`, `koyeb.yaml`, `README.md`, `tests/`  
@@ -14,11 +14,11 @@ Omdøbningen omfatter kasser/crates (`kant`, `kant-relay`), binære navne, UI-te
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **1. Crate- og binærnavn til Kant**: Rod-crate omdøbes til `name = "kant"` i `Cargo.toml`. Relay-kassen omdøbes til `kant-relay`. Binæren hedder `kant` (`kant.exe`).
-- [ ] **2. UI & App-titel til Kant**: Skrivebordsapplikationens vinduestitel opdateres til `"Kant - Begrebs- og Informationsmodellering med FDA"`, og header logo-tekst opdateres til `"Kant"`.
-- [ ] **3. Filendelser & Bagudkompatibilitet**: Standard gemmefil og lagringssti opdateres til `model.kant.json`. Native filvælgere og filscannere accepterer og lister både `*.kant.json` og `*.edge.json`.
-- [ ] **4. OS Assets & Packaging**: `assets/kant.desktop` og `assets/icons/kant.svg` er oprettet og refereret i `Cargo.toml` (`[package.metadata.deb]`). GitHub Actions `release.yml` bygger og uploader `kant-linux-x86_64`, `kant-macos-aarch64` og `kant-windows-x86_64`.
-- [ ] **5. Testsuite & Clang/Clippy Green**: Alle tests i `tests/acceptance.rs` og `tests/proptests.rs` kompilerer med `use kant::...` og passerer 100%.
+- [x] **1. Crate- og binærnavn til Kant**: Rod-crate omdøbes til `name = "kant"` i `Cargo.toml`. Relay-kassen omdøbes til `kant-relay`. Binæren hedder `kant` (`kant.exe`).
+- [x] **2. UI & App-titel til Kant**: Skrivebordsapplikationens vinduestitel opdateres til `"Kant - Begrebs- og Informationsmodellering med FDA"`, og header logo-tekst opdateres til `"Kant"`.
+- [x] **3. Filendelser & Bagudkompatibilitet**: Standard gemmefil og lagringssti opdateres til `model.kant.json`. Native filvælgere og filscannere accepterer og lister både `*.kant.json` og `*.edge.json`.
+- [x] **4. OS Assets & Packaging**: `assets/kant.desktop` og `assets/icons/kant.svg` er oprettet og refereret i `Cargo.toml` (`[package.metadata.deb]`). GitHub Actions `release.yml` bygger og uploader `kant-linux-x86_64`, `kant-macos-aarch64` og `kant-windows-x86_64`.
+- [x] **5. Testsuite & Clang/Clippy Green**: Alle tests i `tests/acceptance.rs` og `tests/proptests.rs` kompilerer med `use kant::...` og passerer 100%.
 
 ---
 
