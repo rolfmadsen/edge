@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 017: Model Omslag & Metadata Redigeringsmodal og 3-Faset Navigation"
 description: "Fjernelse af Omslag & Metadata som selvstændig fane til fordel for en 3-faset arbejdsgang, samt implementering af en komplet redigeringsmodal til modelomslagets metadata"
-status: pending
+status: active
 generated: { by: process:antigravity-task-init, at: "2026-09-20T09:55:00Z" }
 tags: [ui, metadata, model-cover, tabs, fda-phases, modal]
 ---
 
 # Task 017: Model Omslag & Metadata Redigeringsmodal og 3-Faset Navigation
 
-**Status**: `PENDING`
+**Status**: `ACTIVE`
 **Intent**: `🔄 ENHANCEMENT`
 **Oprettet**: `2026-09-20`
 
