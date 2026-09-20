@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 023: Canvas Ergonomi: Flydende Zoom/Pan Kontroller og Miniaturekort (Minimap)"
 description: "Implementering af et svævende kontrolpanel med interaktivt miniaturekort (minimap) og hurtige zoom/pan kontroller inspireret af xArchi"
-status: pending
+status: active
 generated: { by: process:antigravity-task-init, at: "2026-09-20T09:55:00Z" }
 tags: [ui, canvas, ergonomics, minimap, zoom, pan, xarchi-inspiration]
 ---
 
 # Task 023: Canvas Ergonomi: Flydende Zoom/Pan Kontroller og Miniaturekort (Minimap)
 
-**Status**: `PENDING`
+**Status**: `ACTIVE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-20`
 
