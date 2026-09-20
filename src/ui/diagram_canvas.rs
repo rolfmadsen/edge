@@ -1738,4 +1738,54 @@ mod tests {
         let _ = canvas.update(&mut state, &press_event, bounds, empty_cursor);
         assert_eq!(*selected_edge.lock().unwrap(), None);
     }
+
+    #[test]
+    fn test_minimap_transform_and_fit_to_view() {
+        use uuid::Uuid;
+
+        let node1 = DiagramNode::custom(
+            Uuid::new_v4(),
+            "Node1".to_string(),
+            100.0,
+            100.0,
+            160.0,
+            80.0,
+        );
+        let node2 = DiagramNode::custom(
+            Uuid::new_v4(),
+            "Node2".to_string(),
+            500.0,
+            300.0,
+            160.0,
+            80.0,
+        );
+        let nodes = vec![node1, node2];
+        let viewport = CanvasViewport::default();
+        let screen_size = Size::new(1000.0, 800.0);
+        let minimap_rect = Rectangle::new(Point::new(800.0, 600.0), Size::new(160.0, 100.0));
+
+        let transform = MinimapTransform::compute(&nodes, &viewport, screen_size, minimap_rect);
+        assert!(transform.scale > 0.0);
+
+        // Bijektion: world -> minimap -> world
+        let world_pt = Point::new(300.0, 200.0);
+        let mini_pt = transform.world_to_minimap(world_pt);
+        assert!(minimap_rect.contains(mini_pt));
+        let recovered_world = transform.minimap_to_world(mini_pt);
+        assert!((recovered_world.x - world_pt.x).abs() < 0.01);
+        assert!((recovered_world.y - world_pt.y).abs() < 0.01);
+
+        // Viewport rect i minimap
+        let vp_rect = transform.viewport_rect(&viewport, screen_size);
+        assert!(vp_rect.width > 0.0);
+        assert!(vp_rect.height > 0.0);
+
+        // Test compute_fit_to_view
+        let fit_vp = compute_fit_to_view(&nodes, screen_size);
+        assert!(fit_vp.zoom() >= CanvasViewport::MIN_ZOOM && fit_vp.zoom() <= 1.0);
+        let world_center = fit_vp.to_world(Point::new(500.0, 400.0));
+        // Center af noder: x: (100 + 660)/2 = 380, y: (100 + 380)/2 = 240
+        assert!((world_center.x - 380.0).abs() < 1.0);
+        assert!((world_center.y - 240.0).abs() < 1.0);
+    }
 }
