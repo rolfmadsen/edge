@@ -78,39 +78,42 @@ pub fn view<'a>(
             .map(|n| n.id());
         let is_selected = selected_node_id.is_some() && selected_node_id == node_id;
 
-        let status_badge: Element<'a, Message> = if is_on_canvas {
+        let action_controls: Element<'a, Message> = if is_on_canvas {
             container(text("✓").size(11).color(ThemeColors::ACCENT_GREEN))
                 .style(pill_container_style)
                 .padding([1, 5])
                 .into()
         } else {
-            button(text("+").size(11).color(ThemeColors::PRIMARY))
-                .style(secondary_button_style)
-                .on_press(Message::AddConceptToDiagram(concept_id))
-                .padding([1, 5])
-                .into()
+            row![
+                button(text("+").size(11).color(ThemeColors::PRIMARY))
+                    .style(secondary_button_style)
+                    .on_press(Message::AddConceptToDiagram(concept_id))
+                    .padding([2, 5]),
+                button(text("🗑️").size(10))
+                    .style(danger_button_style)
+                    .on_press(Message::DeleteConcept(concept_id))
+                    .padding([2, 4]),
+            ]
+            .spacing(3)
+            .align_y(Alignment::Center)
+            .into()
         };
 
         let is_local = concept.belongs_to_domain().is_local();
         let subtitle = if is_local { "Lokalt" } else { "Indlånt" };
 
         let item_btn = button(
-            row![
-                column![
-                    text(concept.preferred_term())
-                        .size(13)
-                        .color(if is_selected {
-                            ThemeColors::PRIMARY
-                        } else {
-                            ThemeColors::SLATE_900
-                        }),
-                    text(subtitle).size(10).color(ThemeColors::TEXT_MUTED),
-                ]
-                .width(Length::Fill),
-                status_badge,
+            column![
+                text(concept.preferred_term())
+                    .size(13)
+                    .color(if is_selected {
+                        ThemeColors::PRIMARY
+                    } else {
+                        ThemeColors::SLATE_900
+                    }),
+                text(subtitle).size(10).color(ThemeColors::TEXT_MUTED),
             ]
-            .align_y(Alignment::Center)
-            .spacing(6),
+            .width(Length::Fill),
         )
         .style(list_item_button(is_selected))
         .on_press(if let Some(nid) = node_id {
@@ -119,9 +122,16 @@ pub fn view<'a>(
             Message::AddConceptToDiagram(concept_id)
         })
         .width(Length::Fill)
-        .padding([6, 8]);
+        .padding([4, 6]);
 
-        concept_items = concept_items.push(item_btn);
+        let item_row = container(
+            row![item_btn, action_controls]
+                .align_y(Alignment::Center)
+                .spacing(4),
+        )
+        .width(Length::Fill);
+
+        concept_items = concept_items.push(item_row);
     }
 
     let left_palette = container(
@@ -140,20 +150,16 @@ pub fn view<'a>(
     // ==========================================
     // 2. CENTER CANVAS (Begrebsmodel Graf)
     // ==========================================
-    let zoom_pct = (viewport.zoom() * 100.0).round() as u32;
     let toolbar = row![
-        button(text("-").size(13))
-            .style(secondary_button_style)
-            .on_press(Message::CanvasZoomOut)
-            .padding([4, 8]),
-        button(text(format!("{}%", zoom_pct)).size(11))
-            .style(secondary_button_style)
-            .on_press(Message::CanvasResetView)
-            .padding([4, 6]),
-        button(text("+").size(13))
-            .style(secondary_button_style)
-            .on_press(Message::CanvasZoomIn)
-            .padding([4, 8]),
+        button(text("+ Opret begreb").size(11))
+            .style(primary_button_style)
+            .on_press(Message::CreateConceptAtCenter)
+            .padding([4, 10]),
+        Space::new().width(4),
+        button(text("+ Opret Relation").size(11))
+            .style(primary_button_style)
+            .on_press(Message::GraphOpenRelationDialog)
+            .padding([4, 10]),
         Space::new().width(6),
         button(
             text(if snap_to_grid {
@@ -170,14 +176,9 @@ pub fn view<'a>(
         })
         .on_press(Message::ToggleSnapToGrid)
         .padding([4, 8]),
-        Space::new().width(6),
-        button(text("+ Opret Relation").size(11))
-            .style(primary_button_style)
-            .on_press(Message::GraphOpenRelationDialog)
-            .padding([4, 10]),
         Space::new().width(Length::Fill),
         text(format!(
-            "{} noder på diagram • {} relationer",
+            "{} begreber på diagram • {} relationer",
             concept_graph.node_count(),
             concept_graph.edge_count()
         ))

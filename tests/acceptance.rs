@@ -3427,13 +3427,11 @@ async fn test_task_026_e2ee_crypto_and_network_channel() {
     // Guest modtager den krypterede payload og dekrypterer den
     let mut received_bytes = None;
     for _ in 0..5 {
-        if let Ok(Some(event)) =
+        if let Ok(Some(CollabNetworkEvent::MessageReceived(bytes))) =
             tokio::time::timeout(Duration::from_millis(500), guest_rx.recv()).await
         {
-            if let CollabNetworkEvent::MessageReceived(bytes) = event {
-                received_bytes = Some(bytes);
-                break;
-            }
+            received_bytes = Some(bytes);
+            break;
         }
     }
     let received_bytes = received_bytes.expect("Guest modtog ikke MessageReceived");
@@ -4057,11 +4055,23 @@ fn test_task_030_canvas_ergonomics_and_edge_geometry() {
     // 1. Opret kilde- og målbegreb samt relation
     let c1 = Concept::new("Person", "En person", BelongsToDomain::Yes);
     let c2 = Concept::new("Kunde", "En kunde", BelongsToDomain::Yes);
-    let id1 = app.project_mut().add_concept(c1).unwrap();
+    let id1 = app.project_mut().add_concept(c1.clone()).unwrap();
     let id2 = app.project_mut().add_concept(c2).unwrap();
-    let node1 = app.project().concept_graph().find_node_by_concept(id1).unwrap().id();
-    let node2 = app.project().concept_graph().find_node_by_concept(id2).unwrap().id();
-    app.project_mut().concept_graph_mut().add_relation(node2, node1, RelationKind::Generalization);
+    let node1 = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(id1)
+        .unwrap()
+        .id();
+    let node2 = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(id2)
+        .unwrap()
+        .id();
+    app.project_mut()
+        .concept_graph_mut()
+        .add_relation(node2, node1, RelationKind::Generalization);
 
     // Vælg relationen
     let _ = app.update(Message::GraphEdgeSelected(Some((node2, node1))));
@@ -4069,33 +4079,123 @@ fn test_task_030_canvas_ergonomics_and_edge_geometry() {
 
     // AC5: Enkeltklik på canvas (GraphNodeSelected(None)) deaktiverer valgt relation
     let _ = app.update(Message::GraphNodeSelected(None));
-    assert_eq!(app.selected_edge(), None, "Valgt relation skal fravælges ved klik på tomt canvas");
+    assert_eq!(
+        app.selected_edge(),
+        None,
+        "Valgt relation skal fravælges ved klik på tomt canvas"
+    );
 
     // Samme for Informationsmodellen
     let _ = app.update(Message::CreateInformationClass);
     let cls_id = app.project().information_model().classes()[0].id();
-    let info_node = app.project().information_graph().find_node_by_class(cls_id).unwrap().id();
+    let info_node = app
+        .project()
+        .information_graph()
+        .find_node_by_class(cls_id)
+        .unwrap()
+        .id();
     let _ = app.update(Message::InfoEdgeSelected(Some((info_node, info_node))));
     assert!(app.selected_info_edge().is_some());
     let _ = app.update(Message::SelectInfoGraphNode(None));
-    assert_eq!(app.selected_info_edge(), None, "Valgt info relation skal fravælges ved klik på tomt canvas");
+    assert_eq!(
+        app.selected_info_edge(),
+        None,
+        "Valgt info relation skal fravælges ved klik på tomt canvas"
+    );
 
     // AC2 & AC3: Opret klasse på koordinater (CreateInformationClassAt)
-    let _ = app.update(Message::CreateInformationClassAt(450.0, 320.0));
-    let classes = app.project().information_model().classes();
-    let new_cls = classes.last().unwrap();
-    let new_node = app.project().information_graph().find_node_by_class(new_cls.id()).unwrap();
-    // Skal være placeret omkring (450, 320) og ikke i fast modulo-gitter
-    assert!((new_node.x() - (450.0 - 200.0 / 2.0)).abs() < 2.0);
-    assert!((new_node.y() - (320.0 - 90.0 / 2.0)).abs() < 2.0);
+    let _ = app.update(Message::CreateInformationClassAt(460.0, 320.0));
+    let class_to_delete_id = {
+        let classes = app.project().information_model().classes();
+        let new_cls = classes.last().unwrap();
+        let new_node = app
+            .project()
+            .information_graph()
+            .find_node_by_class(new_cls.id())
+            .unwrap();
+        // Skal være placeret præcist på (460, 320) og ikke i fast modulo-gitter
+        assert_eq!(new_node.x(), 460.0);
+        assert_eq!(new_node.y(), 320.0);
+        new_cls.id()
+    };
 
     // AC2: CreateConceptAtCenter & CreateInformationClassAtCenter
     let _ = app.update(Message::CreateConceptAtCenter);
-    assert!(app.is_quick_create_open(), "CreateConceptAtCenter skal åbne quick_create modal");
+    assert!(
+        app.is_quick_create_open(),
+        "CreateConceptAtCenter skal åbne quick_create modal"
+    );
     let _ = app.update(Message::QuickCreateCancel);
 
-    // AC4: EdgeRouter geometry test for Generalisering vs Komposition
-    assert_eq!(edge::ui::edge_router::ARROW_HEAD_LENGTH, 14.0);
-    assert_eq!(edge::ui::edge_router::DIAMOND_LENGTH, 14.0);
-}
+    // AC6: Permanent sletning af begreb og klasse fra paletten
+    // Fjern node fra diagrammet (men bevar i model repository)
+    app.project_mut().concept_graph_mut().remove_node(node2);
+    assert!(!app.project().concept_graph().is_concept_on_diagram(id2));
+    assert!(app.project().get_concept(id2).is_some());
+    // Slet permanent via DeleteConcept (svarende til klik på skraldespand i paletten)
+    let _ = app.update(Message::DeleteConcept(id2));
+    assert!(
+        app.project().get_concept(id2).is_none(),
+        "Begrebet skal slettes permanent fra projektet"
+    );
 
+    // Samme for Informationsmodellen
+    app.project_mut()
+        .information_graph_mut()
+        .remove_class_node(class_to_delete_id);
+    assert!(!app
+        .project()
+        .information_graph()
+        .is_class_on_diagram(class_to_delete_id));
+    assert!(app
+        .project()
+        .information_model()
+        .get_class(class_to_delete_id)
+        .is_some());
+    // Slet permanent via DeleteInformationClass
+    let _ = app.update(Message::DeleteInformationClass(class_to_delete_id));
+    assert!(
+        app.project()
+            .information_model()
+            .get_class(class_to_delete_id)
+            .is_none(),
+        "Klassen skal slettes permanent"
+    );
+
+    // AC4: Rute knæk-symmetri:
+    // To noder placeret under en forældre-node skal have identisk mid_y knækhøjde uanset om relationen er Generalisering eller Komposition
+    use edge::features::concept_model::{DiagramEdge, DiagramNode};
+    let parent = DiagramNode::new(&c1, 300.0, 50.0);
+    let child_gen = DiagramNode::new(
+        &Concept::new("SubGen", "def", BelongsToDomain::Yes),
+        100.0,
+        250.0,
+    );
+    let child_comp = DiagramNode::new(
+        &Concept::new("SubComp", "def", BelongsToDomain::Yes),
+        500.0,
+        250.0,
+    );
+    let edge_g = DiagramEdge::new(child_gen.id(), parent.id(), RelationKind::Generalization);
+    let edge_c = DiagramEdge::new(parent.id(), child_comp.id(), RelationKind::Composition);
+
+    let test_nodes = vec![parent.clone(), child_gen.clone(), child_comp.clone()];
+    let test_edges = vec![edge_g, edge_c];
+    let routed = edge::ui::edge_router::EdgeRouter::route_edges(&test_nodes, &test_edges);
+    assert_eq!(routed.len(), 2);
+    let route_gen = routed
+        .iter()
+        .find(|r| r.kind == RelationKind::Generalization)
+        .unwrap();
+    let route_comp = routed
+        .iter()
+        .find(|r| r.kind == RelationKind::Composition)
+        .unwrap();
+    let gen_mid_y = route_gen.points[1].y;
+    let comp_mid_y = route_comp.points[1].y;
+    assert_eq!(
+        gen_mid_y, comp_mid_y,
+        "Knækhøjden for generalisering og komposition skal flugte snorlige: gen={}, comp={}",
+        gen_mid_y, comp_mid_y
+    );
+}

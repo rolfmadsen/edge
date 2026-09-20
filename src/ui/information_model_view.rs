@@ -108,17 +108,25 @@ pub fn view<'a>(
         let is_on_canvas = class_graph.is_class_on_diagram(class_id);
         let attr_count = class.attributes().len();
 
-        let status_badge: Element<'a, Message> = if is_on_canvas {
+        let action_controls: Element<'a, Message> = if is_on_canvas {
             container(text("✓").size(11).color(ThemeColors::ACCENT_GREEN))
                 .style(pill_container_style)
                 .padding([1, 5])
                 .into()
         } else {
-            button(text("+").size(11).color(ThemeColors::PRIMARY))
-                .style(secondary_button_style)
-                .on_press(Message::AddClassToDiagram(class_id))
-                .padding([1, 5])
-                .into()
+            row![
+                button(text("+").size(11).color(ThemeColors::PRIMARY))
+                    .style(secondary_button_style)
+                    .on_press(Message::AddClassToDiagram(class_id))
+                    .padding([2, 5]),
+                button(text("🗑️").size(10))
+                    .style(danger_button_style)
+                    .on_press(Message::DeleteInformationClass(class_id))
+                    .padding([2, 4]),
+            ]
+            .spacing(3)
+            .align_y(Alignment::Center)
+            .into()
         };
 
         let display_name = if class.name().trim().is_empty() {
@@ -128,29 +136,31 @@ pub fn view<'a>(
         };
 
         let item_btn = button(
-            row![
-                column![
-                    text(display_name).size(13).color(if is_selected {
-                        ThemeColors::PRIMARY
-                    } else {
-                        ThemeColors::SLATE_900
-                    }),
-                    text(format!("{} attr", attr_count))
-                        .size(10)
-                        .color(ThemeColors::TEXT_MUTED),
-                ]
-                .width(Length::Fill),
-                status_badge,
+            column![
+                text(display_name).size(13).color(if is_selected {
+                    ThemeColors::PRIMARY
+                } else {
+                    ThemeColors::SLATE_900
+                }),
+                text(format!("{} attr", attr_count))
+                    .size(10)
+                    .color(ThemeColors::TEXT_MUTED),
             ]
-            .align_y(Alignment::Center)
-            .spacing(6),
+            .width(Length::Fill),
         )
         .style(list_item_button(is_selected))
         .on_press(Message::SelectInformationClass(Some(class_id)))
         .width(Length::Fill)
-        .padding([6, 8]);
+        .padding([4, 6]);
 
-        class_items = class_items.push(item_btn);
+        let item_row = container(
+            row![item_btn, action_controls]
+                .align_y(Alignment::Center)
+                .spacing(4),
+        )
+        .width(Length::Fill);
+
+        class_items = class_items.push(item_row);
     }
 
     let left_palette = container(
@@ -166,20 +176,16 @@ pub fn view<'a>(
     // ==========================================
     // 2. CENTER CANVAS (UML Klassediagram)
     // ==========================================
-    let zoom_pct = (viewport.zoom() * 100.0).round() as u32;
     let toolbar = row![
-        button(text("-").size(13))
-            .style(secondary_button_style)
-            .on_press(Message::InfoCanvasZoomOut)
-            .padding([4, 8]),
-        button(text(format!("{}%", zoom_pct)).size(11))
-            .style(secondary_button_style)
-            .on_press(Message::InfoCanvasResetView)
-            .padding([4, 6]),
-        button(text("+").size(13))
-            .style(secondary_button_style)
-            .on_press(Message::InfoCanvasZoomIn)
-            .padding([4, 8]),
+        button(text("+ Opret klasse").size(11))
+            .style(primary_button_style)
+            .on_press(Message::CreateInformationClassAtCenter)
+            .padding([4, 10]),
+        Space::new().width(4),
+        button(text("+ Opret Relation").size(11))
+            .style(primary_button_style)
+            .on_press(Message::OpenInfoRelationDialog)
+            .padding([4, 10]),
         Space::new().width(6),
         button(
             text(if snap_to_grid {
@@ -196,15 +202,14 @@ pub fn view<'a>(
         })
         .on_press(Message::ToggleInfoSnapToGrid)
         .padding([4, 8]),
-        Space::new().width(6),
-        button(text("+ Opret Relation").size(11))
-            .style(primary_button_style)
-            .on_press(Message::OpenInfoRelationDialog)
-            .padding([4, 10]),
         Space::new().width(Length::Fill),
-        text(format!("{} klasser på diagram", class_graph.node_count()))
-            .size(11)
-            .color(ThemeColors::TEXT_MUTED),
+        text(format!(
+            "{} klasser på diagram • {} relationer",
+            class_graph.node_count(),
+            class_graph.edge_count()
+        ))
+        .size(11)
+        .color(ThemeColors::TEXT_MUTED),
     ]
     .spacing(6)
     .align_y(Alignment::Center);
@@ -248,7 +253,7 @@ pub fn view<'a>(
             },
             Message::SelectInfoGraphNode,
             Message::UpdateClassNodePosition,
-            |_x, _y| Message::CreateInformationClass,
+            Message::CreateInformationClassAt,
             |node_id| Message::SelectInfoGraphNode(Some(node_id)),
             Message::InfoCanvasViewportChanged,
         )

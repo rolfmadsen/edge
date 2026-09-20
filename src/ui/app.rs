@@ -514,6 +514,7 @@ pub enum Message {
 
     // Lynoprettelse & Node-redigering på Canvas (Task 006)
     CanvasDoubleClicked(f32, f32),
+    CreateConceptAtCenter,
     QuickCreateTermChanged(String),
     QuickCreateDefinitionChanged(String),
     QuickCreateDomainChanged(BelongsToDomain),
@@ -542,6 +543,8 @@ pub enum Message {
     // Informationsmodel (Task 010 & 011)
     SelectInformationClass(Option<Uuid>),
     CreateInformationClass,
+    CreateInformationClassAt(f32, f32),
+    CreateInformationClassAtCenter,
     CreateInformationClassFromConcept(ConceptOption),
     UpdateInformationClassName(Uuid, String),
     UpdateInformationClassDescription(Uuid, String),
@@ -1700,9 +1703,7 @@ impl App {
             // Graf-handlinger (Fase 3)
             Message::GraphNodeSelected(node_id) => {
                 self.selected_graph_node_id = node_id;
-                if node_id.is_some() {
-                    self.selected_edge = None;
-                }
+                self.selected_edge = None;
             }
             Message::GraphEdgeSelected(edge) => {
                 self.selected_edge = edge;
@@ -1952,9 +1953,16 @@ impl App {
                 self.concept_model_search = query;
             }
 
-            // Lynoprettelse & Node-redigering på Canvas (Task 006)
+            // Lynoprettelse & Node-redigering på Canvas (Task 006 & 030)
             Message::CanvasDoubleClicked(x, y) => {
                 self.quick_create = Some(QuickCreateState::new(x, y));
+                return operation::focus("quick_create_term_input");
+            }
+            Message::CreateConceptAtCenter => {
+                let center_world = self.canvas_viewport.to_world(Point::new(500.0, 350.0));
+                let cx = center_world.x - crate::features::concept_model::DEFAULT_NODE_WIDTH / 2.0;
+                let cy = center_world.y - crate::features::concept_model::DEFAULT_NODE_HEIGHT / 2.0;
+                self.quick_create = Some(QuickCreateState::new(cx, cy));
                 return operation::focus("quick_create_term_input");
             }
             Message::QuickCreateTermChanged(term) => {
@@ -2081,6 +2089,43 @@ impl App {
                     );
                 }
                 self.trigger_autosave();
+            }
+            Message::CreateInformationClassAt(x, y) => {
+                let class = InformationClass::new("");
+                let id = self.project.information_model_mut().add_class(class);
+                let (nx, ny) = if self.info_snap_to_grid {
+                    (
+                        (x / crate::features::concept_model::GRID_SIZE).round()
+                            * crate::features::concept_model::GRID_SIZE,
+                        (y / crate::features::concept_model::GRID_SIZE).round()
+                            * crate::features::concept_model::GRID_SIZE,
+                    )
+                } else {
+                    (x, y)
+                };
+                let node_id = self
+                    .project
+                    .information_graph_mut()
+                    .add_node_at(id, nx, ny, 0);
+                self.selected_info_class_id = Some(id);
+                self.selected_info_graph_node_id = Some(node_id);
+                self.selected_info_edge = None;
+                if let Some(cls) = self.project.information_model().get_class(id).cloned() {
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::InformationClassAdded(
+                            cls,
+                        ),
+                    );
+                }
+                self.trigger_autosave();
+            }
+            Message::CreateInformationClassAtCenter => {
+                let center_world = self.info_canvas_viewport.to_world(Point::new(500.0, 350.0));
+                let cx = center_world.x
+                    - crate::features::information_model::DEFAULT_CLASS_NODE_WIDTH / 2.0;
+                let cy = center_world.y
+                    - crate::features::information_model::calculate_class_node_height(0) / 2.0;
+                return self.update(Message::CreateInformationClassAt(cx, cy));
             }
             Message::CreateInformationClassFromConcept(opt) => {
                 self.selected_info_edge = None;
@@ -2324,13 +2369,13 @@ impl App {
             }
             Message::SelectInfoGraphNode(node_id_opt) => {
                 self.selected_info_graph_node_id = node_id_opt;
-                if node_id_opt.is_some() {
-                    self.selected_info_edge = None;
-                }
+                self.selected_info_edge = None;
                 if let Some(nid) = node_id_opt {
                     if let Some(node) = self.project.information_graph().find_node(nid) {
                         self.selected_info_class_id = Some(node.class_id());
                     }
+                } else {
+                    self.selected_info_class_id = None;
                 }
             }
             Message::InfoEdgeSelected(edge) => {

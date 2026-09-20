@@ -457,13 +457,11 @@ mod tests {
         // 3. Klient 2 modtager beskeden (kan have modtaget PresenceUpdated først)
         let mut received_payload = None;
         for _ in 0..5 {
-            if let Ok(Some(event)) =
+            if let Ok(Some(CollabNetworkEvent::MessageReceived(bytes))) =
                 tokio::time::timeout(Duration::from_millis(500), rx2.recv()).await
             {
-                if let CollabNetworkEvent::MessageReceived(bytes) = event {
-                    received_payload = Some(bytes);
-                    break;
-                }
+                received_payload = Some(bytes);
+                break;
             }
         }
         let bytes = received_payload.expect("Klient 2 modtog ikke MessageReceived");

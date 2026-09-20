@@ -707,6 +707,17 @@ impl ClassGraph {
         id
     }
 
+    pub fn add_node_at(&mut self, class_id: Uuid, x: f32, y: f32, attr_count: usize) -> NodeId {
+        if let Some(existing) = self.find_node_by_class_mut(class_id) {
+            existing.set_position(x, y);
+            return existing.id();
+        }
+        let node = ClassDiagramNode::new(class_id, x, y, attr_count);
+        let id = node.id();
+        self.nodes.push(node);
+        id
+    }
+
     pub fn remove_node(&mut self, node_id: NodeId) {
         self.nodes.retain(|n| n.id() != node_id);
         self.edges
