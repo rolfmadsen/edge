@@ -14,7 +14,7 @@ tags: [task-lifecycle, intent, information-model, uml, classes, attributes, prim
 **Oprettet**: `2026-09-19`
 
 ## 🎯 Formål
-Etablere Trin 3 i FDA progressionen i `edge`: En fuldgyldig Informationsmodel med UML-informationsklasser, attributter, autoritative FDA standard primitive datatyper og multipliciteter.
+Etablere Trin 3 i FDA progressionen i `edge`: En fuldgyldig Informationsmodel med UML-klasser, attributter, autoritative FDA standard primitive datatyper og multipliciteter.
 Hver klasse og hver attribut skal kunne eksistere selvstændigt eller have en eksplicit sporbarhedsrelation (M:N) til et eller flere begreber fra begrebslisten jf. FDA Modelreglernes principper for sporbarhed.
 Informationsmodellen skal integreres i `ModelProject`, persisteres til disk, og gøres fuldt redigerbar i en moderne master-detail editor i Fane 4 i Iced brugerfladen.
 
@@ -27,7 +27,7 @@ Informationsmodellen skal integreres i `ModelProject`, persisteres til disk, og 
   - `ModelProject` indeholder `information_model: InformationModel` med `#[serde(default)]` for at bevare fuld bagudkompatibilitet med eksisterende filer.
   - Fuld disk-persistens via `storage.rs` verificeret med round-trip serialisering og deserialisering.
 - [x] **Fane 4 UI: Master-Detail Editor (`src/ui/app.rs`)**:
-  - Venstre kolonne: Liste over informationsklasser, søgning/filtrering, `+ Ny Klasse` knap, og mulighed for hurtigt at oprette en klasse fra et begreb.
+  - Venstre kolonne: Liste over klasser, søgning/filtrering, `+ Ny Klasse` knap, og mulighed for hurtigt at oprette en klasse fra et begreb.
   - Højre kolonne: Detaljevisning for valgt klasse med redigering af navn, beskrivelse, tilknyttede begreber (multi-select / badge-vælger), samt tabel over klassens attributter med tilføj, rediger og slet.
 - [x] **ADR 006**:
   - Oprettelse af `docs/adr/006-information-model-and-concept-traceability.md`, der dokumenterer `M:N` begrebssporing for klasser og attributter samt FDA-typeafgrænsning.

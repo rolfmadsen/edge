@@ -1,6 +1,6 @@
-# Strategisk Roadmap for Edge: Begrebs- & Informationsmodellering
+# Strategisk Roadmap for Kant: Begrebs- & Informationsmodellering
 
-Dette dokument samler langsigtede arkitektoniske visioner, konceptuelle overvejelser og fremtidige udviklingspotentialer for **Edge**, som kræver dybere domæneafklaring før de udmøntes i konkrete tasks.
+Dette dokument samler langsigtede arkitektoniske visioner, konceptuelle overvejelser og fremtidige udviklingspotentialer for **Kant**, som kræver dybere domæneafklaring før de udmøntes i konkrete tasks.
 
 ---
 
@@ -15,7 +15,7 @@ Ifølge Digitaliseringsstyrelsens FDA Modelregler (v2.1) bygger god modellering 
 ### Strategiske Modeller til Undersøgelse
 
 #### Model A: Workspace & Multi-Model Federation (Anbefalet retning)
-- **Koncept**: Et Edge Workspace kan rumme flere koblede modelprojekter (`.edge.json`).
+- **Koncept**: Et Kant Workspace kan rumme flere koblede modelprojekter (`.edge.json`).
 - **Imports / Dependencies**: En model kan deklarere afhængigheder til autoritative kernemodeller (f.eks. `https://data.gov.dk/model/core/person.edge.json`).
 - **Indlånte Begreber**: Når et begreb indlånes, refererer det direkte til kildemodellens URI og OID, og kan automatisk opdateres hvis kildemodellen revideres.
 

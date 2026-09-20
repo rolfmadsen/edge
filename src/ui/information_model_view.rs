@@ -1112,7 +1112,7 @@ pub fn view<'a>(
                 ),
                 (
                     "FDA Farvekoder",
-                    "Sand (#FEFAF7) markerer forretningens egne informationsklasser.",
+                    "Sand (#FEFAF7) markerer forretningens egne klasser.",
                 ),
             ],
         )

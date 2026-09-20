@@ -15,8 +15,8 @@ tags: [task-lifecycle, intent, information-model, uml, canvas, studio-layout, cl
 
 ## 🎯 Formål
 Løfte Informationsmodellen (Fane 4) fra den statiske formularflade til et professionelt, interaktivt **UML Klassediagram Canvas** baseret på det ensartede **Canvas Studio Paradigme**:
-1. **Venstre Palet (Repository Browser)**: Slank oversigt over alle projektets informationsklasser, søgning, placerings-status på canvas (`[✓]` / `[+]`), samt hurtig oprettelse af nye klasser eller oprettelse direkte ud fra begreber.
-2. **Center Canvas (UML Klassediagram)**: Hovedarbejdsområde med pan, zoom, grid, snap, ortogonal Manhattan-routing, og 3-sektions UML klassekasser (`«Informationsklasse»` / klassenavn, delelinje, og attributlinjer `+ name : Type [multiplicitet]`) med automatisk dynamisk højde.
+1. **Venstre Palet (Repository Browser)**: Slank oversigt over alle projektets klasser, søgning, placerings-status på canvas (`[✓]` / `[+]`), samt hurtig oprettelse af nye klasser eller oprettelse direkte ud fra begreber.
+2. **Center Canvas (UML Klassediagram)**: Hovedarbejdsområde med pan, zoom, grid, snap, ortogonal Manhattan-routing, og 3-sektions UML klassekasser (`«Klasse»` / klassenavn, delelinje, og attributlinjer `+ name : Type [multiplicitet]`) med automatisk dynamisk højde.
 3. **Højre Inspector (Context Panel)**: Kontekstafhængig sidebar, som ved valg af en klasse muliggør hurtig redigering af navn, beskrivelse, tilknyttede begreber samt inline administration af klassens attributter (tilføj, rediger, slet) i realtid med øjeblikkelig opdatering af UML-kassen på canvas.
 4. **Persistens**: Diagrammets layout (noder, koordinater og relationer) persisteres i `model.edge.json` via en dedikeret `information_graph: ClassGraph` med fuld bagudkompatibilitet.
 
@@ -31,7 +31,7 @@ Løfte Informationsmodellen (Fane 4) fra den statiske formularflade til et profe
   - Sikrer fail-closed integritet: Sletning af en klasse kaskadesletter tilhørende node og relationer.
 - [x] **UML Canvas Rendering (`src/ui/information_canvas.rs`)**:
   - 3-sektions UML klassekasser jf. FDA Modelreglerne (FDA Sand `#FEFAF7`, FDA Blå for indlånte).
-  - Centreret stereotype `«Informationsklasse»` og klassenavn med fed skrift.
+  - Centreret stereotype `«Klasse»` og klassenavn med fed skrift.
   - Horisontal skillelinje.
   - Venstrestillede attributter formateret som `+ name : Type [multiplicitet]`.
   - Ortogonal Manhattan routing med pile for Associationer og Generaliseringer.

@@ -84,6 +84,51 @@
       "source": null,
       "identifier": null,
       "derived_from": null
+    },
+    {
+      "id": "d8315d55-7cd4-4c22-b14d-bb41f1fc5860",
+      "preferred_term": "Vejafgift",
+      "definition": "Gebyr for passage",
+      "belongs_to_domain": "Yes",
+      "accepted_term": null,
+      "deprecated_term": null,
+      "example": null,
+      "comment": null,
+      "application_note": null,
+      "legal_source": null,
+      "source": null,
+      "identifier": null,
+      "derived_from": null
+    },
+    {
+      "id": "26a2a39e-7590-443a-a657-7edabee84b85",
+      "preferred_term": "Vejafgift",
+      "definition": "Gebyr for passage",
+      "belongs_to_domain": "Yes",
+      "accepted_term": null,
+      "deprecated_term": null,
+      "example": null,
+      "comment": null,
+      "application_note": null,
+      "legal_source": null,
+      "source": null,
+      "identifier": null,
+      "derived_from": null
+    },
+    {
+      "id": "b22fa14c-ff38-4f01-be40-5e177452c73f",
+      "preferred_term": "Vejafgift",
+      "definition": "Gebyr for passage",
+      "belongs_to_domain": "Yes",
+      "accepted_term": null,
+      "deprecated_term": null,
+      "example": null,
+      "comment": null,
+      "application_note": null,
+      "legal_source": null,
+      "source": null,
+      "identifier": null,
+      "derived_from": null
     }
   ],
   "concept_graph": {
@@ -135,6 +180,36 @@
         "is_local": true,
         "x": 500.0,
         "y": 240.0,
+        "width": 180.0,
+        "height": 80.0
+      },
+      {
+        "id": "d8315d55-7cd4-4c22-b14d-bb41f1fc5860",
+        "concept_id": "d8315d55-7cd4-4c22-b14d-bb41f1fc5860",
+        "label": "Vejafgift",
+        "is_local": true,
+        "x": 420.0,
+        "y": 680.0,
+        "width": 180.0,
+        "height": 80.0
+      },
+      {
+        "id": "26a2a39e-7590-443a-a657-7edabee84b85",
+        "concept_id": "26a2a39e-7590-443a-a657-7edabee84b85",
+        "label": "Vejafgift",
+        "is_local": true,
+        "x": 420.0,
+        "y": 680.0,
+        "width": 180.0,
+        "height": 80.0
+      },
+      {
+        "id": "b22fa14c-ff38-4f01-be40-5e177452c73f",
+        "concept_id": "b22fa14c-ff38-4f01-be40-5e177452c73f",
+        "label": "Vejafgift",
+        "is_local": true,
+        "x": 420.0,
+        "y": 680.0,
         "width": 180.0,
         "height": 80.0
       }
@@ -212,7 +287,10 @@
             },
             "concept_ids": []
           }
-        ]
+        ],
+        "is_abstract": false,
+        "is_local": true,
+        "origin_model": null
       },
       {
         "id": "c389b6be-3336-4dd3-940b-411793567b03",
@@ -221,14 +299,10 @@
         "concept_ids": [
           "59e4b522-0adb-4808-bd88-786eaacf712d"
         ],
-        "attributes": []
-      },
-      {
-        "id": "daaa1b63-8dcd-489a-b16e-6358ffd378ee",
-        "name": "Test klasse",
-        "description": null,
-        "concept_ids": [],
-        "attributes": []
+        "attributes": [],
+        "is_abstract": false,
+        "is_local": true,
+        "origin_model": null
       },
       {
         "id": "c0a07f64-452f-4156-a522-272fd9b234b3",
@@ -237,7 +311,10 @@
         "concept_ids": [
           "f3e7d2a5-6369-490c-8e9b-7818eebaff81"
         ],
-        "attributes": []
+        "attributes": [],
+        "is_abstract": false,
+        "is_local": true,
+        "origin_model": null
       },
       {
         "id": "d6ad6def-9b56-47d9-af8a-bbbb29fda1ef",
@@ -246,7 +323,10 @@
         "concept_ids": [
           "f0a5138d-1a0b-42da-8fe5-52f1e15d0bcf"
         ],
-        "attributes": []
+        "attributes": [],
+        "is_abstract": false,
+        "is_local": true,
+        "origin_model": null
       }
     ]
   },
@@ -263,23 +343,15 @@
       {
         "id": "9efa1b57-0bf4-4165-ba74-fbd4ec0654b2",
         "class_id": "c389b6be-3336-4dd3-940b-411793567b03",
-        "x": -60.0,
+        "x": -80.0,
         "y": 400.0,
-        "width": 220.0,
-        "height": 80.0
-      },
-      {
-        "id": "314b0ea1-1b49-4b3b-a31a-4a719bf12b1f",
-        "class_id": "daaa1b63-8dcd-489a-b16e-6358ffd378ee",
-        "x": -200.0,
-        "y": 60.0,
         "width": 220.0,
         "height": 80.0
       },
       {
         "id": "09568a48-b2f0-4b2c-a6cc-aee7899dd953",
         "class_id": "c0a07f64-452f-4156-a522-272fd9b234b3",
-        "x": -340.0,
+        "x": -360.0,
         "y": 400.0,
         "width": 220.0,
         "height": 80.0
@@ -287,29 +359,13 @@
       {
         "id": "66cfeccb-539d-430a-8a5a-8a2baba30017",
         "class_id": "d6ad6def-9b56-47d9-af8a-bbbb29fda1ef",
-        "x": 220.0,
+        "x": 200.0,
         "y": 400.0,
         "width": 220.0,
         "height": 80.0
       }
     ],
     "edges": [
-      {
-        "from": "314b0ea1-1b49-4b3b-a31a-4a719bf12b1f",
-        "to": "fb3be45c-265b-4f24-9e6d-5984851e4ff0",
-        "kind": "Composition",
-        "label": null,
-        "source_port": "Bottom",
-        "target_port": "Top",
-        "source_multiplicity": {
-          "lower": 1,
-          "upper": 1
-        },
-        "target_multiplicity": {
-          "lower": 0,
-          "upper": 1
-        }
-      },
       {
         "from": "66cfeccb-539d-430a-8a5a-8a2baba30017",
         "to": "9efa1b57-0bf4-4165-ba74-fbd4ec0654b2",
@@ -343,6 +399,15 @@
         "label": "er en",
         "source_port": "Top",
         "target_port": "Bottom"
+      },
+      {
+        "from": "66cfeccb-539d-430a-8a5a-8a2baba30017",
+        "to": "fb3be45c-265b-4f24-9e6d-5984851e4ff0",
+        "kind": "Composition",
+        "label": null,
+        "source_port": "Top",
+        "target_port": "Bottom",
+        "directed": true
       }
     ]
   }

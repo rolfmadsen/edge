@@ -20,8 +20,8 @@ Samtidig har der i begrebsmodellen manglet en klar adskillelse mellem det underl
    - **Center Canvas (Fill)**: Det dominerende arbejdsområde med interaktiv graf-redigering, pan, zoom, grid, snap og ortogonal routing.
    - **Højre Inspector (Context Panel, ~300px)**: Slank, kontekstafhængig sidebar, som ved valg af et diagramelement viser og redigerer dets attributter, beskrivelse og sporbarhed i realtid.
 2. **UML 3-Sektions Klassekasser**:
-   - Informationsklasser tegnes på canvas som klassiske 3-rums UML-kasser jf. FDA Modelreglerne:
-     - Topsektion: Stereotype `«Informationsklasse»` og klassenavn med fed skrift.
+   - Klasser tegnes på canvas som klassiske 3-rums UML-kasser jf. FDA Modelreglerne:
+     - Topsektion: Stereotype `«Klasse»` og klassenavn med fed skrift.
      - Horisontal skillelinje.
      - Attributsektion: Attributter formateret som `+ name : Type [multiplicitet]`.
      - Dynamisk beregnet kassehøjde ud fra antallet af attributter.

@@ -1839,7 +1839,7 @@ dependencies = [
 
 [[package]]
 name = "kant"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "axum",
  "base64",
@@ -1862,7 +1862,7 @@ dependencies = [
 
 [[package]]
 name = "kant-relay"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "axum",
  "bytes",

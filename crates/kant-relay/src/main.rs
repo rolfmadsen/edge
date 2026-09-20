@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
     let listener = TcpListener::bind(addr).await?;
 
-    tracing::info!("🚀 Edge Stateless Relay listening on http://{}", addr);
+    tracing::info!("🚀 Kant Stateless Relay listening on http://{}", addr);
     tracing::info!(
         "📡 WebSocket endpoint available at ws://{}/ws?room=<ROOM_ID>",
         addr

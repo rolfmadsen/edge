@@ -1394,7 +1394,7 @@ pub fn render_concept_node(
     });
 }
 
-/// Standard rendering af UML 3-sektions informationsklasse-kasse
+/// Standard rendering af UML 3-sektions kasse
 #[allow(clippy::too_many_arguments)]
 pub fn render_uml_class_node(
     frame: &mut Frame,
@@ -1440,9 +1440,9 @@ pub fn render_uml_class_node(
     );
 
     let stereotype_text = if is_abstract {
-        "«Informationsklasse» {abstract}".to_string()
+        "«Klasse» {abstract}".to_string()
     } else {
-        "«Informationsklasse»".to_string()
+        "«Klasse»".to_string()
     };
 
     frame.fill_text(Text {

@@ -11,9 +11,9 @@ tags: [architecture, adr, collaboration, e2ee, websocket, relay, privacy, git]
 **Dato**: `2026-09-20`  
 
 ## Kontekst
-Edge anvender p.t. en lokal disk-baseret persistensmodel ([ADR 003](003-project-persistence-and-autosave.md)), hvor FDA-modeller gemmes lokalt som JSON og versionsstyres via Git. Brugere har et stærkt ønske om at kunne samarbejde synkront i realtid (f.eks. under faciliterede modelleringsworkshops på tværs af organisationer).
+Kant anvender p.t. en lokal disk-baseret persistensmodel ([ADR 003](003-project-persistence-and-autosave.md)), hvor FDA-modeller gemmes lokalt som JSON og versionsstyres via Git. Brugere har et stærkt ønske om at kunne samarbejde synkront i realtid (f.eks. under faciliterede modelleringsworkshops på tværs af organisationer).
 
-Samtidig er organisationerne underlagt strenge krav til databeskyttelse, GDPR og forretningshemmeligheder. En centraliseret cloud-database (som Firebase eller Supabase) ville bryde Edges Zero-Daemon og Zero Ambient Authority principper, skabe driftsomkostninger og møde modstand i offentlige og private sikkerhedsvurderinger.
+Samtidig er organisationerne underlagt strenge krav til databeskyttelse, GDPR og forretningshemmeligheder. En centraliseret cloud-database (som Firebase eller Supabase) ville bryde Kants Zero-Daemon og Zero Ambient Authority principper, skabe driftsomkostninger og møde modstand i offentlige og private sikkerhedsvurderinger.
 
 ## Beslutning
 
