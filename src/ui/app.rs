@@ -17,7 +17,8 @@ use crate::ui::theme::{
 use iced::event::{self, Event};
 use iced::keyboard::{self, key::Named, Key};
 use iced::widget::{
-    button, column, container, mouse_area, operation, pick_list, row, stack, text, text_input, tooltip, Space,
+    button, column, container, mouse_area, operation, pick_list, row, stack, text, text_input,
+    tooltip, Space,
 };
 use iced::{Alignment, Element, Length, Point, Subscription, Task};
 use serde::{Deserialize, Serialize};
@@ -1952,11 +1953,9 @@ impl App {
         .style(pill_container_style)
         .padding(3);
 
-        let header_right = row![
-            text(self.project.metadata().name())
-                .size(12)
-                .color(ThemeColors::SLATE_600),
-        ]
+        let header_right = row![text(self.project.metadata().name())
+            .size(12)
+            .color(ThemeColors::SLATE_600),]
         .align_y(Alignment::Center);
 
         let header_bar = container(
@@ -2573,11 +2572,12 @@ impl App {
             };
 
             let make_separator = || {
-                container(Space::new().width(Length::Fill).height(Length::Fixed(1.0)))
-                    .style(|_| container::Style {
+                container(Space::new().width(Length::Fill).height(Length::Fixed(1.0))).style(|_| {
+                    container::Style {
                         background: Some(iced::Background::Color(ThemeColors::SURFACE_BORDER)),
                         ..Default::default()
-                    })
+                    }
+                })
             };
 
             let (left_offset, menu_body) = match menu_type {
@@ -2599,7 +2599,11 @@ impl App {
                             .size(10)
                             .color(ThemeColors::TEXT_MUTED),
                         Space::new().height(2),
-                        menu_item("📋", "Modelomslag & Metadata...", Message::OpenMetadataModal),
+                        menu_item(
+                            "📋",
+                            "Modelomslag & Metadata...",
+                            Message::OpenMetadataModal
+                        ),
                     ]
                     .spacing(2)
                     .width(Length::Fixed(240.0)),
@@ -2641,15 +2645,10 @@ impl App {
             )
             .on_press(Message::CloseMenu);
 
-            let dropdown_position = container(
-                row![
-                    Space::new().width(Length::Fixed(left_offset)),
-                    column![
-                        Space::new().height(Length::Fixed(56.0)),
-                        menu_card,
-                    ],
-                ]
-            )
+            let dropdown_position = container(row![
+                Space::new().width(Length::Fixed(left_offset)),
+                column![Space::new().height(Length::Fixed(56.0)), menu_card,],
+            ])
             .width(Length::Fill)
             .height(Length::Fill);
 

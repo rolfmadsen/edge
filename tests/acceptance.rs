@@ -3242,7 +3242,11 @@ fn test_task024_desktop_menu_bar_and_sidebar_toggle() {
     let mut app = App::new_with_path(None);
 
     // 1. Initial tilstand
-    assert_eq!(app.active_menu(), None, "Ingen menu skal være åben ved start");
+    assert_eq!(
+        app.active_menu(),
+        None,
+        "Ingen menu skal være åben ved start"
+    );
     assert!(
         app.is_left_sidebar_visible(),
         "Venstre sidebar skal være synlig som standard"
