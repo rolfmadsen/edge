@@ -2722,4 +2722,3 @@ fn test_task021_attribute_to_concept_lineage_and_traceability() {
 fn test_attribute_lineage() {
     test_task021_attribute_to_concept_lineage_and_traceability();
 }
-

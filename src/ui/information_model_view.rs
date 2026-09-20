@@ -646,23 +646,15 @@ pub fn view<'a>(
                     },
                 };
 
-                let mut top_row = row![
-                    text_input("attributNavn", &name_val)
-                        .style(modern_input_style)
-                        .size(12.0)
-                        .on_input(move |s| {
-                            Message::UpdateAttributeName(class_id, attr_id, s)
-                        })
-                        .padding([3, 6])
-                        .width(Length::Fill),
-                ];
+                let mut top_row = row![text_input("attributNavn", &name_val)
+                    .style(modern_input_style)
+                    .size(12.0)
+                    .on_input(move |s| { Message::UpdateAttributeName(class_id, attr_id, s) })
+                    .padding([3, 6])
+                    .width(Length::Fill),];
 
                 if linked_concept.is_some() {
-                    top_row = top_row.push(
-                        text("🔗")
-                            .size(11)
-                            .color(ThemeColors::PRIMARY),
-                    );
+                    top_row = top_row.push(text("🔗").size(11).color(ThemeColors::PRIMARY));
                 }
 
                 top_row = top_row.push(
