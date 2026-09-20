@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 027: Collab Protokol, Host/Guest Tilstande & Mutation Bridge"
 description: "Definering af CollabPayload og ModelMutation, brobygning til Iced update-loopet, modtagelse af synkrone begivenheder samt disklås og deaktivering af autosave for Guest-klienten"
-status: pending
+status: in_progress
 generated: { by: process:antigravity-task-init, at: "2026-09-20T11:55:00Z" }
 tags: [collaboration, protocol, mutations, iced, autosave, disk-lock]
 ---
 
 # Task 027: Collab Protokol, Host/Guest Tilstande & Mutation Bridge
 
-**Status**: `PENDING`
+**Status**: `IN_PROGRESS`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-20`
 
