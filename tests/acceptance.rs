@@ -2581,3 +2581,145 @@ fn test_task020_harmonized_inspector_and_guidance_panels() {
         let _ = app.view();
     }
 }
+
+#[test]
+fn test_task021_attribute_to_concept_lineage_and_traceability() {
+    let mut app = App::new_with_path(None);
+
+    // 1. Skift til Informationsmodel fanen
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+
+    // 2. Opret forretningsbegreb
+    let concept = Concept::new(
+        "Matrikelnummer",
+        "En entydig identifikation af en samlet fast ejendom.",
+        BelongsToDomain::Yes,
+    );
+    let concept_id = concept.id();
+    let _ = app.project_mut().add_concept(concept);
+
+    // 3. Opret Informationsklasse og tilføj en attribut
+    let mut class = InformationClass::new("FastEjendom");
+    let class_id = class.id();
+    let attr = Attribute::new(
+        "matrikelnummer",
+        PrimitiveType::CharacterString,
+        Multiplicity::exactly_one(),
+    );
+    let attr_id = attr.id();
+    class.add_attribute(attr);
+    let _ = app.project_mut().information_model_mut().add_class(class);
+
+    // Vælg klassen i inspectoren
+    let _ = app.update(Message::SelectInformationClass(Some(class_id)));
+    assert_eq!(app.selected_info_class_id(), Some(class_id));
+
+    // Før tildeling er concept_ids tom
+    {
+        let attr = app
+            .project()
+            .information_model()
+            .get_class(class_id)
+            .unwrap()
+            .attributes()
+            .iter()
+            .find(|a| a.id() == attr_id)
+            .unwrap();
+        assert!(attr.concept_ids().is_empty());
+    }
+
+    // 4. Sæt attributtens begrebs-lineage via Message::SetAttributeConcept
+    let _ = app.update(Message::SetAttributeConcept(
+        class_id,
+        attr_id,
+        Some(concept_id),
+    ));
+
+    // Verificer at concept_id er tilknyttet attributten
+    {
+        let attr = app
+            .project()
+            .information_model()
+            .get_class(class_id)
+            .unwrap()
+            .attributes()
+            .iter()
+            .find(|a| a.id() == attr_id)
+            .unwrap();
+        assert_eq!(attr.concept_ids(), &[concept_id]);
+    }
+
+    // 5. Serialisering / Deserialisering bevarer concept_ids
+    let json = serde_json::to_string(app.project()).expect("Serialisering skal lykkes");
+    let loaded_project: ModelProject =
+        serde_json::from_str(&json).expect("Deserialisering skal lykkes");
+    let loaded_attr = loaded_project
+        .information_model()
+        .get_class(class_id)
+        .unwrap()
+        .attributes()
+        .iter()
+        .find(|a| a.id() == attr_id)
+        .unwrap();
+    assert_eq!(loaded_attr.concept_ids(), &[concept_id]);
+
+    // 6. Inspectoren renderer view med lineage indikation uden fejl
+    {
+        let _view = app.view();
+    }
+
+    // 7. Fjern begrebstilknytning ved at sætte None (teknisk felt)
+    let _ = app.update(Message::SetAttributeConcept(class_id, attr_id, None));
+    {
+        let attr = app
+            .project()
+            .information_model()
+            .get_class(class_id)
+            .unwrap()
+            .attributes()
+            .iter()
+            .find(|a| a.id() == attr_id)
+            .unwrap();
+        assert!(
+            attr.concept_ids().is_empty(),
+            "Attributten skal nu være uden begreb"
+        );
+    }
+
+    // 8. Knyt begrebet igen og test sletning af begreb (Robusthed jf. Must NOT)
+    let _ = app.update(Message::SetAttributeConcept(
+        class_id,
+        attr_id,
+        Some(concept_id),
+    ));
+    let _ = app.update(Message::DeleteConcept(concept_id));
+
+    // Must NOT: Må IKKE slette attributten når begrebet slettes
+    {
+        let class = app
+            .project()
+            .information_model()
+            .get_class(class_id)
+            .expect("Klassen skal stadig eksistere");
+        let attr = class
+            .attributes()
+            .iter()
+            .find(|a| a.id() == attr_id)
+            .expect("Attributten må IKKE være slettet");
+        assert!(
+            attr.concept_ids().is_empty(),
+            "Slettet begreb skal være fjernet fra attributtens lineage"
+        );
+    }
+
+    // Inspectoren renderer view efter sletning uden fejl
+    {
+        let _view = app.view();
+    }
+}
+
+#[test]
+fn test_attribute_lineage() {
+    test_task021_attribute_to_concept_lineage_and_traceability();
+}
+
