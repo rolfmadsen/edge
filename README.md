@@ -118,6 +118,37 @@ cargo clippy -- -D warnings
 
 ---
 
+## 🌐 E2EE Realtids-kollaborering & Relay Server (`edge-relay`)
+
+Edge understøtter synkron, end-to-end krypteret (E2EE) modellering i realtid mellem flere deltagere via en uafhængig, ultralet og "blind" WebSocket relay-server ([ADR 008](docs/adr/008-e2ee-realtime-collaboration-and-stateless-relay.md)).
+
+Relayen opbevarer **nul data på disk** (100% in-memory), kræver ingen ekstern database og router udelukkende krypterede frames mellem klienter forbundet til samme sessionskode.
+
+### 1. Kør relay-serveren lokalt med Docker (Anbefalet)
+Repositoryet indeholder en færdig [`docker-compose.yml`](docker-compose.yml):
+```bash
+# Start relay-serveren i baggrunden (port 8080)
+docker compose up -d
+
+# Bekræft at servicen kører og svarer sundt
+curl http://localhost:8080/health
+```
+I Edge vælges preset: `Lokal Docker (ws://localhost:8080/ws)`.
+
+### 2. Kør lokalt via Cargo (Uden Docker)
+```bash
+cargo run -p edge-relay
+```
+
+### 3. Sky-udrulning (Koyeb PaaS / Egen organisation)
+Relayen kan udrulles på enhver containerplatform eller PaaS uden driftsomkostninger:
+- **1-Klik Koyeb Deploy:** Benyt [`koyeb.yaml`](koyeb.yaml) eller klik på deploy-knappen i [`crates/edge-relay/README.md`](crates/edge-relay/README.md).
+- **Miljøvariable:** `PORT=8080`, `HOST=0.0.0.0`, `RUST_LOG=info`.
+
+For API-specifikation og yderligere tekniske detaljer henvises til [crates/edge-relay/README.md](crates/edge-relay/README.md).
+
+---
+
 ## 📄 Licens
 
 Dette projekt er licenseret under de vilkår, der fremgår af [LICENSE](LICENSE).
