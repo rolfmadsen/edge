@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 028: Samarbejds-UI, Start/Join Modaler & Live Deltagerstatus"
 description: "Integration af Samarbejde i desktop-headeren, Cosmic Glass modaler for Start Session (Host med servervalg) og Join Session (Guest med 1-klik token paste) samt live tilstedeværelses- og forbindelsesindikator"
-status: pending
+status: in_progress
 generated: { by: process:antigravity-task-init, at: "2026-09-20T11:55:00Z" }
 tags: [collaboration, ui, iced, cosmic-glass, modals, presets, presence]
 ---
 
 # Task 028: Samarbejds-UI, Start/Join Modaler & Live Deltagerstatus
 
-**Status**: `PENDING`
+**Status**: `IN_PROGRESS`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-20`
 
