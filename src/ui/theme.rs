@@ -455,7 +455,7 @@ pub fn modern_input_style(_theme: &iced::Theme, status: text_input::Status) -> t
                 radius: 8.0.into(),
             },
             icon: ThemeColors::PRIMARY,
-            placeholder: Color::TRANSPARENT,
+            placeholder: Color::from_rgba(0.60, 0.65, 0.75, 0.60),
             value: ThemeColors::SLATE_900,
             selection: ThemeColors::PRIMARY_LIGHT,
         },

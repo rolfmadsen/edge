@@ -254,10 +254,10 @@ impl Default for ModelProject {
     fn default() -> Self {
         Self::new(ModelMetadata::new(
             "Nyt FDA Modelprojekt",
-            "Beskrivelse af modelprojektet",
-            "https://data.gov.dk/model/core/new-model",
-            "Ansvarlig Myndighed",
-            "Emneområde",
+            "",
+            "",
+            "",
+            "",
             "0.1.0",
             ModelStatus::Draft,
         ))

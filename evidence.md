@@ -4,10 +4,10 @@
 **Task Title**: Task 017: Model Omslag & Metadata Redigeringsmodal og 3-Faset Navigation  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Source Manifest Digest**: `478959975fb171475e98189619ba191908e3b30b36048b9819f296dbe5ee3e3b`  
-**Timestamp**: `2026-09-20T08:00:51Z`  
-**Head**: `712c111`  
-**Commit**: `712c111`  
+**Source Manifest Digest**: `de5ab86158882ada31c1c092efc7c5413f4a1aa624e8c8492e5471c74b82e9e7`  
+**Timestamp**: `2026-09-20T08:06:22Z`  
+**Head**: `5bf6fc9`  
+**Commit**: `5bf6fc9`  
 
 ## Acceptance Criteria
 
@@ -26,9 +26,9 @@
 
 | Check Name | Status | Exit Code | Duration (s) |
 |---|---|---|---|
-| `lint` | `PASSED` | `0` | `0.222s` |
-| `types` | `PASSED` | `0` | `0.144s` |
-| `unit` | `PASSED` | `0` | `0.259s` |
-| `invariants` | `PASSED` | `0` | `0.250s` |
+| `lint` | `PASSED` | `0` | `0.486s` |
+| `types` | `PASSED` | `0` | `0.532s` |
+| `unit` | `PASSED` | `0` | `1.499s` |
+| `invariants` | `PASSED` | `0` | `0.248s` |
 
 ---

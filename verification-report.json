@@ -21,9 +21,9 @@
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "b1394fde3dc7af08eab97fadaac143907e1d6b29cb743fc0e2f1ab7e1a796ec0",
-    "source_manifest_digest_pre": "478959975fb171475e98189619ba191908e3b30b36048b9819f296dbe5ee3e3b",
-    "source_manifest_digest_post": "478959975fb171475e98189619ba191908e3b30b36048b9819f296dbe5ee3e3b",
+    "source_content_digest": "157fbfb523b08faf6d9834b50e5a5cb1ed134810ec69e8d4dfa823e26f97c9a8",
+    "source_manifest_digest_pre": "de5ab86158882ada31c1c092efc7c5413f4a1aa624e8c8492e5471c74b82e9e7",
+    "source_manifest_digest_post": "de5ab86158882ada31c1c092efc7c5413f4a1aa624e8c8492e5471c74b82e9e7",
     "config_digest": "a39c41501ff787d3c41a10cb43a63bded80d210f39f91c9d06b54d1626d3cfa1",
     "task_digest": "00974a84e5a79739c279628ad143185f40f4b4e935a6aed142b23e60e2269b81",
     "policy_digest": "5090a2fa8109c351feef4526ffff4d5def36ef3e7cb966e9951d009a75a80c1b",
@@ -31,15 +31,15 @@
     "included_files_count": 64,
     "vcs": {
       "type": "git",
-      "head": "712c111",
-      "commit": "712c111",
+      "head": "5bf6fc9",
+      "commit": "5bf6fc9",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-20T08:00:50Z",
-    "finished_at": "2026-09-20T08:00:51Z",
-    "total_duration_seconds": 0.891710857,
+    "started_at": "2026-09-20T08:06:19Z",
+    "finished_at": "2026-09-20T08:06:22Z",
+    "total_duration_seconds": 2.7893331630000002,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -52,37 +52,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.221912476,
+      "duration_seconds": 0.486311234,
       "optional": true,
       "passed": true,
-      "log_digest": "4f27ac380b22e1d975eee20ce727fa8cbc09061177f6253af0777fd4de7b7506"
+      "log_digest": "6f869788bc2fb3a480d95ec7c89ce8f3dec40b22ea821386540bb8b26adf8b44"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.14429952,
+      "duration_seconds": 0.532166224,
       "optional": true,
       "passed": true,
-      "log_digest": "22e0df986057b9ba5be07526ac5fb348862a3dedef42108383cc3e088acbb889"
+      "log_digest": "873212b9127a103256b9a757de61f5b01581a3c3f6a994db0f98b0ca15f9f316"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.259253123,
+      "duration_seconds": 1.4989661939999999,
       "optional": false,
       "passed": true,
-      "log_digest": "bcb4ba54c9cac980b5f55c3714f86bc0ee487099524242ba211971141615f728"
+      "log_digest": "aac4b8db5bcc3ed312cf7016220831a28e5787ac493fa0e2ca43795b2daf0ca5"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.250023395,
+      "duration_seconds": 0.248339197,
       "optional": false,
       "passed": true,
-      "log_digest": "7c909d98f74550ba1b6fb3b97034446b9039e5f6f56969c7f685d3230a56086c"
+      "log_digest": "7c337c52c7cc747c757943fcf227318c6c5000273fbe0428296885fd12869a64"
     }
   ],
   "diagnostics": []

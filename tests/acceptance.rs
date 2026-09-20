@@ -2324,3 +2324,25 @@ fn test_task_017_model_metadata_modal_and_3phase_tabs() {
     let _ = app.update(Message::CloseMetadataModal);
     assert!(app.metadata_modal().is_none());
 }
+
+#[test]
+fn test_metadata_modal_default_placeholders_allow_direct_typing() {
+    let mut app = App::new_with_path(None);
+
+    // Åbn modal på et nyt projekt
+    let _ = app.update(Message::OpenMetadataModal);
+    let modal = app.metadata_modal().expect("Modal bør være åben");
+
+    // Felter med standardværdier starter som tomme strenge, så placeholder vises og brugeren kan skrive direkte
+    assert_eq!(modal.name, "");
+    assert_eq!(modal.description, "");
+    assert_eq!(modal.domain_area, "");
+    assert_eq!(modal.responsible_org, "");
+    assert_eq!(modal.uri, "");
+    assert_eq!(modal.version, "");
+
+    // Hvis brugeren gemmer uden at skrive noget, fastholdes kanoniske standardværdier
+    let _ = app.update(Message::SaveMetadataModal);
+    assert_eq!(app.project().metadata().name(), "Nyt FDA Modelprojekt");
+    assert_eq!(app.project().metadata().version(), "0.1.0");
+}

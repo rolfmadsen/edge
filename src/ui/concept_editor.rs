@@ -52,7 +52,7 @@ impl ConceptEditorState {
             editing_id: None,
             preferred_term: String::new(),
             definition: String::new(),
-            belongs_to_domain: "Ja".to_string(),
+            belongs_to_domain: String::new(),
             accepted_term: String::new(),
             deprecated_term: String::new(),
             example: String::new(),
@@ -228,7 +228,7 @@ impl ConceptEditorState {
             text("Tilhører emneområde *")
                 .size(13)
                 .color(ThemeColors::SLATE_800),
-            text_input("Ja / Nej / URI...", &self.belongs_to_domain)
+            text_input("Ja (lokalt) / Nej / URI...", &self.belongs_to_domain)
                 .style(modern_input_style)
                 .on_input(|v| Message::UpdateConceptField(ConceptFormField::BelongsToDomain, v))
                 .padding(8),

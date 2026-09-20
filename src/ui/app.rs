@@ -114,13 +114,37 @@ pub struct ModelMetadataModalState {
 impl ModelMetadataModalState {
     pub fn from_metadata(meta: &ModelMetadata) -> Self {
         Self {
-            name: meta.name().to_string(),
-            description: meta.description().to_string(),
+            name: if meta.name() == "Nyt FDA Modelprojekt" {
+                String::new()
+            } else {
+                meta.name().to_string()
+            },
+            description: if meta.description() == "Beskrivelse af modelprojektet" {
+                String::new()
+            } else {
+                meta.description().to_string()
+            },
             status: meta.status(),
-            domain_area: meta.domain_area().to_string(),
-            responsible_org: meta.responsible_org().to_string(),
-            uri: meta.uri().to_string(),
-            version: meta.version().to_string(),
+            domain_area: if meta.domain_area() == "Emneområde" {
+                String::new()
+            } else {
+                meta.domain_area().to_string()
+            },
+            responsible_org: if meta.responsible_org() == "Ansvarlig Myndighed" {
+                String::new()
+            } else {
+                meta.responsible_org().to_string()
+            },
+            uri: if meta.uri() == "https://data.gov.dk/model/core/new-model" {
+                String::new()
+            } else {
+                meta.uri().to_string()
+            },
+            version: if meta.version() == "0.1.0" {
+                String::new()
+            } else {
+                meta.version().to_string()
+            },
         }
     }
 }
@@ -522,13 +546,23 @@ impl App {
             Message::SaveMetadataModal => {
                 if let Some(state) = self.metadata_modal.take() {
                     let meta = self.project.metadata_mut();
-                    meta.set_name(state.name);
+                    let name = if state.name.trim().is_empty() {
+                        "Nyt FDA Modelprojekt".to_string()
+                    } else {
+                        state.name
+                    };
+                    let version = if state.version.trim().is_empty() {
+                        "0.1.0".to_string()
+                    } else {
+                        state.version
+                    };
+                    meta.set_name(name);
                     meta.set_description(state.description);
                     meta.set_status(state.status);
                     meta.set_domain_area(state.domain_area);
                     meta.set_responsible_org(state.responsible_org);
                     meta.set_uri(state.uri);
-                    meta.set_version(state.version);
+                    meta.set_version(version);
                     self.save_status = SaveStatus::Unsaved;
                 }
             }
@@ -1704,7 +1738,7 @@ impl App {
                 // 1. Modelnavn
                 let name_field = column![
                     text("Modelnavn *").size(12).color(ThemeColors::SLATE_700),
-                    text_input("Modelnavn...", &meta_state.name)
+                    text_input("Nyt FDA Modelprojekt", &meta_state.name)
                         .style(modern_input_style)
                         .on_input(|val| Message::UpdateMetadataField(MetadataField::Name, val))
                         .padding(8)
@@ -1714,15 +1748,15 @@ impl App {
 
                 // 2. Beskrivelse
                 let desc_field = column![
-                    text("Beskrivelse *").size(12).color(ThemeColors::SLATE_700),
-                    text_input("Formål og omfang...", &meta_state.description)
-                        .style(modern_input_style)
-                        .on_input(|val| Message::UpdateMetadataField(
-                            MetadataField::Description,
-                            val
-                        ))
-                        .padding(8)
-                        .width(Length::Fill),
+                    text("Beskrivelse").size(12).color(ThemeColors::SLATE_700),
+                    text_input(
+                        "Formål og omfang jf. FDA Modelreglerne...",
+                        &meta_state.description
+                    )
+                    .style(modern_input_style)
+                    .on_input(|val| Message::UpdateMetadataField(MetadataField::Description, val))
+                    .padding(8)
+                    .width(Length::Fill),
                 ]
                 .spacing(4);
 
@@ -1744,7 +1778,7 @@ impl App {
 
                 let version_field = column![
                     text("Version").size(12).color(ThemeColors::SLATE_700),
-                    text_input("f.eks. 1.0.0", &meta_state.version)
+                    text_input("0.1.0", &meta_state.version)
                         .style(modern_input_style)
                         .on_input(|val| Message::UpdateMetadataField(MetadataField::Version, val))
                         .padding(8)
@@ -1760,7 +1794,7 @@ impl App {
                     text("Emneområde (§26)")
                         .size(12)
                         .color(ThemeColors::SLATE_700),
-                    text_input("f.eks. Byggeri og Bolig", &meta_state.domain_area)
+                    text_input("f.eks. Vej og Trafik", &meta_state.domain_area)
                         .style(modern_input_style)
                         .on_input(|val| Message::UpdateMetadataField(
                             MetadataField::DomainArea,
@@ -1777,7 +1811,7 @@ impl App {
                         .size(12)
                         .color(ThemeColors::SLATE_700),
                     text_input(
-                        "f.eks. Styrelsen for Dataforsyning...",
+                        "f.eks. Styrelsen for Dataforsyning eller Vejdirektoratet",
                         &meta_state.responsible_org,
                     )
                     .style(modern_input_style)
@@ -1796,7 +1830,7 @@ impl App {
                 // 5. Model-URI
                 let uri_field = column![
                     text("Model-URI").size(12).color(ThemeColors::SLATE_700),
-                    text_input("https://data.gov.dk/model/...", &meta_state.uri)
+                    text_input("https://data.gov.dk/model/core/...", &meta_state.uri)
                         .style(modern_input_style)
                         .on_input(|val| Message::UpdateMetadataField(MetadataField::Uri, val))
                         .padding(8)
