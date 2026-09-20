@@ -111,14 +111,32 @@ mod tests {
     }
 
     #[test]
-    fn test_payload_roundtrip_json() {
-        let concept = Concept::new("Vej", "Færdselsareal", BelongsToDomain::Yes);
-        let mutation = ModelMutation::ConceptAdded(concept);
-        let payload = CollabPayload::Mutation(mutation);
+    fn test_frametype_bytes() {
+        assert_eq!(FrameType::Snapshot as u8, 0x01);
+        assert_eq!(FrameType::Mutation as u8, 0x02);
+        assert_eq!(FrameType::Presence as u8, 0x03);
+        assert_eq!(FrameType::HostLeft as u8, 0x04);
 
-        let serialized = serde_json::to_string(&payload).expect("Serialization fejlede");
-        let deserialized: CollabPayload =
-            serde_json::from_str(&serialized).expect("Deserialization fejlede");
-        assert_eq!(payload, deserialized);
+        assert_eq!(FrameType::from_u8(0x01), Some(FrameType::Snapshot));
+        assert_eq!(FrameType::from_u8(0x02), Some(FrameType::Mutation));
+        assert_eq!(FrameType::from_u8(0x03), Some(FrameType::Presence));
+        assert_eq!(FrameType::from_u8(0x04), Some(FrameType::HostLeft));
+        assert_eq!(FrameType::from_u8(0xFF), None);
+    }
+
+    #[test]
+    fn test_collab_envelope_replay_protection() {
+        let concept = Concept::new("Vej", "Færdselsareal", BelongsToDomain::Yes);
+        let payload = CollabPayload::Mutation(ModelMutation::ConceptAdded(concept));
+
+        let envelope1 = CollabEnvelope::new(1, 1000, payload.clone());
+        let envelope2 = CollabEnvelope::new(2, 1050, payload.clone());
+        let replay_envelope = CollabEnvelope::new(1, 1000, payload.clone());
+
+        assert!(envelope1.is_newer_than(0));
+        assert!(envelope2.is_newer_than(1));
+        assert!(!replay_envelope.is_newer_than(1));
+        assert!(!replay_envelope.is_newer_than(2));
     }
 }
+
