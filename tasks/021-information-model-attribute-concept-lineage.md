@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 021: Informationsmodel: Attribut-til-Begreb Lineage Vælger"
 description: "Etablering af visuel kobling og lineage i UI fra Informationsmodellens klasseattributter til forretningsbegreber jf. ADR 006"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-20T09:55:00Z" }
 tags: [ui, information-model, attributes, lineage, traceability, concepts, adr-006]
 ---
 
 # Task 021: Informationsmodel: Attribut-til-Begreb Lineage Vælger
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-20`
 
@@ -22,11 +22,11 @@ tags: [ui, information-model, attributes, lineage, traceability, concepts, adr-0
 4. Sikre at sletning eller omdøbning af begreber håndteres robust uden at ødelægge informationsmodellen.
 
 ## 📋 Acceptance Criteria
-- [ ] Attribut-editoren i Informationsmodellens inspector indeholder en dropdown til at vælge tilknyttet begreb.
-- [ ] Valg af begreb persisteres i `Attribute.concept_ids` og gemmes i projektfilen.
-- [ ] Hvis et begreb vælges, vises begrebets navn eller et lineage-ikon ud for attributten i inspectoren.
-- [ ] Enhedstests bekræfter at `Attribute` bevarer `concept_ids` gennem serialisering og deserialisering.
-- [ ] 100% test pass rate på `cargo test` og clippy uden advarsler.
+- [x] Attribut-editoren i Informationsmodellens inspector indeholder en dropdown til at vælge tilknyttet begreb.
+- [x] Valg af begreb persisteres i `Attribute.concept_ids` og gemmes i projektfilen.
+- [x] Hvis et begreb vælges, vises begrebets navn eller et lineage-ikon ud for attributten i inspectoren.
+- [x] Enhedstests bekræfter at `Attribute` bevarer `concept_ids` gennem serialisering og deserialisering.
+- [x] 100% test pass rate på `cargo test` og clippy uden advarsler.
 
 ## 🚫 Must NOT
 - Må IKKE tvinge alle attributter til at have et begreb (flere attributter er rent tekniske såsom ID'er, tidsstempler eller tekniske flag).

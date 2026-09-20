@@ -1,19 +1,19 @@
 # Verification Report
 
-**Task ID**: `020-harmonized-inspector-and-guidance-panels`  
-**Task Title**: Task 020: Harmoniseret Egenskaber- og Vejledningspanel i Begrebs- og Informationsmodel  
+**Task ID**: `021-information-model-attribute-concept-lineage`  
+**Task Title**: Task 021: Informationsmodel: Attribut-til-Begreb Lineage Vælger  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Timestamp**: `2026-09-20T10:35:00Z`  
-**Head**: `fe0e3e6`  
-**Commit**: `fe0e3e6`  
+**Timestamp**: `2026-09-20T10:41:00Z`  
+**Head**: `f1b5cff`  
+**Commit**: `f1b5cff`  
 
 ## Acceptance Criteria
 
-- [x] Titler og header-styling i højre panel er ensartede på tværs af `concept_model_view.rs` og `information_model_view.rs`.
-- [x] Tom tilstand (ingen selektion) viser et rent, velstruktureret **VEJLEDNING** panel med tips til henholdsvis grafmodellering og informationsmodellering.
-- [x] Selektionstilstand viser et velstruktureret **EGENSKABER** panel med klare kortsektioner.
-- [x] Hjælpe- og redigeringsfunktionalitet bevares 100%, men med ensartet typografi og COSMIC-styling.
+- [x] Attribut-editoren i Informationsmodellens inspector indeholder en dropdown til at vælge tilknyttet begreb.
+- [x] Valg af begreb persisteres i `Attribute.concept_ids` og gemmes i projektfilen.
+- [x] Hvis et begreb vælges, vises begrebets navn eller et lineage-ikon ud for attributten i inspectoren.
+- [x] Enhedstests bekræfter at `Attribute` bevarer `concept_ids` gennem serialisering og deserialisering.
 - [x] 100% test pass rate på `cargo test` og clippy uden advarsler.
 
 ---
@@ -28,3 +28,4 @@
 | `check` (`cargo check --all-targets`) | `PASSED` | `0` |
 
 ---
+
