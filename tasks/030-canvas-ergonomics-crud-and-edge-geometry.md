@@ -1,6 +1,6 @@
 # Task 030: Canvas Ergonomi, Opret/Slet & Relations-geometri
 
-**Status**: ACTIVE  
+**Status**: DONE  
 **Intent**: 🔄 ENHANCEMENT  
 
 ## 🎯 Formål
@@ -14,13 +14,13 @@ Forbedre og professionalisere lærredsinteraktionen, sletningsarbejdsgange og re
 7. Rette statustekster til henholdsvis "x begreber på diagram • y relationer" og "x klasser på diagram • y relationer".
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 (Renset værktøjslinje)**: Hverken Begrebsmodellen eller Informationsmodellen viser `-`, `xxx%` eller `+` i lærredets øverste værktøjslinje.
-- [ ] **AC2 (Hurtigoprettelse i centrum)**: `+ Opret begreb` og `+ Opret klasse` i værktøjslinjen åbner oprettelse centreret i canvas-udsnittet.
-- [ ] **AC3 (Præcist dobbeltklik)**: Dobbeltklik på canvas i Informationsmodellen opretter klassen på klikpositionen frem for i en fast gitterberegning. I Begrebsmodellen centreres den nye node over klikket.
-- [ ] **AC4 (Ensartet relations-geometri)**: Generalisering og Komposition anvender samme ikonlængde/bredde (14.0) og symmetrisk stub-forskydning så ortogonale knæk flugter.
-- [ ] **AC5 (Deselect relation ved klik)**: Klik på tomt lærred i Begrebs- og Informationsmodellen nulstiller valgt relation/edge (`selected_edge = None`, `selected_info_edge = None`).
-- [ ] **AC6 (Permanent sletning fra palet)**: Elementer i venstre palet der har `!is_on_canvas` viser både `+` og `🗑️`. Klik på `🗑️` sletter begrebet/klassen permanent.
-- [ ] **AC7 (Ensartet tæller-tekst)**: Begrebsmodellen viser `"x begreber på diagram • y relationer"`, og Informationsmodellen viser `"x klasser på diagram • y relationer"`.
+- [x] **AC1 (Renset værktøjslinje)**: Hverken Begrebsmodellen eller Informationsmodellen viser `-`, `xxx%` eller `+` i lærredets øverste værktøjslinje.
+- [x] **AC2 (Hurtigoprettelse i centrum)**: `+ Opret begreb` og `+ Opret klasse` i værktøjslinjen åbner oprettelse centreret i canvas-udsnittet.
+- [x] **AC3 (Præcist dobbeltklik)**: Dobbeltklik på canvas i Informationsmodellen opretter klassen på klikpositionen frem for i en fast gitterberegning. I Begrebsmodellen centreres den nye node over klikket.
+- [x] **AC4 (Ensartet relations-geometri)**: Generalisering og Komposition anvender samme ikonlængde/bredde (14.0) og symmetrisk stub-forskydning så ortogonale knæk flugter.
+- [x] **AC5 (Deselect relation ved klik)**: Klik på tomt lærred i Begrebs- og Informationsmodellen nulstiller valgt relation/edge (`selected_edge = None`, `selected_info_edge = None`).
+- [x] **AC6 (Permanent sletning fra palet)**: Elementer i venstre palet der har `!is_on_canvas` viser både `+` og `🗑️`. Klik på `🗑️` sletter begrebet/klassen permanent.
+- [x] **AC7 (Ensartet tæller-tekst)**: Begrebsmodellen viser `"x begreber på diagram • y relationer"`, og Informationsmodellen viser `"x klasser på diagram • y relationer"`.
 
 ## 🚫 Must NOT
 - Må IKKE ødelægge de svævende ergonomi-kontroller / minimap i nederste højre hjørne.
