@@ -4,7 +4,7 @@ use crate::features::information_model::{
     Attribute, InformationClass, Multiplicity, PrimitiveType,
 };
 use crate::features::model::storage::ProjectStorage;
-use crate::features::model::ModelProject;
+use crate::features::model::{ModelMetadata, ModelProject, ModelStatus};
 use crate::ui::concept_editor::ConceptEditorState;
 use crate::ui::concept_model_view;
 use crate::ui::concept_table;
@@ -90,9 +90,43 @@ impl QuickCreateState {
 
 pub use crate::ui::concept_editor::ConceptFormField;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MetadataField {
+    Name,
+    Description,
+    DomainArea,
+    ResponsibleOrg,
+    Uri,
+    Version,
+}
+
+#[derive(Debug, Clone)]
+pub struct ModelMetadataModalState {
+    pub name: String,
+    pub description: String,
+    pub status: ModelStatus,
+    pub domain_area: String,
+    pub responsible_org: String,
+    pub uri: String,
+    pub version: String,
+}
+
+impl ModelMetadataModalState {
+    pub fn from_metadata(meta: &ModelMetadata) -> Self {
+        Self {
+            name: meta.name().to_string(),
+            description: meta.description().to_string(),
+            status: meta.status(),
+            domain_area: meta.domain_area().to_string(),
+            responsible_org: meta.responsible_org().to_string(),
+            uri: meta.uri().to_string(),
+            version: meta.version().to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Tab {
-    Metadata,
     ConceptList,
     ConceptModel,
     InformationModel,
@@ -116,6 +150,13 @@ pub enum FileDialogMode {
 pub enum Message {
     SelectTab(Tab),
     NewProject,
+
+    // Modelomslag & Metadata modal (Task 017)
+    OpenMetadataModal,
+    CloseMetadataModal,
+    SaveMetadataModal,
+    UpdateMetadataField(MetadataField, String),
+    UpdateMetadataStatus(ModelStatus),
 
     // Begrebsliste CRUD-handlinger
     StartNewConcept,
@@ -258,6 +299,7 @@ pub struct App {
     info_relation_dialog: Option<RelationDialogState>,
     info_snap_to_grid: bool,
     concept_model_search: String,
+    metadata_modal: Option<ModelMetadataModalState>,
 }
 
 impl Default for App {
@@ -280,7 +322,7 @@ impl App {
                     proj.sync_information_graph();
                     return Self {
                         project: proj,
-                        active_tab: Tab::Metadata,
+                        active_tab: Tab::ConceptList,
                         editor_state: None,
                         search_query: String::new(),
                         current_file_path: path.clone(),
@@ -303,6 +345,7 @@ impl App {
                         info_relation_dialog: None,
                         info_snap_to_grid: true,
                         concept_model_search: String::new(),
+                        metadata_modal: None,
                     };
                 }
             }
@@ -315,7 +358,7 @@ impl App {
 
         Self {
             project: ModelProject::default(),
-            active_tab: Tab::Metadata,
+            active_tab: Tab::ConceptList,
             editor_state: None,
             search_query: String::new(),
             current_file_path: path,
@@ -338,6 +381,7 @@ impl App {
             info_relation_dialog: None,
             info_snap_to_grid: true,
             concept_model_search: String::new(),
+            metadata_modal: None,
         }
     }
 
@@ -355,6 +399,10 @@ impl App {
 
     pub fn active_tab(&self) -> Tab {
         self.active_tab
+    }
+
+    pub fn metadata_modal(&self) -> Option<&ModelMetadataModalState> {
+        self.metadata_modal.as_ref()
     }
 
     pub fn project(&self) -> &ModelProject {
@@ -463,9 +511,48 @@ impl App {
                     self.project.sync_information_graph();
                 }
             }
+            Message::OpenMetadataModal => {
+                self.metadata_modal = Some(ModelMetadataModalState::from_metadata(
+                    self.project.metadata(),
+                ));
+            }
+            Message::CloseMetadataModal => {
+                self.metadata_modal = None;
+            }
+            Message::SaveMetadataModal => {
+                if let Some(state) = self.metadata_modal.take() {
+                    let meta = self.project.metadata_mut();
+                    meta.set_name(state.name);
+                    meta.set_description(state.description);
+                    meta.set_status(state.status);
+                    meta.set_domain_area(state.domain_area);
+                    meta.set_responsible_org(state.responsible_org);
+                    meta.set_uri(state.uri);
+                    meta.set_version(state.version);
+                    self.save_status = SaveStatus::Unsaved;
+                }
+            }
+            Message::UpdateMetadataField(field, val) => {
+                if let Some(modal) = &mut self.metadata_modal {
+                    match field {
+                        MetadataField::Name => modal.name = val,
+                        MetadataField::Description => modal.description = val,
+                        MetadataField::DomainArea => modal.domain_area = val,
+                        MetadataField::ResponsibleOrg => modal.responsible_org = val,
+                        MetadataField::Uri => modal.uri = val,
+                        MetadataField::Version => modal.version = val,
+                    }
+                }
+            }
+            Message::UpdateMetadataStatus(status) => {
+                if let Some(modal) = &mut self.metadata_modal {
+                    modal.status = status;
+                }
+            }
             Message::NewProject => {
                 self.project = ModelProject::default();
-                self.active_tab = Tab::Metadata;
+                self.active_tab = Tab::ConceptList;
+                self.metadata_modal = None;
                 self.editor_state = None;
                 self.is_inline_graph_editing = false;
                 self.search_query.clear();
@@ -667,7 +754,9 @@ impl App {
                 return operation::focus_previous();
             }
             Message::EscapePressed => {
-                if self.quick_create.is_some() {
+                if self.metadata_modal.is_some() {
+                    self.metadata_modal = None;
+                } else if self.quick_create.is_some() {
                     self.quick_create = None;
                 } else if self.relation_dialog.is_some() {
                     self.relation_dialog = None;
@@ -1524,6 +1613,15 @@ impl App {
                     ..Default::default()
                 })
                 .padding([2, 8]),
+            Space::new().width(12),
+            text(self.project.metadata().name())
+                .size(13)
+                .color(ThemeColors::SLATE_800),
+            Space::new().width(6),
+            button(text("📋 Modelomslag").size(11))
+                .style(secondary_button_style)
+                .on_press(Message::OpenMetadataModal)
+                .padding([3, 8]),
         ]
         .align_y(Alignment::Center);
 
@@ -1537,10 +1635,9 @@ impl App {
 
         let tab_pill_bar = container(
             row![
-                tab_item(Tab::Metadata, "1. Omslag & Metadata"),
-                tab_item(Tab::ConceptList, "2. Begrebsliste (Bilag D & E)"),
-                tab_item(Tab::ConceptModel, "3. Begrebsmodel (Graf)"),
-                tab_item(Tab::InformationModel, "4. Informationsmodel"),
+                tab_item(Tab::ConceptList, "1. Begrebsliste (Bilag D & E)"),
+                tab_item(Tab::ConceptModel, "2. Begrebsmodel (Graf)"),
+                tab_item(Tab::InformationModel, "3. Informationsmodel"),
             ]
             .spacing(2)
             .align_y(Alignment::Center),
@@ -1585,6 +1682,169 @@ impl App {
         .width(Length::Fill);
 
         // 2. Modale dialoger (Stack Overlay)
+        let maybe_metadata_modal: Option<Element<Message>> =
+            self.metadata_modal.as_ref().map(|meta_state| {
+                let title_row = row![
+                    text("📋 Modelomslag & Metadata")
+                        .size(17)
+                        .color(ThemeColors::SLATE_900),
+                    Space::new().width(Length::Fill),
+                    button(text("✕").size(13))
+                        .style(secondary_button_style)
+                        .on_press(Message::CloseMetadataModal)
+                        .padding([3, 7]),
+                ]
+                .align_y(Alignment::Center);
+
+                let subtitle =
+                    text("Rediger overordnede metadata for modelprojektet jf. FDA Modelreglerne:")
+                        .size(12)
+                        .color(ThemeColors::TEXT_MUTED);
+
+                // 1. Modelnavn
+                let name_field = column![
+                    text("Modelnavn *").size(12).color(ThemeColors::SLATE_700),
+                    text_input("Modelnavn...", &meta_state.name)
+                        .style(modern_input_style)
+                        .on_input(|val| Message::UpdateMetadataField(MetadataField::Name, val))
+                        .padding(8)
+                        .width(Length::Fill),
+                ]
+                .spacing(4);
+
+                // 2. Beskrivelse
+                let desc_field = column![
+                    text("Beskrivelse *").size(12).color(ThemeColors::SLATE_700),
+                    text_input("Formål og omfang...", &meta_state.description)
+                        .style(modern_input_style)
+                        .on_input(|val| Message::UpdateMetadataField(
+                            MetadataField::Description,
+                            val
+                        ))
+                        .padding(8)
+                        .width(Length::Fill),
+                ]
+                .spacing(4);
+
+                // 3. Status picklist & Version
+                let status_pick = pick_list(
+                    &ModelStatus::ALL[..],
+                    Some(meta_state.status),
+                    Message::UpdateMetadataStatus,
+                )
+                .padding(7)
+                .width(Length::Fill);
+
+                let status_field = column![
+                    text("Modelstatus").size(12).color(ThemeColors::SLATE_700),
+                    status_pick,
+                ]
+                .spacing(4)
+                .width(Length::FillPortion(1));
+
+                let version_field = column![
+                    text("Version").size(12).color(ThemeColors::SLATE_700),
+                    text_input("f.eks. 1.0.0", &meta_state.version)
+                        .style(modern_input_style)
+                        .on_input(|val| Message::UpdateMetadataField(MetadataField::Version, val))
+                        .padding(8)
+                        .width(Length::Fill),
+                ]
+                .spacing(4)
+                .width(Length::FillPortion(1));
+
+                let status_version_row = row![status_field, version_field].spacing(12);
+
+                // 4. Emneområde (§26) & Ansvarlig organisation
+                let domain_field = column![
+                    text("Emneområde (§26)")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                    text_input("f.eks. Byggeri og Bolig", &meta_state.domain_area)
+                        .style(modern_input_style)
+                        .on_input(|val| Message::UpdateMetadataField(
+                            MetadataField::DomainArea,
+                            val
+                        ))
+                        .padding(8)
+                        .width(Length::Fill),
+                ]
+                .spacing(4)
+                .width(Length::FillPortion(1));
+
+                let org_field = column![
+                    text("Ansvarlig organisation")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                    text_input(
+                        "f.eks. Styrelsen for Dataforsyning...",
+                        &meta_state.responsible_org,
+                    )
+                    .style(modern_input_style)
+                    .on_input(|val| Message::UpdateMetadataField(
+                        MetadataField::ResponsibleOrg,
+                        val
+                    ))
+                    .padding(8)
+                    .width(Length::Fill),
+                ]
+                .spacing(4)
+                .width(Length::FillPortion(1));
+
+                let domain_org_row = row![domain_field, org_field].spacing(12);
+
+                // 5. Model-URI
+                let uri_field = column![
+                    text("Model-URI").size(12).color(ThemeColors::SLATE_700),
+                    text_input("https://data.gov.dk/model/...", &meta_state.uri)
+                        .style(modern_input_style)
+                        .on_input(|val| Message::UpdateMetadataField(MetadataField::Uri, val))
+                        .padding(8)
+                        .width(Length::Fill),
+                ]
+                .spacing(4);
+
+                // 6. Action knapper
+                let actions = row![
+                    Space::new().width(Length::Fill),
+                    button(text("Annuller").size(12))
+                        .style(secondary_button_style)
+                        .on_press(Message::CloseMetadataModal)
+                        .padding([6, 14]),
+                    button(text("💾 Gem Omslag").size(12))
+                        .style(primary_button_style)
+                        .on_press(Message::SaveMetadataModal)
+                        .padding([6, 16]),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center);
+
+                let dialog_col = column![
+                    title_row,
+                    subtitle,
+                    name_field,
+                    desc_field,
+                    status_version_row,
+                    domain_org_row,
+                    uri_field,
+                    actions,
+                ]
+                .spacing(12);
+
+                let modal_card = container(dialog_col)
+                    .style(modal_card_style)
+                    .padding(24)
+                    .width(Length::Fixed(560.0));
+
+                container(modal_card)
+                    .style(modal_backdrop_style)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_x(Length::Fill)
+                    .center_y(Length::Fill)
+                    .into()
+            });
+
         let maybe_file_dialog_modal: Option<Element<Message>> = self.file_dialog_mode.map(|mode| {
             let (mode_title, confirm_label) = match mode {
                 FileDialogMode::Open => ("Åbn FDA Modelprojekt", "Åbn"),
@@ -1983,71 +2243,6 @@ impl App {
 
         // 3. Fane Indhold
         let content: Element<Message> = match self.active_tab {
-            Tab::Metadata => {
-                let meta = self.project.metadata();
-                let meta_card = column![
-                    row![
-                        text(format!("Model: {}", meta.name()))
-                            .size(22)
-                            .color(ThemeColors::SLATE_900),
-                        Space::new().width(8),
-                        container(
-                            text(format!("{:?}", meta.status()))
-                                .size(11)
-                                .color(ThemeColors::PRIMARY)
-                        )
-                        .style(|_| container::Style {
-                            background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
-                            border: iced::Border {
-                                color: ThemeColors::PRIMARY,
-                                width: 0.5,
-                                radius: 4.0.into(),
-                            },
-                            ..Default::default()
-                        })
-                        .padding([2, 6]),
-                    ]
-                    .align_y(Alignment::Center),
-                    Space::new().height(4),
-                    text(meta.description())
-                        .size(13)
-                        .color(ThemeColors::SLATE_700),
-                    Space::new().height(8),
-                    row![
-                        column![
-                            text("Emneområde (§26):")
-                                .size(12)
-                                .color(ThemeColors::TEXT_MUTED),
-                            text(meta.domain_area())
-                                .size(13)
-                                .color(ThemeColors::SLATE_800),
-                        ]
-                        .spacing(2)
-                        .width(Length::FillPortion(1)),
-                        column![
-                            text("Ansvarlig organisation:")
-                                .size(12)
-                                .color(ThemeColors::TEXT_MUTED),
-                            text(meta.responsible_org())
-                                .size(13)
-                                .color(ThemeColors::SLATE_800),
-                        ]
-                        .spacing(2)
-                        .width(Length::FillPortion(1)),
-                        column![
-                            text("Model-URI:").size(12).color(ThemeColors::TEXT_MUTED),
-                            text(meta.uri()).size(13).color(ThemeColors::PRIMARY),
-                        ]
-                        .spacing(2)
-                        .width(Length::FillPortion(1)),
-                    ]
-                    .spacing(16),
-                ]
-                .spacing(12);
-
-                meta_card.into()
-            }
-
             Tab::ConceptList => {
                 if let Some(editor) = &self.editor_state {
                     editor.view()
@@ -2142,7 +2337,9 @@ impl App {
             .height(Length::Fill)
             .into();
 
-        if let Some(modal) = maybe_file_dialog_modal {
+        if let Some(modal) = maybe_metadata_modal {
+            stack![base_layout, modal].into()
+        } else if let Some(modal) = maybe_file_dialog_modal {
             stack![base_layout, modal].into()
         } else if let Some(modal) = maybe_relation_modal {
             stack![base_layout, modal].into()

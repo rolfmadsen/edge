@@ -13,6 +13,24 @@ pub enum ModelStatus {
     Approved,
 }
 
+impl ModelStatus {
+    pub const ALL: [ModelStatus; 3] = [
+        ModelStatus::Draft,
+        ModelStatus::Candidate,
+        ModelStatus::Approved,
+    ];
+}
+
+impl std::fmt::Display for ModelStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ModelStatus::Draft => write!(f, "Udkast (Draft)"),
+            ModelStatus::Candidate => write!(f, "Kandidat (Candidate)"),
+            ModelStatus::Approved => write!(f, "Godkendt (Approved)"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelMetadata {
     name: String,
@@ -51,28 +69,56 @@ impl ModelMetadata {
         &self.name
     }
 
+    pub fn set_name(&mut self, name: impl Into<String>) {
+        self.name = name.into();
+    }
+
     pub fn description(&self) -> &str {
         &self.description
+    }
+
+    pub fn set_description(&mut self, description: impl Into<String>) {
+        self.description = description.into();
     }
 
     pub fn uri(&self) -> &str {
         &self.uri
     }
 
+    pub fn set_uri(&mut self, uri: impl Into<String>) {
+        self.uri = uri.into();
+    }
+
     pub fn responsible_org(&self) -> &str {
         &self.responsible_org
+    }
+
+    pub fn set_responsible_org(&mut self, responsible_org: impl Into<String>) {
+        self.responsible_org = responsible_org.into();
     }
 
     pub fn domain_area(&self) -> &str {
         &self.domain_area
     }
 
+    pub fn set_domain_area(&mut self, domain_area: impl Into<String>) {
+        self.domain_area = domain_area.into();
+    }
+
     pub fn version(&self) -> &str {
         &self.version
     }
 
+    pub fn set_version(&mut self, version: impl Into<String>) {
+        self.version = version.into();
+    }
+
     pub fn status(&self) -> ModelStatus {
         self.status
+    }
+
+    pub fn set_status(&mut self, status: ModelStatus) {
+        self.status = status;
     }
 
     pub fn legal_source(&self) -> Option<&str> {
@@ -252,8 +298,10 @@ mod tests {
 
         assert_eq!(ModelStatus::ALL.len(), 3);
         assert_eq!(format!("{}", ModelStatus::Draft), "Udkast (Draft)");
-        assert_eq!(format!("{}", ModelStatus::Candidate), "Kandidat (Candidate)");
+        assert_eq!(
+            format!("{}", ModelStatus::Candidate),
+            "Kandidat (Candidate)"
+        );
         assert_eq!(format!("{}", ModelStatus::Approved), "Godkendt (Approved)");
     }
 }
-

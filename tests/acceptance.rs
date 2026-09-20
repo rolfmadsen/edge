@@ -91,9 +91,6 @@ fn test_progression_from_concept_to_graph_and_information_model() {
 #[test]
 fn test_ui_app_state_and_tab_switching() {
     let mut app = App::new_with_path(None);
-    assert_eq!(app.active_tab(), Tab::Metadata);
-
-    let _ = app.update(Message::SelectTab(Tab::ConceptList));
     assert_eq!(app.active_tab(), Tab::ConceptList);
 
     let _ = app.update(Message::SelectTab(Tab::ConceptModel));
@@ -101,6 +98,9 @@ fn test_ui_app_state_and_tab_switching() {
 
     let _ = app.update(Message::SelectTab(Tab::InformationModel));
     assert_eq!(app.active_tab(), Tab::InformationModel);
+
+    let _ = app.update(Message::SelectTab(Tab::ConceptList));
+    assert_eq!(app.active_tab(), Tab::ConceptList);
 }
 
 #[test]
@@ -2307,7 +2307,7 @@ fn test_task_017_model_metadata_modal_and_3phase_tabs() {
     assert_eq!(meta.responsible_org(), "Digitaliseringsstyrelsen");
     assert_eq!(meta.uri(), "https://data.gov.dk/model/core/grunddata");
     assert_eq!(meta.version(), "2.1.0");
-    assert_eq!(app.save_status(), edge::ui::app::SaveStatus::Unsaved);
+    assert_eq!(app.save_status(), &edge::ui::app::SaveStatus::Unsaved);
 
     // 5. Test annullering via Escape / Close
     let _ = app.update(Message::OpenMetadataModal);
@@ -2324,4 +2324,3 @@ fn test_task_017_model_metadata_modal_and_3phase_tabs() {
     let _ = app.update(Message::CloseMetadataModal);
     assert!(app.metadata_modal().is_none());
 }
-
