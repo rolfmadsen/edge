@@ -4199,3 +4199,89 @@ fn test_task_030_canvas_ergonomics_and_edge_geometry() {
         gen_mid_y, comp_mid_y
     );
 }
+
+#[test]
+fn test_task_031_fda_information_class_properties_and_rendering() {
+    use edge::features::concepts::{BelongsToDomain, Concept};
+    use edge::features::information_model::InformationClass;
+    use edge::ui::app::{App, Message};
+
+    // 1. AC1: Standard initialisering af InformationClass
+    let mut class = InformationClass::new("Køretøj");
+    assert_eq!(class.name(), "Køretøj");
+    assert!(!class.is_abstract(), "Standard skal være ikke-abstrakt");
+    assert!(class.is_local(), "Standard skal være lokal klasse");
+    assert_eq!(class.origin_model(), None, "Standard har ingen oprindelsesmodel");
+
+    class.set_abstract(true);
+    assert!(class.is_abstract());
+    class.set_local(false);
+    assert!(!class.is_local());
+    class.set_origin_model(Some("https://data.gov.dk/model/cpr".to_string()));
+    assert_eq!(class.origin_model(), Some("https://data.gov.dk/model/cpr"));
+
+    // 2. AC2: Arv fra Concept::from_concept med forskellige BelongsToDomain
+    let local_concept = Concept::new("Cykel", "def", BelongsToDomain::Yes);
+    let class_from_local = InformationClass::from_concept(&local_concept);
+    assert!(class_from_local.is_local());
+    assert_eq!(class_from_local.origin_model(), None);
+
+    let foreign_concept = Concept::new("Kunde", "def", BelongsToDomain::No);
+    let class_from_foreign = InformationClass::from_concept(&foreign_concept);
+    assert!(!class_from_foreign.is_local());
+    assert_eq!(class_from_foreign.origin_model(), None);
+
+    let ref_concept = Concept::new(
+        "Person",
+        "def",
+        BelongsToDomain::ModelRef("https://data.gov.dk/model/cpr".to_string()),
+    );
+    let class_from_ref = InformationClass::from_concept(&ref_concept);
+    assert!(!class_from_ref.is_local());
+    assert_eq!(
+        class_from_ref.origin_model(),
+        Some("https://data.gov.dk/model/cpr")
+    );
+
+    // 3. AC3: App Message håndtering for abstrakte og lokale/fremmede klasser
+    let mut app = App::new();
+    let cid = class_from_local.id();
+    app.project_mut()
+        .information_model_mut()
+        .classes_mut()
+        .push(class_from_local);
+
+    let _ = app.update(Message::SetInformationClassAbstract(cid, true));
+    let cls = app.project().information_model().get_class(cid).unwrap();
+    assert!(cls.is_abstract(), "Klassen skal nu være abstrakt");
+
+    let _ = app.update(Message::SetInformationClassLocal(cid, false));
+    let cls = app.project().information_model().get_class(cid).unwrap();
+    assert!(!cls.is_local(), "Klassen skal nu være fremmed/indlånt");
+
+    let _ = app.update(Message::SetInformationClassOriginModel(
+        cid,
+        "https://data.gov.dk/model/vej".to_string(),
+    ));
+    let cls = app.project().information_model().get_class(cid).unwrap();
+    assert_eq!(
+        cls.origin_model(),
+        Some("https://data.gov.dk/model/vej"),
+        "Kildemodel skal være opdateret"
+    );
+
+    // 4. AC1 Serde Bagudkompatibilitet: Ældre JSON uden is_abstract/is_local felter
+    let legacy_json = r#"{
+        "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+        "name": "HistoriskKlasse",
+        "concept_ids": [],
+        "attributes": []
+    }"#;
+    let deserialized: InformationClass =
+        serde_json::from_str(legacy_json).expect("Legacy JSON skal deserialisere fejlfrit");
+    assert_eq!(deserialized.name(), "HistoriskKlasse");
+    assert!(!deserialized.is_abstract(), "Standard is_abstract skal være false");
+    assert!(deserialized.is_local(), "Standard is_local skal være true");
+    assert_eq!(deserialized.origin_model(), None);
+}
+
