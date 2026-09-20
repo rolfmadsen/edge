@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 018: Footer Ergonomi: Læsbart Tidsstempel og Klikbart FDA Modelregler Link"
 description: "Opgradering af applikationens statuslinje med menneskeligt læsbart tidsstempel for seneste gemning samt klikbart link til FDA Modelreglerne i browseren"
-status: pending
+status: active
 generated: { by: process:antigravity-task-init, at: "2026-09-20T09:55:00Z" }
 tags: [ui, footer, timestamp, ergonomics, external-link]
 ---
 
 # Task 018: Footer Ergonomi: Læsbart Tidsstempel og Klikbart FDA Modelregler Link
 
-**Status**: `PENDING`
+**Status**: `ACTIVE`
 **Intent**: `🔄 ENHANCEMENT`
 **Oprettet**: `2026-09-20`
 
