@@ -3536,8 +3536,8 @@ fn test_mutation_bridge() {
     let mut app = App::new_with_path(None);
 
     // Tilføj begreb via CollabApplyMutation
-    let _ = app.update(Message::CollabApplyMutation(ModelMutation::ConceptAdded(
-        concept.clone(),
+    let _ = app.update(Message::CollabApplyMutation(Box::new(
+        ModelMutation::ConceptAdded(concept.clone()),
     )));
     assert_eq!(
         app.project().concepts().len(),
@@ -3553,11 +3553,13 @@ fn test_mutation_bridge() {
         .find_node_by_concept(concept_id)
     {
         let node_id = node.id();
-        let _ = app.update(Message::CollabApplyMutation(ModelMutation::NodeMoved {
-            id: node_id,
-            x: 420.0,
-            y: 280.0,
-        }));
+        let _ = app.update(Message::CollabApplyMutation(Box::new(
+            ModelMutation::NodeMoved {
+                id: node_id,
+                x: 420.0,
+                y: 280.0,
+            },
+        )));
         let updated_node = app
             .project()
             .concept_graph()
@@ -3568,8 +3570,8 @@ fn test_mutation_bridge() {
     }
 
     // Opdater begreb
-    let _ = app.update(Message::CollabApplyMutation(ModelMutation::ConceptUpdated(
-        updated_concept.clone(),
+    let _ = app.update(Message::CollabApplyMutation(Box::new(
+        ModelMutation::ConceptUpdated(updated_concept.clone()),
     )));
     assert_eq!(
         app.project().concepts()[0].accepted_term(),
@@ -3577,24 +3579,24 @@ fn test_mutation_bridge() {
     );
 
     // Tilføj og fjern informationsklasse
-    let _ = app.update(Message::CollabApplyMutation(
+    let _ = app.update(Message::CollabApplyMutation(Box::new(
         ModelMutation::InformationClassAdded(class.clone()),
-    ));
+    )));
     assert_eq!(
         app.project().information_model().classes().len(),
         1,
         "InformationClassAdded skal tilføje klasse"
     );
-    let _ = app.update(Message::CollabApplyMutation(
+    let _ = app.update(Message::CollabApplyMutation(Box::new(
         ModelMutation::InformationClassUpdated(updated_class.clone()),
-    ));
+    )));
     assert_eq!(
         app.project().information_model().classes()[0].description(),
         Some("Opdateret beskrivelse af køretøj")
     );
-    let _ = app.update(Message::CollabApplyMutation(
+    let _ = app.update(Message::CollabApplyMutation(Box::new(
         ModelMutation::InformationClassDeleted(class_id),
-    ));
+    )));
     assert_eq!(
         app.project().information_model().classes().len(),
         0,
@@ -3602,8 +3604,8 @@ fn test_mutation_bridge() {
     );
 
     // Fjern begreb
-    let _ = app.update(Message::CollabApplyMutation(ModelMutation::ConceptDeleted(
-        concept_id,
+    let _ = app.update(Message::CollabApplyMutation(Box::new(
+        ModelMutation::ConceptDeleted(concept_id),
     )));
     assert_eq!(
         app.project().concepts().len(),
@@ -3651,8 +3653,8 @@ fn test_guest_autosave_suppressed() {
         "Dette begreb findes kun i RAM for gæsten",
         BelongsToDomain::Yes,
     );
-    let _ = app.update(Message::CollabApplyMutation(ModelMutation::ConceptAdded(
-        guest_concept,
+    let _ = app.update(Message::CollabApplyMutation(Box::new(
+        ModelMutation::ConceptAdded(guest_concept),
     )));
 
     // 4. Kald trigger_autosave() og SaveProject under Guest-tilstand

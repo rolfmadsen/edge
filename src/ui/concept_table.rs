@@ -40,7 +40,7 @@ pub fn view<'a>(
         row![
             text("+").size(15),
             Space::new().width(6),
-            text("Nyt Begreb (Bilag D & E)").size(13),
+            text("Nyt Begreb").size(13),
         ]
         .align_y(Alignment::Center),
     )
@@ -60,12 +60,8 @@ pub fn view<'a>(
                 .color(ThemeColors::SLATE_600)
         )
         .width(Length::FillPortion(2)),
-        container(
-            text("Definition (FDA Bilag D & E)")
-                .size(12)
-                .color(ThemeColors::SLATE_600)
-        )
-        .width(Length::FillPortion(4)),
+        container(text("Definition").size(12).color(ThemeColors::SLATE_600))
+            .width(Length::FillPortion(4)),
         container(
             text("Kilder (Juridisk / Almen)")
                 .size(12)

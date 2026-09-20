@@ -176,6 +176,8 @@ impl DiagramNode {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiagramEdge {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    id: Option<Uuid>,
     from: NodeId,
     to: NodeId,
     kind: RelationKind,
@@ -191,6 +193,7 @@ pub struct DiagramEdge {
 impl DiagramEdge {
     pub fn new(from: NodeId, to: NodeId, kind: RelationKind) -> Self {
         Self {
+            id: Some(Uuid::new_v4()),
             from,
             to,
             kind,
@@ -207,6 +210,7 @@ impl DiagramEdge {
 
     pub fn with_label(from: NodeId, to: NodeId, kind: RelationKind, label: Option<String>) -> Self {
         Self {
+            id: Some(Uuid::new_v4()),
             from,
             to,
             kind,
@@ -221,6 +225,14 @@ impl DiagramEdge {
         }
     }
 
+    pub fn id(&self) -> Option<Uuid> {
+        self.id
+    }
+
+    pub fn set_id(&mut self, id: Uuid) {
+        self.id = Some(id);
+    }
+
     pub fn with_ports(
         from: NodeId,
         to: NodeId,
@@ -230,6 +242,7 @@ impl DiagramEdge {
         target_port: Option<PortSide>,
     ) -> Self {
         Self {
+            id: Some(Uuid::new_v4()),
             from,
             to,
             kind,
@@ -254,6 +267,7 @@ impl DiagramEdge {
         directed: Option<bool>,
     ) -> Self {
         Self {
+            id: Some(Uuid::new_v4()),
             from,
             to,
             kind,
@@ -358,6 +372,26 @@ impl ConceptGraph {
     ) {
         self.edges
             .push(DiagramEdge::with_label(from, to, kind, label));
+    }
+
+    pub fn add_relation_full(
+        &mut self,
+        id: Uuid,
+        from: NodeId,
+        to: NodeId,
+        kind: RelationKind,
+        label: Option<String>,
+    ) {
+        let mut edge = DiagramEdge::with_label(from, to, kind, label);
+        edge.set_id(id);
+        self.edges.push(edge);
+    }
+
+    pub fn remove_relation_by_id(&mut self, id: Uuid) -> bool {
+        let initial_len = self.edges.len();
+        self.edges
+            .retain(|e| e.id != Some(id) && e.from != id && e.to != id);
+        self.edges.len() < initial_len
     }
 
     pub fn node_count(&self) -> usize {

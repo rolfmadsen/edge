@@ -167,7 +167,7 @@ impl ConceptEditorState {
         let title_text = if is_edit {
             format!("Rediger Begreb: {}", self.preferred_term)
         } else {
-            "Opret Nyt Begreb (FDA Bilag D & E)".to_string()
+            "Opret Nyt Begreb".to_string()
         };
 
         let title_row = row![
