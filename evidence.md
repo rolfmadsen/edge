@@ -1,20 +1,21 @@
 # Verification Report
 
-**Task ID**: `022-information-model-association-multiplicities`  
-**Task Title**: Task 022: Informationsmodel: Multipliciteter på UML Associationer  
+**Task ID**: `023-canvas-floating-controls-and-minimap`  
+**Task Title**: Task 023: Canvas Ergonomi: Flydende Zoom/Pan Kontroller og Miniaturekort (Minimap)  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Timestamp**: `2026-09-20T10:55:00Z`  
-**Head**: `79c02de`  
-**Commit**: `79c02de`  
+**Timestamp**: `2026-09-20T11:03:00Z`  
+**Head**: `2d1d6e1`  
+**Commit**: `2d1d6e1`  
 
 ## Acceptance Criteria
 
-- [x] `ClassDiagramEdge` har felter til `source_multiplicity` og `target_multiplicity` med serde-kompatibilitet (bagudkompatibel med default `None`).
-- [x] Oprettelsesdialogen for relationer giver mulighed for at angive multiplicitet for både kilde og mål.
-- [x] Når en kant er valgt på lærredet, viser højre panel (Egenskaber) kontroller til at ændre multipliciteterne.
-- [x] Diagram canvas renderer multiplicitetsteksterne (f.eks. `1` og `0..*`) læsbart ved kilde- og målportene.
-- [x] 100% test pass rate på unit-, model- og diagramtests samt clippy uden advarsler.
+- [x] Svævende kontrolpanel vises nederst til højre på diagram-canvaset med semi-transparent COSMIC glas-styling.
+- [x] Minimap renderer diagrammets noder og den aktuelle viewport-ramme skaleret ned i realtid.
+- [x] Knapperne `+`, `–` og `⊡` (reset/fit) justerer viewportens zoom og panorering forudsigeligt.
+- [x] Det aktuelle zoomniveau vises i procent.
+- [x] Interaktion med minimap-kontrollerne blokerer ikke for normal knude- eller kant-interaktion på selve lærredet.
+- [x] 100% test pass rate på `cargo test` og clippy uden advarsler.
 
 ---
 
@@ -22,10 +23,9 @@
 
 | Check Name | Status | Exit Code |
 |---|---|---|
-| `lint` (`cargo clippy --all-targets -- -D warnings`) | `PASSED` | `0` |
+| `lint` (`cargo clippy -- -D warnings`) | `PASSED` | `0` |
 | `fmt` (`cargo fmt --check`) | `PASSED` | `0` |
 | `tests` (`cargo test --workspace`) | `PASSED` | `0` |
-| `check` (`cargo check --all-targets`) | `PASSED` | `0` |
+| `check` (`cargo check`) | `PASSED` | `0` |
 
 ---
-

@@ -768,7 +768,9 @@ where
                         minimap_rect,
                     );
                     let clamped_pos = Point::new(
-                        cursor_pos.x.clamp(minimap_rect.x, minimap_rect.x + minimap_rect.width),
+                        cursor_pos
+                            .x
+                            .clamp(minimap_rect.x, minimap_rect.x + minimap_rect.width),
                         cursor_pos
                             .y
                             .clamp(minimap_rect.y, minimap_rect.y + minimap_rect.height),
@@ -1209,12 +1211,8 @@ where
         );
 
         // C. Noder i minimappet
-        let transform = MinimapTransform::compute(
-            self.nodes,
-            &self.viewport,
-            bounds.size(),
-            minimap_rect,
-        );
+        let transform =
+            MinimapTransform::compute(self.nodes, &self.viewport, bounds.size(), minimap_rect);
         for node in self.nodes {
             let (nx, ny) = node.position();
             let (nw, nh) = node.size();
@@ -1223,11 +1221,8 @@ where
             let mini_h = (nh * transform.scale).max(3.0);
 
             let is_selected = self.selected_node_id == Some(node.id());
-            let node_rect = Path::rounded_rectangle(
-                top_left,
-                Size::new(mini_w, mini_h),
-                1.5.into(),
-            );
+            let node_rect =
+                Path::rounded_rectangle(top_left, Size::new(mini_w, mini_h), 1.5.into());
             let node_color = if is_selected {
                 ThemeColors::PRIMARY
             } else {
@@ -1238,11 +1233,8 @@ where
 
         // D. Viewport ramme i minimappet
         let vp_box = transform.viewport_rect(&self.viewport, bounds.size());
-        let vp_path = Path::rounded_rectangle(
-            Point::new(vp_box.x, vp_box.y),
-            vp_box.size(),
-            2.0.into(),
-        );
+        let vp_path =
+            Path::rounded_rectangle(Point::new(vp_box.x, vp_box.y), vp_box.size(), 2.0.into());
         overlay_frame.fill(&vp_path, Color::from_rgba(0.23, 0.51, 0.96, 0.16));
         overlay_frame.stroke(
             &vp_path,
@@ -1253,11 +1245,7 @@ where
 
         // E. Knapper i værktøjslinjen (–, 100%, +, ⊡ Fit)
         let draw_btn = |f: &mut Frame, r: Rectangle, label: &str, fsize: f32, is_accent: bool| {
-            let btn_path = Path::rounded_rectangle(
-                Point::new(r.x, r.y),
-                r.size(),
-                5.0.into(),
-            );
+            let btn_path = Path::rounded_rectangle(Point::new(r.x, r.y), r.size(), 5.0.into());
             let bg = if is_accent {
                 Color::from_rgba(0.23, 0.51, 0.96, 0.12)
             } else {
@@ -1291,7 +1279,13 @@ where
 
         let zoom_pct = (self.viewport.zoom() * 100.0).round() as u32;
         draw_btn(&mut overlay_frame, zoom_out_rect, "–", 14.0, false);
-        draw_btn(&mut overlay_frame, zoom_label_rect, &format!("{}%", zoom_pct), 11.0, false);
+        draw_btn(
+            &mut overlay_frame,
+            zoom_label_rect,
+            &format!("{}%", zoom_pct),
+            11.0,
+            false,
+        );
         draw_btn(&mut overlay_frame, zoom_in_rect, "+", 14.0, false);
         draw_btn(&mut overlay_frame, fit_rect, "⊡ Fit", 11.0, true);
 

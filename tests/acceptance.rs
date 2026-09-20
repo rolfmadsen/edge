@@ -3051,7 +3051,7 @@ fn test_task023_canvas_floating_controls_and_minimap() {
     assert_eq!(panel_rect.width, 180.0);
     assert_eq!(panel_rect.height, 148.0);
     assert_eq!(panel_rect.x, 1000.0 - 180.0 - 16.0); // 804.0
-    assert_eq!(panel_rect.y, 800.0 - 148.0 - 16.0);  // 636.0
+    assert_eq!(panel_rect.y, 800.0 - 148.0 - 16.0); // 636.0
 
     let minimap_rect = DiagramCanvas::<
         (),
@@ -3082,7 +3082,12 @@ fn test_task023_canvas_floating_controls_and_minimap() {
     let click_panel_bg = Point::new(panel_rect.x + 10.0, panel_rect.y + 10.0);
     assert!(n_under_panel.contains(click_panel_bg.x, click_panel_bg.y));
     let press_event = Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left));
-    let action = canvas.update(&mut state, &press_event, bounds, Cursor::Available(click_panel_bg));
+    let action = canvas.update(
+        &mut state,
+        &press_event,
+        bounds,
+        Cursor::Available(click_panel_bg),
+    );
     assert!(action.is_some(), "Klik på kontrolpanelet skal captures");
     assert_eq!(
         *selected_node.lock().unwrap(),
@@ -3090,14 +3095,24 @@ fn test_task023_canvas_floating_controls_and_minimap() {
         "Node under kontrolpanelet må IKKE blive valgt ved klik på panelet!"
     );
     let release_event = Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left));
-    let _ = canvas.update(&mut state, &release_event, bounds, Cursor::Available(click_panel_bg));
+    let _ = canvas.update(
+        &mut state,
+        &release_event,
+        bounds,
+        Cursor::Available(click_panel_bg),
+    );
 
     // C. Zoom In (+) kontrol
     let zoom_in_click = Point::new(
         zoom_in_rect.x + zoom_in_rect.width / 2.0,
         zoom_in_rect.y + zoom_in_rect.height / 2.0,
     );
-    let action = canvas.update(&mut state, &press_event, bounds, Cursor::Available(zoom_in_click));
+    let action = canvas.update(
+        &mut state,
+        &press_event,
+        bounds,
+        Cursor::Available(zoom_in_click),
+    );
     assert!(action.is_some());
     assert!(
         last_viewport.lock().unwrap().zoom() > 1.05,
@@ -3146,30 +3161,67 @@ fn test_task023_canvas_floating_controls_and_minimap() {
         fit_rect.x + fit_rect.width / 2.0,
         fit_rect.y + fit_rect.height / 2.0,
     );
-    let action = canvas.update(&mut state, &press_event, bounds, Cursor::Available(fit_click));
-    assert!(action.is_some(), "Klik på fit-view knap skal udløse viewport opdatering");
+    let action = canvas.update(
+        &mut state,
+        &press_event,
+        bounds,
+        Cursor::Available(fit_click),
+    );
+    assert!(
+        action.is_some(),
+        "Klik på fit-view knap skal udløse viewport opdatering"
+    );
 
     // F. Minimap interaktion: Klik i minimappet skal panorere viewporten
     let minimap_click = Point::new(
         minimap_rect.x + minimap_rect.width * 0.25,
         minimap_rect.y + minimap_rect.height * 0.25,
     );
-    let action = canvas.update(&mut state, &press_event, bounds, Cursor::Available(minimap_click));
-    assert!(action.is_some(), "Klik i minimap skal captures og udløse pan");
-    assert!(state.is_panning_minimap, "Minimap panning skal være aktiv under træk");
+    let action = canvas.update(
+        &mut state,
+        &press_event,
+        bounds,
+        Cursor::Available(minimap_click),
+    );
+    assert!(
+        action.is_some(),
+        "Klik i minimap skal captures og udløse pan"
+    );
+    assert!(
+        state.is_panning_minimap,
+        "Minimap panning skal være aktiv under træk"
+    );
 
     // Cursor move i minimap
     let minimap_drag = Point::new(
         minimap_rect.x + minimap_rect.width * 0.75,
         minimap_rect.y + minimap_rect.height * 0.75,
     );
-    let move_event = Event::Mouse(mouse::Event::CursorMoved { position: minimap_drag });
-    let action = canvas.update(&mut state, &move_event, bounds, Cursor::Available(minimap_drag));
-    assert!(action.is_some(), "Træk i minimap skal opdatere viewport kontinuerligt");
+    let move_event = Event::Mouse(mouse::Event::CursorMoved {
+        position: minimap_drag,
+    });
+    let action = canvas.update(
+        &mut state,
+        &move_event,
+        bounds,
+        Cursor::Available(minimap_drag),
+    );
+    assert!(
+        action.is_some(),
+        "Træk i minimap skal opdatere viewport kontinuerligt"
+    );
 
     // Slip musen
-    let _ = canvas.update(&mut state, &release_event, bounds, Cursor::Available(minimap_drag));
-    assert!(!state.is_panning_minimap, "Minimap panning skal deaktiveres ved slip");
+    let _ = canvas.update(
+        &mut state,
+        &release_event,
+        bounds,
+        Cursor::Available(minimap_drag),
+    );
+    assert!(
+        !state.is_panning_minimap,
+        "Minimap panning skal deaktiveres ved slip"
+    );
 
     // G. Test i fuld App-kontekst for både Begrebsmodel og Informationsmodel
     let temp_dir = std::env::temp_dir();

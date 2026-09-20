@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 023: Canvas Ergonomi: Flydende Zoom/Pan Kontroller og Miniaturekort (Minimap)"
 description: "Implementering af et svævende kontrolpanel med interaktivt miniaturekort (minimap) og hurtige zoom/pan kontroller inspireret af xArchi"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-20T09:55:00Z" }
 tags: [ui, canvas, ergonomics, minimap, zoom, pan, xarchi-inspiration]
 ---
 
 # Task 023: Canvas Ergonomi: Flydende Zoom/Pan Kontroller og Miniaturekort (Minimap)
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-20`
 
@@ -25,12 +25,12 @@ tags: [ui, canvas, ergonomics, minimap, zoom, pan, xarchi-inspiration]
 3. Virker identisk og reaktivt på tværs af både Begrebsmodel (Graf) og Informationsmodel.
 
 ## 📋 Acceptance Criteria
-- [ ] Svævende kontrolpanel vises nederst til højre på diagram-canvaset med semi-transparent COSMIC glas-styling.
-- [ ] Minimap renderer diagrammets noder og den aktuelle viewport-ramme skaleret ned i realtid.
-- [ ] Knapperne `+`, `–` og `⊡` (reset) justerer viewportens zoom og panorering forudsigeligt.
-- [ ] Det aktuelle zoomniveau vises i procent.
-- [ ] Interaktion med minimap-kontrollerne blokerer ikke for normal knude- eller kant-interaktion på selve lærredet.
-- [ ] 100% test pass rate på `cargo test` og clippy uden advarsler.
+- [x] Svævende kontrolpanel vises nederst til højre på diagram-canvaset med semi-transparent COSMIC glas-styling.
+- [x] Minimap renderer diagrammets noder og den aktuelle viewport-ramme skaleret ned i realtid.
+- [x] Knapperne `+`, `–` og `⊡` (reset) justerer viewportens zoom og panorering forudsigeligt.
+- [x] Det aktuelle zoomniveau vises i procent.
+- [x] Interaktion med minimap-kontrollerne blokerer ikke for normal knude- eller kant-interaktion på selve lærredet.
+- [x] 100% test pass rate på `cargo test` og clippy uden advarsler.
 
 ## 🚫 Must NOT
 - Må IKKE gøre canvas renderingen langsom eller introducere mærkbare framedrops.
@@ -39,6 +39,7 @@ tags: [ui, canvas, ergonomics, minimap, zoom, pan, xarchi-inspiration]
 
 ## 📝 Revisions
 - 2026-09-20: Oprettet som led i vertikal opsplitning.
+- 2026-09-20: Gennemført og verificeret med unit- og accepttests. Alle kriterier opfyldt.
 
 ## 🧪 Verifikation
 - `cargo test test_viewport`

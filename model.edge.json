@@ -295,28 +295,20 @@
     ],
     "edges": [
       {
-        "from": "9efa1b57-0bf4-4165-ba74-fbd4ec0654b2",
-        "to": "fb3be45c-265b-4f24-9e6d-5984851e4ff0",
-        "kind": "Generalization",
-        "label": "er en",
-        "source_port": "Top",
-        "target_port": "Bottom"
-      },
-      {
         "from": "314b0ea1-1b49-4b3b-a31a-4a719bf12b1f",
         "to": "fb3be45c-265b-4f24-9e6d-5984851e4ff0",
         "kind": "Composition",
         "label": null,
         "source_port": "Bottom",
-        "target_port": "Top"
-      },
-      {
-        "from": "314b0ea1-1b49-4b3b-a31a-4a719bf12b1f",
-        "to": "9efa1b57-0bf4-4165-ba74-fbd4ec0654b2",
-        "kind": "Association",
-        "label": null,
-        "source_port": "Bottom",
-        "target_port": "Top"
+        "target_port": "Top",
+        "source_multiplicity": {
+          "lower": 1,
+          "upper": 1
+        },
+        "target_multiplicity": {
+          "lower": 0,
+          "upper": 1
+        }
       },
       {
         "from": "66cfeccb-539d-430a-8a5a-8a2baba30017",
@@ -325,16 +317,32 @@
         "label": null,
         "source_port": "Left",
         "target_port": "Right",
-        "directed": true
+        "directed": true,
+        "source_multiplicity": {
+          "lower": 0,
+          "upper": null
+        },
+        "target_multiplicity": {
+          "lower": 0,
+          "upper": null
+        }
       },
       {
         "from": "09568a48-b2f0-4b2c-a6cc-aee7899dd953",
         "to": "fb3be45c-265b-4f24-9e6d-5984851e4ff0",
-        "kind": "Generalization",
+        "kind": "Association",
         "label": null,
         "source_port": "Top",
         "target_port": "Bottom",
         "directed": true
+      },
+      {
+        "from": "9efa1b57-0bf4-4165-ba74-fbd4ec0654b2",
+        "to": "fb3be45c-265b-4f24-9e6d-5984851e4ff0",
+        "kind": "Generalization",
+        "label": "er en",
+        "source_port": "Top",
+        "target_port": "Bottom"
       }
     ]
   }
