@@ -2358,16 +2358,9 @@ fn test_task018_footer_timestamp_and_model_rules_link() {
     let _ = app.update(Message::OpenModelRules);
 
     // 3. Gem til fil genererer tidsstempel med format HH:MM:SS og filnavn
-    let file_path = std::env::temp_dir().join(format!(
-        "danmark_model_{}.edge.json",
-        uuid::Uuid::new_v4()
-    ));
-    let filename = file_path
-        .file_name()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_string();
+    let file_path =
+        std::env::temp_dir().join(format!("danmark_model_{}.edge.json", uuid::Uuid::new_v4()));
+    let filename = file_path.file_name().unwrap().to_str().unwrap().to_string();
     let _ = app.update(Message::SaveProjectToFile(file_path.clone()));
 
     match app.save_status() {

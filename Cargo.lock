@@ -686,6 +686,7 @@ name = "edge"
 version = "0.1.0"
 dependencies = [
  "iced",
+ "libc",
  "proptest",
  "serde",
  "serde_json",

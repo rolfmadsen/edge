@@ -213,15 +213,11 @@ pub fn open_browser(url: &str) -> std::io::Result<()> {
     }
     #[cfg(target_os = "macos")]
     {
-        std::process::Command::new("open")
-            .arg(url)
-            .spawn()?;
+        std::process::Command::new("open").arg(url).spawn()?;
     }
     #[cfg(target_os = "linux")]
     {
-        std::process::Command::new("xdg-open")
-            .arg(url)
-            .spawn()?;
+        std::process::Command::new("xdg-open").arg(url).spawn()?;
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
@@ -2441,8 +2437,7 @@ impl App {
 
         let save_widget: Element<Message> = match &self.save_status {
             SaveStatus::Saved { path, .. } => {
-                let full_path =
-                    std::fs::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path));
+                let full_path = std::fs::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path));
                 tooltip(
                     text(format!("• {}", save_status_text))
                         .size(12)
@@ -2474,9 +2469,7 @@ impl App {
 
         let status_bar = row![
             rules_button,
-            text("• Klar")
-                .size(12)
-                .color(ThemeColors::SLATE_500),
+            text("• Klar").size(12).color(ThemeColors::SLATE_500),
             Space::new().width(12),
             text(format!("• {} begreber", self.project.concepts().len()))
                 .size(12)
