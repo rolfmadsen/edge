@@ -25,6 +25,8 @@ tags: [specification, architecture, invariants]
 - `src/features/concepts/`: Begreber, termer, synonymer og strukturerede definitioner (Bilag D & E).
 - `src/features/concept_model/`: Begrebsmodel-graf med noder, generaliseringer og associationer.
 - `src/features/information_model/`: Informationsmodel med klasser, attributter, standard datatyper og multipliciteter.
+- `src/features/collab/`: E2EE krypto, sessionsbilletter, WebSocket sync og mutation bridge.
+- `crates/edge-relay/`: Ultralet, in-memory, blind Axum WebSocket pub/sub relay.
 - `src/ui/`: Iced shell, faner, tema og præsentationslogik.
 - `tasks/`: Eksekverbare opgavepakker med acceptkriterier.
 - `docs/adr/`: Arkitektoniske beslutningsreferater.
