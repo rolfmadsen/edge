@@ -25,6 +25,7 @@ pub fn view<'a>(
     is_inline_editing: bool,
     editor_state: Option<&'a ConceptEditorState>,
     relation_dialog: Option<&'a RelationDialogState>,
+    show_left_sidebar: bool,
 ) -> Element<'a, Message> {
     // ==========================================
     // 1. VENSTRE PALET (Repository Browser ~240px)
@@ -731,9 +732,9 @@ pub fn view<'a>(
         )
     };
 
-    row![left_palette, center_content, right_inspector]
-        .spacing(12)
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .into()
+    let mut main_row = row![].spacing(12).width(Length::Fill).height(Length::Fill);
+    if show_left_sidebar {
+        main_row = main_row.push(left_palette);
+    }
+    main_row.push(center_content).push(right_inspector).into()
 }

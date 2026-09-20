@@ -17,7 +17,7 @@ use crate::ui::theme::{
 use iced::event::{self, Event};
 use iced::keyboard::{self, key::Named, Key};
 use iced::widget::{
-    button, column, container, operation, pick_list, row, stack, text, text_input, tooltip, Space,
+    button, column, container, mouse_area, operation, pick_list, row, stack, text, text_input, tooltip, Space,
 };
 use iced::{Alignment, Element, Length, Point, Subscription, Task};
 use serde::{Deserialize, Serialize};
@@ -249,10 +249,21 @@ pub enum FileDialogMode {
     SaveAs,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MenuType {
+    File,
+    Help,
+}
+
 #[derive(Debug, Clone)]
 pub enum Message {
     SelectTab(Tab),
     NewProject,
+
+    // Desktop Menulinje & Sidebar Toggle (Task 024)
+    ToggleMenu(MenuType),
+    CloseMenu,
+    ToggleLeftSidebar,
 
     // Modelomslag & Metadata modal (Task 017)
     OpenMetadataModal,
@@ -411,6 +422,8 @@ pub struct App {
     info_snap_to_grid: bool,
     concept_model_search: String,
     metadata_modal: Option<ModelMetadataModalState>,
+    active_menu: Option<MenuType>,
+    show_left_sidebar: bool,
 }
 
 impl Default for App {
@@ -460,6 +473,8 @@ impl App {
                         info_snap_to_grid: true,
                         concept_model_search: String::new(),
                         metadata_modal: None,
+                        active_menu: None,
+                        show_left_sidebar: true,
                     };
                 }
             }
@@ -499,6 +514,8 @@ impl App {
             info_snap_to_grid: true,
             concept_model_search: String::new(),
             metadata_modal: None,
+            active_menu: None,
+            show_left_sidebar: true,
         }
     }
 
@@ -525,6 +542,14 @@ impl App {
 
     pub fn metadata_modal(&self) -> Option<&ModelMetadataModalState> {
         self.metadata_modal.as_ref()
+    }
+
+    pub fn active_menu(&self) -> Option<MenuType> {
+        self.active_menu
+    }
+
+    pub fn is_left_sidebar_visible(&self) -> bool {
+        self.show_left_sidebar
     }
 
     pub fn project(&self) -> &ModelProject {
@@ -648,7 +673,21 @@ impl App {
                     self.project.sync_information_graph();
                 }
             }
+            Message::ToggleMenu(menu) => {
+                if self.active_menu == Some(menu) {
+                    self.active_menu = None;
+                } else {
+                    self.active_menu = Some(menu);
+                }
+            }
+            Message::CloseMenu => {
+                self.active_menu = None;
+            }
+            Message::ToggleLeftSidebar => {
+                self.show_left_sidebar = !self.show_left_sidebar;
+            }
             Message::OpenMetadataModal => {
+                self.active_menu = None;
                 self.metadata_modal = Some(ModelMetadataModalState::from_metadata(
                     self.project.metadata(),
                 ));
@@ -697,9 +736,12 @@ impl App {
                 }
             }
             Message::NewProject => {
+                self.active_menu = None;
                 self.project = ModelProject::default();
                 self.active_tab = Tab::ConceptList;
-                self.metadata_modal = None;
+                self.metadata_modal = Some(ModelMetadataModalState::from_metadata(
+                    self.project.metadata(),
+                ));
                 self.editor_state = None;
                 self.is_inline_graph_editing = false;
                 self.search_query.clear();
@@ -794,6 +836,7 @@ impl App {
 
             // Persistens & Filhåndtering
             Message::SaveProject => {
+                self.active_menu = None;
                 if self.current_file_path.is_some() {
                     self.trigger_autosave();
                 } else {
@@ -801,6 +844,7 @@ impl App {
                 }
             }
             Message::OpenProjectDialog => {
+                self.active_menu = None;
                 return Task::perform(
                     async { crate::ui::file_dialog::pick_file_to_open() },
                     Message::OpenDialogCompleted,
@@ -816,6 +860,7 @@ impl App {
                 }
             },
             Message::SaveProjectAsDialog => {
+                self.active_menu = None;
                 let default_name = self
                     .current_file_path
                     .as_ref()
@@ -896,6 +941,7 @@ impl App {
                 self.file_dialog_mode = None;
             }
             Message::OpenModelRules => {
+                self.active_menu = None;
                 let url = "https://arkitektur.digst.dk/node/770";
                 if let Err(err) = open_browser(url) {
                     eprintln!("Kunne ikke åbne browser for {}: {}", url, err);
@@ -910,7 +956,9 @@ impl App {
                 return operation::focus_previous();
             }
             Message::EscapePressed => {
-                if self.metadata_modal.is_some() {
+                if self.active_menu.is_some() {
+                    self.active_menu = None;
+                } else if self.metadata_modal.is_some() {
                     self.metadata_modal = None;
                 } else if self.quick_create.is_some() {
                     self.quick_create = None;
@@ -1776,6 +1824,12 @@ impl App {
                             Some(Message::SaveProject)
                         }
                         Key::Character(c)
+                            if (c == "b" || c == "B")
+                                && (modifiers.control() || modifiers.command()) =>
+                        {
+                            Some(Message::ToggleLeftSidebar)
+                        }
+                        Key::Character(c)
                             if (c == "+" || c == "=")
                                 && (modifiers.control() || modifiers.command()) =>
                         {
@@ -1811,9 +1865,55 @@ impl App {
 
     pub fn view(&self) -> Element<'_, Message> {
         // 1. Desktop Header Bar
+        let sidebar_toggle_btn = tooltip(
+            button(
+                text(if self.show_left_sidebar { "◨" } else { "⬚" })
+                    .size(16)
+                    .color(if self.show_left_sidebar {
+                        ThemeColors::PRIMARY
+                    } else {
+                        ThemeColors::SLATE_500
+                    }),
+            )
+            .style(secondary_button_style)
+            .on_press(Message::ToggleLeftSidebar)
+            .padding([4, 8]),
+            text("Skjul/vis venstre palet (Ctrl+B)").size(11),
+            tooltip::Position::Bottom,
+        );
+
+        let menu_button = |label: &'static str, menu_type: MenuType| {
+            let is_active = self.active_menu == Some(menu_type);
+            button(
+                row![
+                    text(label).size(13).color(if is_active {
+                        ThemeColors::PRIMARY
+                    } else {
+                        ThemeColors::SLATE_800
+                    }),
+                    Space::new().width(3),
+                    text("▾").size(10).color(if is_active {
+                        ThemeColors::PRIMARY
+                    } else {
+                        ThemeColors::SLATE_400
+                    }),
+                ]
+                .align_y(Alignment::Center),
+            )
+            .style(if is_active {
+                primary_button_style
+            } else {
+                secondary_button_style
+            })
+            .on_press(Message::ToggleMenu(menu_type))
+            .padding([4, 10])
+        };
+
         let brand_section = row![
-            text("Edge").size(20).color(ThemeColors::PRIMARY),
-            Space::new().width(6),
+            sidebar_toggle_btn,
+            Space::new().width(10),
+            text("Edge").size(18).color(ThemeColors::PRIMARY),
+            Space::new().width(4),
             container(text("FDA v2.1").size(10).color(ThemeColors::PRIMARY))
                 .style(|_theme: &iced::Theme| container::Style {
                     background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
@@ -1824,16 +1924,11 @@ impl App {
                     },
                     ..Default::default()
                 })
-                .padding([2, 8]),
+                .padding([2, 6]),
             Space::new().width(12),
-            text(self.project.metadata().name())
-                .size(13)
-                .color(ThemeColors::SLATE_800),
-            Space::new().width(6),
-            button(text("📋 Modelomslag").size(11))
-                .style(secondary_button_style)
-                .on_press(Message::OpenMetadataModal)
-                .padding([3, 8]),
+            menu_button("Filer", MenuType::File),
+            Space::new().width(4),
+            menu_button("Hjælp", MenuType::Help),
         ]
         .align_y(Alignment::Center);
 
@@ -1857,34 +1952,22 @@ impl App {
         .style(pill_container_style)
         .padding(3);
 
-        let actions = row![
-            button(text("+ Nyt").size(12))
-                .style(secondary_button_style)
-                .on_press(Message::NewProject)
-                .padding([6, 12]),
-            button(text("📁 Åbn...").size(12))
-                .style(secondary_button_style)
-                .on_press(Message::OpenProjectDialog)
-                .padding([6, 12]),
-            button(text("💾 Gem").size(12))
-                .style(primary_button_style)
-                .on_press(Message::SaveProject)
-                .padding([6, 14]),
-            button(text("Gem som...").size(12))
-                .style(secondary_button_style)
-                .on_press(Message::SaveProjectAsDialog)
-                .padding([6, 12]),
+        let header_right = row![
+            text(self.project.metadata().name())
+                .size(12)
+                .color(ThemeColors::SLATE_600),
         ]
-        .spacing(6)
         .align_y(Alignment::Center);
 
         let header_bar = container(
             row![
-                brand_section,
-                Space::new().width(Length::FillPortion(1)),
+                container(brand_section)
+                    .width(Length::FillPortion(1))
+                    .align_x(Alignment::Start),
                 tab_pill_bar,
-                Space::new().width(Length::FillPortion(1)),
-                actions,
+                container(header_right)
+                    .width(Length::FillPortion(1))
+                    .align_x(Alignment::End),
             ]
             .spacing(12)
             .align_y(Alignment::Center),
@@ -2453,6 +2536,126 @@ impl App {
                     .into()
             });
 
+        let maybe_menu_overlay: Option<Element<Message>> = self.active_menu.map(|menu_type| {
+            let menu_item = |icon: &'static str, label: &'static str, msg: Message| {
+                button(
+                    row![
+                        text(icon).size(14),
+                        Space::new().width(10),
+                        text(label).size(13).color(ThemeColors::SLATE_800),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .style(|_theme, status| {
+                    let background = match status {
+                        button::Status::Hovered => {
+                            Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT))
+                        }
+                        button::Status::Pressed => {
+                            Some(iced::Background::Color(ThemeColors::SURFACE_BORDER))
+                        }
+                        _ => None,
+                    };
+                    button::Style {
+                        background,
+                        text_color: ThemeColors::SLATE_800,
+                        border: iced::Border {
+                            radius: 6.0.into(),
+                            ..Default::default()
+                        },
+                        shadow: iced::Shadow::default(),
+                        ..Default::default()
+                    }
+                })
+                .on_press(msg)
+                .padding([7, 10])
+                .width(Length::Fill)
+            };
+
+            let make_separator = || {
+                container(Space::new().width(Length::Fill).height(Length::Fixed(1.0)))
+                    .style(|_| container::Style {
+                        background: Some(iced::Background::Color(ThemeColors::SURFACE_BORDER)),
+                        ..Default::default()
+                    })
+            };
+
+            let (left_offset, menu_body) = match menu_type {
+                MenuType::File => (
+                    136.0,
+                    column![
+                        text("PROJEKT & FILER")
+                            .size(10)
+                            .color(ThemeColors::TEXT_MUTED),
+                        Space::new().height(2),
+                        menu_item("➕", "Nyt projekt", Message::NewProject),
+                        menu_item("📁", "Åbn projekt...", Message::OpenProjectDialog),
+                        menu_item("💾", "Gem", Message::SaveProject),
+                        menu_item("💾", "Gem som...", Message::SaveProjectAsDialog),
+                        Space::new().height(4),
+                        make_separator(),
+                        Space::new().height(4),
+                        text("MODELINDSTILLINGER")
+                            .size(10)
+                            .color(ThemeColors::TEXT_MUTED),
+                        Space::new().height(2),
+                        menu_item("📋", "Modelomslag & Metadata...", Message::OpenMetadataModal),
+                    ]
+                    .spacing(2)
+                    .width(Length::Fixed(240.0)),
+                ),
+                MenuType::Help => (
+                    216.0,
+                    column![
+                        text("DOKUMENTATION & HJÆLP")
+                            .size(10)
+                            .color(ThemeColors::TEXT_MUTED),
+                        Space::new().height(2),
+                        menu_item("📖", "FDA Modelregler v2.1 ↗", Message::OpenModelRules),
+                    ]
+                    .spacing(2)
+                    .width(Length::Fixed(220.0)),
+                ),
+            };
+
+            let menu_card = container(menu_body)
+                .style(|_| container::Style {
+                    background: Some(iced::Background::Color(ThemeColors::SURFACE_CARD)),
+                    border: iced::Border {
+                        color: ThemeColors::SURFACE_BORDER,
+                        width: 1.0,
+                        radius: 8.0.into(),
+                    },
+                    shadow: iced::Shadow {
+                        color: iced::Color::from_rgba(0.0, 0.0, 0.0, 0.12),
+                        offset: iced::Vector::new(0.0, 6.0),
+                        blur_radius: 16.0,
+                    },
+                    ..Default::default()
+                })
+                .padding(10);
+
+            let backdrop = mouse_area(
+                container(Space::new().width(Length::Fill).height(Length::Fill))
+                    .style(|_| container::Style::default()),
+            )
+            .on_press(Message::CloseMenu);
+
+            let dropdown_position = container(
+                row![
+                    Space::new().width(Length::Fixed(left_offset)),
+                    column![
+                        Space::new().height(Length::Fixed(56.0)),
+                        menu_card,
+                    ],
+                ]
+            )
+            .width(Length::Fill)
+            .height(Length::Fill);
+
+            stack![backdrop, dropdown_position].into()
+        });
+
         // 3. Fane Indhold
         let content: Element<Message> = match self.active_tab {
             Tab::ConceptList => {
@@ -2476,6 +2679,7 @@ impl App {
                 self.is_inline_graph_editing,
                 self.editor_state.as_ref(),
                 self.relation_dialog.as_ref(),
+                self.show_left_sidebar,
             ),
 
             Tab::InformationModel => information_model_view::view(
@@ -2490,6 +2694,7 @@ impl App {
                 self.info_snap_to_grid,
                 self.is_space_pressed,
                 self.info_relation_dialog.as_ref(),
+                self.show_left_sidebar,
             ),
         };
 
@@ -2603,6 +2808,8 @@ impl App {
             stack![base_layout, modal].into()
         } else if let Some(modal) = maybe_quick_create_modal {
             stack![base_layout, modal].into()
+        } else if let Some(menu) = maybe_menu_overlay {
+            stack![base_layout, menu].into()
         } else {
             base_layout
         }

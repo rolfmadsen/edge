@@ -31,6 +31,7 @@ pub fn view<'a>(
     snap_to_grid: bool,
     is_space_pressed: bool,
     relation_dialog: Option<&'a RelationDialogState>,
+    show_left_sidebar: bool,
 ) -> Element<'a, Message> {
     let existing_class_names: std::collections::HashSet<String> = info_model
         .classes()
@@ -1009,8 +1010,9 @@ pub fn view<'a>(
     // ==========================================
     // SAMLET 3-DELT STUDIO LAYOUT
     // ==========================================
-    row![left_palette, center_area, right_inspector]
-        .spacing(10)
-        .height(Length::Fill)
-        .into()
+    let mut main_row = row![].spacing(10).height(Length::Fill);
+    if show_left_sidebar {
+        main_row = main_row.push(left_palette);
+    }
+    main_row.push(center_area).push(right_inspector).into()
 }
