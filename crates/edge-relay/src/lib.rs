@@ -111,11 +111,7 @@ async fn ws_handler(
     let room_id = match query.room {
         Some(ref r) if !r.trim().is_empty() => r.trim().to_string(),
         _ => {
-            return (
-                StatusCode::BAD_REQUEST,
-                "Missing 'room' query parameter",
-            )
-                .into_response();
+            return (StatusCode::BAD_REQUEST, "Missing 'room' query parameter").into_response();
         }
     };
 
@@ -164,7 +160,11 @@ async fn handle_socket(socket: WebSocket, state: AppState, room_id: String) {
                     }
                 }
                 Err(broadcast::error::RecvError::Lagged(n)) => {
-                    tracing::warn!(client_id, lagged = n, "Client lagged behind in broadcast stream");
+                    tracing::warn!(
+                        client_id,
+                        lagged = n,
+                        "Client lagged behind in broadcast stream"
+                    );
                 }
                 Err(broadcast::error::RecvError::Closed) => break,
             }
@@ -227,7 +227,10 @@ async fn handle_socket(socket: WebSocket, state: AppState, room_id: String) {
                 };
                 if still_zero {
                     map.remove(&room_id_clone);
-                    tracing::info!("Room '{}' pruned from RAM after inactivity timeout", room_id_clone);
+                    tracing::info!(
+                        "Room '{}' pruned from RAM after inactivity timeout",
+                        room_id_clone
+                    );
                 }
             }
         });

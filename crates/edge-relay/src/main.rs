@@ -25,7 +25,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind(addr).await?;
 
     tracing::info!("🚀 Edge Stateless Relay listening on http://{}", addr);
-    tracing::info!("📡 WebSocket endpoint available at ws://{}/ws?room=<ROOM_ID>", addr);
+    tracing::info!(
+        "📡 WebSocket endpoint available at ws://{}/ws?room=<ROOM_ID>",
+        addr
+    );
     tracing::info!("🩺 Health endpoint available at http://{}/health", addr);
 
     let state = AppState::new(RelayConfig::default());

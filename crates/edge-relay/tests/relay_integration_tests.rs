@@ -7,7 +7,9 @@ use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 
 async fn spawn_test_server(config: RelayConfig) -> (String, AppState) {
-    let listener = TcpListener::bind("127.0.0.1:0").await.expect("Failed to bind");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("Failed to bind");
     let addr = listener.local_addr().expect("Failed to get local addr");
     let state = AppState::new(config);
     let app = create_app(state.clone());
@@ -23,21 +25,30 @@ async fn spawn_test_server(config: RelayConfig) -> (String, AppState) {
 async fn test_health_endpoint() {
     let (addr, _) = spawn_test_server(RelayConfig::default()).await;
 
-    let mut stream = tokio::net::TcpStream::connect(&addr).await.expect("Failed to connect TCP");
+    let mut stream = tokio::net::TcpStream::connect(&addr)
+        .await
+        .expect("Failed to connect TCP");
     stream
         .write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
         .await
         .expect("Failed to write HTTP request");
 
     let mut resp = String::new();
-    stream.read_to_string(&mut resp).await.expect("Failed to read response");
+    stream
+        .read_to_string(&mut resp)
+        .await
+        .expect("Failed to read response");
 
     assert!(
         resp.starts_with("HTTP/1.1 200 OK"),
         "Health check did not return 200 OK: {}",
         resp
     );
-    assert!(resp.contains("OK"), "Health check body missing OK: {}", resp);
+    assert!(
+        resp.contains("OK"),
+        "Health check body missing OK: {}",
+        resp
+    );
 }
 
 #[tokio::test]
@@ -45,8 +56,12 @@ async fn test_ws_handshake_and_broadcast() {
     let (addr, _) = spawn_test_server(RelayConfig::default()).await;
     let url = format!("ws://{}/ws?room=room-broadcast", addr);
 
-    let (mut client1, _) = connect_async(&url).await.expect("Client 1 handshake failed");
-    let (mut client2, _) = connect_async(&url).await.expect("Client 2 handshake failed");
+    let (mut client1, _) = connect_async(&url)
+        .await
+        .expect("Client 1 handshake failed");
+    let (mut client2, _) = connect_async(&url)
+        .await
+        .expect("Client 2 handshake failed");
 
     let payload = vec![10u8, 20, 30, 40];
     client1
@@ -77,8 +92,12 @@ async fn test_room_isolation() {
     let url_a = format!("ws://{}/ws?room=room-alpha", addr);
     let url_b = format!("ws://{}/ws?room=room-beta", addr);
 
-    let (mut client_a, _) = connect_async(&url_a).await.expect("Client A connect failed");
-    let (mut client_b, _) = connect_async(&url_b).await.expect("Client B connect failed");
+    let (mut client_a, _) = connect_async(&url_a)
+        .await
+        .expect("Client A connect failed");
+    let (mut client_b, _) = connect_async(&url_b)
+        .await
+        .expect("Client B connect failed");
 
     client_a
         .send(Message::Binary(vec![99, 88].into()))
@@ -139,7 +158,11 @@ async fn test_room_cleanup_after_disconnect() {
 
     let (client, _) = connect_async(&url).await.expect("Client connect failed");
     tokio::time::sleep(Duration::from_millis(30)).await;
-    assert_eq!(state.room_count(), 1, "Room count should be 1 after connect");
+    assert_eq!(
+        state.room_count(),
+        1,
+        "Room count should be 1 after connect"
+    );
 
     // Drop client to disconnect
     drop(client);
