@@ -17,8 +17,8 @@ use crate::ui::theme::{
 use iced::event::{self, Event};
 use iced::keyboard::{self, key::Named, Key};
 use iced::widget::{
-    button, column, container, mouse_area, operation, pick_list, row, stack, text, text_input,
-    tooltip, Space,
+    button, checkbox, column, container, mouse_area, operation, pick_list, row, stack, text,
+    text_input, tooltip, Space,
 };
 use iced::{Alignment, Element, Length, Point, Subscription, Task};
 use serde::{Deserialize, Serialize};
@@ -1171,40 +1171,86 @@ impl App {
                 self.apply_snapshot(*snapshot);
             }
             Message::OpenStartSessionModal => {
-                // RED STUB
+                if !self.collab_state.is_active() {
+                    self.active_menu = None;
+                    self.start_session_modal = Some(StartSessionModalState::new());
+                }
             }
             Message::CloseCollabModal => {
-                // RED STUB
+                self.start_session_modal = None;
+                self.join_session_modal = None;
+                self.guest_ended_notice = None;
             }
-            Message::CollabPresetSelected(_preset) => {
-                // RED STUB
+            Message::CollabPresetSelected(preset) => {
+                if let Some(modal) = &mut self.start_session_modal {
+                    modal.set_preset(preset);
+                }
             }
-            Message::CollabCustomUrlChanged(_url) => {
-                // RED STUB
+            Message::CollabCustomUrlChanged(url) => {
+                if let Some(modal) = &mut self.start_session_modal {
+                    modal.set_custom_url(url);
+                }
             }
-            Message::CollabToggleRememberPreset(_rem) => {
-                // RED STUB
+            Message::CollabToggleRememberPreset(rem) => {
+                if let Some(modal) = &mut self.start_session_modal {
+                    modal.remember_choice = rem;
+                }
             }
             Message::CollabCopyTicket => {
-                // RED STUB
+                if let Some(modal) = &mut self.start_session_modal {
+                    modal.copied = true;
+                    let token = modal.ticket.to_token();
+                    return iced::clipboard::write(token);
+                }
             }
             Message::CollabStartSession => {
-                // RED STUB
+                if let Some(modal) = self.start_session_modal.take() {
+                    self.active_menu = None;
+                    let ticket = modal.ticket;
+                    let (channel, _rx) = crate::features::collab::CollabChannel::connect(
+                        &ticket.relay_url,
+                        &ticket.room_id,
+                    );
+                    self.set_collab_session(channel, ticket.key, CollabState::Host);
+                    self.set_collab_connection_status(
+                        crate::features::collab::ConnectionStatus::Connected,
+                    );
+                    self.set_collab_participant_count(1);
+                    self.broadcast_snapshot();
+                }
             }
             Message::OpenJoinSessionModal => {
-                // RED STUB
+                if !self.collab_state.is_active() {
+                    self.active_menu = None;
+                    self.join_session_modal = Some(JoinSessionModalState::new());
+                }
             }
-            Message::CollabJoinTokenChanged(_tok) => {
-                // RED STUB
+            Message::CollabJoinTokenChanged(tok) => {
+                if let Some(modal) = &mut self.join_session_modal {
+                    modal.set_token_input(tok);
+                }
             }
             Message::CollabJoinSession => {
-                // RED STUB
+                if let Some(modal) = self.join_session_modal.take() {
+                    if let Some(ticket) = modal.parsed_ticket {
+                        self.active_menu = None;
+                        let (channel, _rx) = crate::features::collab::CollabChannel::connect(
+                            &ticket.relay_url,
+                            &ticket.room_id,
+                        );
+                        self.set_collab_session(channel, ticket.key, CollabState::Guest);
+                        self.set_collab_connection_status(
+                            crate::features::collab::ConnectionStatus::Connected,
+                        );
+                    }
+                }
             }
             Message::CollabDisconnect => {
-                // RED STUB
+                self.active_menu = None;
+                self.disconnect_collab();
             }
             Message::CollabGuestDismissEndedModal => {
-                // RED STUB
+                self.guest_ended_notice = None;
             }
             Message::SelectTab(tab) => {
                 self.active_tab = tab;
@@ -1519,6 +1565,12 @@ impl App {
             Message::EscapePressed => {
                 if self.active_menu.is_some() {
                     self.active_menu = None;
+                } else if self.start_session_modal.is_some() {
+                    self.start_session_modal = None;
+                } else if self.join_session_modal.is_some() {
+                    self.join_session_modal = None;
+                } else if self.guest_ended_notice.is_some() {
+                    self.guest_ended_notice = None;
                 } else if self.metadata_modal.is_some() {
                     self.metadata_modal = None;
                 } else if self.quick_create.is_some() {
@@ -2567,9 +2619,54 @@ impl App {
         .style(pill_container_style)
         .padding(3);
 
-        let header_right = row![text(self.project.metadata().name())
-            .size(12)
-            .color(ThemeColors::SLATE_600),]
+        let collab_header_badge: Element<Message> = if self.collab_state.is_active() {
+            let (bg_color, dot_color) = match self.collab_connection_status {
+                crate::features::collab::ConnectionStatus::Connected => (
+                    iced::Color::from_rgb(0.92, 0.98, 0.94),
+                    iced::Color::from_rgb(0.12, 0.65, 0.35),
+                ),
+                crate::features::collab::ConnectionStatus::Reconnecting => (
+                    iced::Color::from_rgb(1.0, 0.97, 0.88),
+                    iced::Color::from_rgb(0.85, 0.55, 0.10),
+                ),
+                _ => (
+                    iced::Color::from_rgb(0.95, 0.95, 0.96),
+                    iced::Color::from_rgb(0.55, 0.60, 0.68),
+                ),
+            };
+
+            container(
+                row![
+                    text("●").size(10).color(dot_color),
+                    Space::new().width(4),
+                    text(self.collab_status_summary())
+                        .size(11)
+                        .color(ThemeColors::SLATE_800),
+                ]
+                .align_y(Alignment::Center),
+            )
+            .style(move |_| container::Style {
+                background: Some(iced::Background::Color(bg_color)),
+                border: iced::Border {
+                    color: dot_color,
+                    width: 1.0,
+                    radius: 12.0.into(),
+                },
+                ..Default::default()
+            })
+            .padding([3, 10])
+            .into()
+        } else {
+            Space::new().width(0).height(0).into()
+        };
+
+        let header_right = row![
+            collab_header_badge,
+            Space::new().width(8),
+            text(self.project.metadata().name())
+                .size(12)
+                .color(ThemeColors::SLATE_600),
+        ]
         .align_y(Alignment::Center);
 
         let header_bar = container(
@@ -2743,6 +2840,329 @@ impl App {
                     .style(modal_card_style)
                     .padding(24)
                     .width(Length::Fixed(560.0));
+
+                container(modal_card)
+                    .style(modal_backdrop_style)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_x(Length::Fill)
+                    .center_y(Length::Fill)
+                    .into()
+            });
+
+        let maybe_start_session_modal: Option<Element<Message>> =
+            self.start_session_modal.as_ref().map(|modal_state| {
+                let title_row = row![
+                    text("🌐 Start Live Session (Vært)")
+                        .size(17)
+                        .color(ThemeColors::SLATE_900),
+                    Space::new().width(Length::Fill),
+                    button(text("✕").size(13))
+                        .style(secondary_button_style)
+                        .on_press(Message::CloseCollabModal)
+                        .padding([3, 7]),
+                ]
+                .align_y(Alignment::Center);
+
+                let subtitle = text("Start en end-to-end krypteret (E2EE) samarbejdssession. Vælg relay-server og del sessionskoden med dine deltagere:")
+                    .size(12)
+                    .color(ThemeColors::TEXT_MUTED);
+
+                let preset_pick = pick_list(
+                    &RelayServerPreset::ALL[..],
+                    Some(modal_state.preset),
+                    Message::CollabPresetSelected,
+                )
+                .padding(7)
+                .width(Length::Fill);
+
+                let preset_field = column![
+                    text("Relay Server Preset").size(12).color(ThemeColors::SLATE_700),
+                    preset_pick,
+                ]
+                .spacing(4);
+
+                let custom_url_field = if modal_state.preset == RelayServerPreset::Custom
+                    || modal_state.preset == RelayServerPreset::InternalOrg
+                {
+                    column![
+                        text("Server WebSocket URL").size(12).color(ThemeColors::SLATE_700),
+                        text_input("wss://relay.eksempel.dk/ws", &modal_state.custom_url)
+                            .style(modern_input_style)
+                            .on_input(Message::CollabCustomUrlChanged)
+                            .padding(8)
+                            .width(Length::Fill),
+                    ]
+                    .spacing(4)
+                } else {
+                    column![
+                        text("Aktiv Server URL").size(12).color(ThemeColors::SLATE_500),
+                        container(
+                            text(modal_state.current_url())
+                                .size(12)
+                                .color(ThemeColors::SLATE_700)
+                        )
+                        .style(|_| container::Style {
+                            background: Some(iced::Background::Color(ThemeColors::SURFACE_BG)),
+                            border: iced::Border {
+                                color: ThemeColors::SURFACE_BORDER,
+                                width: 1.0,
+                                radius: 6.0.into(),
+                            },
+                            ..Default::default()
+                        })
+                        .padding([8, 10])
+                        .width(Length::Fill),
+                    ]
+                    .spacing(4)
+                };
+
+                let remember_checkbox = row![
+                    checkbox(modal_state.remember_choice)
+                        .on_toggle(Message::CollabToggleRememberPreset)
+                        .size(16),
+                    Space::new().width(6),
+                    text("Husk servervalg til fremtidige sessioner")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                ]
+                .align_y(Alignment::Center);
+
+                let token_str = modal_state.ticket.to_token();
+                let token_box = column![
+                    text("Sessionskode (Sessionsbillet med E2EE-nøgle)")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                    container(
+                        text(token_str)
+                            .size(11)
+                            .color(ThemeColors::PRIMARY)
+                    )
+                    .style(|_| container::Style {
+                        background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
+                        border: iced::Border {
+                            color: ThemeColors::PRIMARY,
+                            width: 1.0,
+                            radius: 6.0.into(),
+                        },
+                        ..Default::default()
+                    })
+                    .padding(8)
+                    .width(Length::Fill),
+                ]
+                .spacing(4);
+
+                let copy_label = if modal_state.copied {
+                    "✓ Kopieret!"
+                } else {
+                    "📋 Kopiér sessionskode"
+                };
+
+                let copy_btn = button(text(copy_label).size(12))
+                    .style(if modal_state.copied {
+                        primary_button_style
+                    } else {
+                        secondary_button_style
+                    })
+                    .on_press(Message::CollabCopyTicket)
+                    .padding([6, 14]);
+
+                let actions = row![
+                    copy_btn,
+                    Space::new().width(Length::Fill),
+                    button(text("Annuller").size(12))
+                        .style(secondary_button_style)
+                        .on_press(Message::CloseCollabModal)
+                        .padding([6, 14]),
+                    button(text("🚀 Start Session").size(12))
+                        .style(primary_button_style)
+                        .on_press(Message::CollabStartSession)
+                        .padding([6, 16]),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center);
+
+                let dialog_col = column![
+                    title_row,
+                    subtitle,
+                    preset_field,
+                    custom_url_field,
+                    remember_checkbox,
+                    token_box,
+                    actions,
+                ]
+                .spacing(12);
+
+                let modal_card = container(dialog_col)
+                    .style(modal_card_style)
+                    .padding(24)
+                    .width(Length::Fixed(560.0));
+
+                container(modal_card)
+                    .style(modal_backdrop_style)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_x(Length::Fill)
+                    .center_y(Length::Fill)
+                    .into()
+            });
+
+        let maybe_join_session_modal: Option<Element<Message>> =
+            self.join_session_modal.as_ref().map(|modal_state| {
+                let title_row = row![
+                    text("🌐 Deltag i Live Session (Gæst)")
+                        .size(17)
+                        .color(ThemeColors::SLATE_900),
+                    Space::new().width(Length::Fill),
+                    button(text("✕").size(13))
+                        .style(secondary_button_style)
+                        .on_press(Message::CloseCollabModal)
+                        .padding([3, 7]),
+                ]
+                .align_y(Alignment::Center);
+
+                let subtitle = text("Indsæt den sessionskode du har modtaget fra sessionens vært:")
+                    .size(12)
+                    .color(ThemeColors::TEXT_MUTED);
+
+                let validation_feedback: Element<Message> = if let Some(ticket) = &modal_state.parsed_ticket {
+                    container(
+                        row![
+                            text("✓").size(14).color(iced::Color::from_rgb(0.12, 0.65, 0.35)),
+                            Space::new().width(6),
+                            text(format!(
+                                "Gyldig kode (Server: {} | Rum: {})",
+                                ticket.relay_url,
+                                ticket.room_id.as_str()
+                            ))
+                            .size(12)
+                            .color(iced::Color::from_rgb(0.12, 0.65, 0.35)),
+                        ]
+                        .align_y(Alignment::Center),
+                    )
+                    .padding([4, 8])
+                    .into()
+                } else if let Some(err) = &modal_state.error_message {
+                    container(
+                        row![
+                            text("⚠️").size(12),
+                            Space::new().width(6),
+                            text(err).size(12).color(iced::Color::from_rgb(0.85, 0.20, 0.20)),
+                        ]
+                        .align_y(Alignment::Center),
+                    )
+                    .padding([4, 8])
+                    .into()
+                } else {
+                    container(
+                        text("Format: edge:v1:<base64-payload>")
+                            .size(11)
+                            .color(ThemeColors::TEXT_MUTED),
+                    )
+                    .padding([4, 8])
+                    .into()
+                };
+
+                let token_field = column![
+                    text("Sessionskode *").size(12).color(ThemeColors::SLATE_700),
+                    text_input("Indsæt sessionskode her (f.eks. edge:v1:...)", &modal_state.token_input)
+                        .style(modern_input_style)
+                        .on_input(Message::CollabJoinTokenChanged)
+                        .padding(8)
+                        .width(Length::Fill),
+                    validation_feedback,
+                ]
+                .spacing(4);
+
+                let mut join_btn = button(text("🔗 Forbind").size(12))
+                    .style(primary_button_style)
+                    .padding([6, 16]);
+
+                if modal_state.is_valid() {
+                    join_btn = join_btn.on_press(Message::CollabJoinSession);
+                }
+
+                let actions = row![
+                    Space::new().width(Length::Fill),
+                    button(text("Annuller").size(12))
+                        .style(secondary_button_style)
+                        .on_press(Message::CloseCollabModal)
+                        .padding([6, 14]),
+                    join_btn,
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center);
+
+                let dialog_col = column![
+                    title_row,
+                    subtitle,
+                    token_field,
+                    actions,
+                ]
+                .spacing(14);
+
+                let modal_card = container(dialog_col)
+                    .style(modal_card_style)
+                    .padding(24)
+                    .width(Length::Fixed(540.0));
+
+                container(modal_card)
+                    .style(modal_backdrop_style)
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .center_x(Length::Fill)
+                    .center_y(Length::Fill)
+                    .into()
+            });
+
+        let maybe_guest_ended_modal: Option<Element<Message>> =
+            self.guest_ended_notice.as_ref().map(|notice| {
+                let title_row = row![
+                    text("⚠️ Live Session Afsluttet")
+                        .size(17)
+                        .color(ThemeColors::SLATE_900),
+                    Space::new().width(Length::Fill),
+                    button(text("✕").size(13))
+                        .style(secondary_button_style)
+                        .on_press(Message::CollabGuestDismissEndedModal)
+                        .padding([3, 7]),
+                ]
+                .align_y(Alignment::Center);
+
+                let notice_text = text(&notice.message)
+                    .size(13)
+                    .color(ThemeColors::SLATE_700);
+
+                let explanation = text("Værten har afsluttet sessionen. Du har modellen i hukommelsen (RAM) og kan gemme en kopi som en ny lokal modelprojektfil før sessionen lukkes.")
+                    .size(12)
+                    .color(ThemeColors::TEXT_MUTED);
+
+                let actions = row![
+                    Space::new().width(Length::Fill),
+                    button(text("Luk uden at gemme").size(12))
+                        .style(secondary_button_style)
+                        .on_press(Message::CollabGuestDismissEndedModal)
+                        .padding([6, 14]),
+                    button(text("💾 Gem som kopi...").size(12))
+                        .style(primary_button_style)
+                        .on_press(Message::SaveProjectAsDialog)
+                        .padding([6, 16]),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center);
+
+                let dialog_col = column![
+                    title_row,
+                    notice_text,
+                    explanation,
+                    actions,
+                ]
+                .spacing(14);
+
+                let modal_card = container(dialog_col)
+                    .style(modal_card_style)
+                    .padding(24)
+                    .width(Length::Fixed(520.0));
 
                 container(modal_card)
                     .style(modal_backdrop_style)
@@ -3404,6 +3824,32 @@ impl App {
                 .into(),
         };
 
+        let collab_status_widget: Element<Message> = if self.collab_state.is_active() {
+            let dot_color = match self.collab_connection_status {
+                crate::features::collab::ConnectionStatus::Connected => {
+                    iced::Color::from_rgb(0.12, 0.65, 0.35)
+                }
+                crate::features::collab::ConnectionStatus::Reconnecting => {
+                    iced::Color::from_rgb(0.85, 0.55, 0.10)
+                }
+                _ => iced::Color::from_rgb(0.55, 0.60, 0.68),
+            };
+            row![
+                text("•").size(12).color(dot_color),
+                Space::new().width(4),
+                text(self.collab_status_summary())
+                    .size(12)
+                    .color(ThemeColors::SLATE_700),
+            ]
+            .align_y(Alignment::Center)
+            .into()
+        } else {
+            text("• Offline")
+                .size(12)
+                .color(ThemeColors::SLATE_500)
+                .into()
+        };
+
         let status_bar = row![
             rules_button,
             text("• Klar").size(12).color(ThemeColors::SLATE_500),
@@ -3413,6 +3859,8 @@ impl App {
                 .color(ThemeColors::SLATE_600),
             Space::new().width(12),
             save_widget,
+            Space::new().width(12),
+            collab_status_widget,
             Space::new().width(Length::Fill),
             text(format!("Aktiv fane: {:?}", self.active_tab))
                 .size(12)
@@ -3446,6 +3894,12 @@ impl App {
             .into();
 
         if let Some(modal) = maybe_metadata_modal {
+            stack![base_layout, modal].into()
+        } else if let Some(modal) = maybe_start_session_modal {
+            stack![base_layout, modal].into()
+        } else if let Some(modal) = maybe_join_session_modal {
+            stack![base_layout, modal].into()
+        } else if let Some(modal) = maybe_guest_ended_modal {
             stack![base_layout, modal].into()
         } else if let Some(modal) = maybe_file_dialog_modal {
             stack![base_layout, modal].into()

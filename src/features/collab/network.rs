@@ -95,7 +95,8 @@ impl CollabChannel {
         let ws_url_res = build_relay_ws_url(relay_url, room_id);
         let status_clone = Arc::clone(&status);
 
-        tokio::spawn(async move {
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(async move {
             let ws_url = match ws_url_res {
                 Ok(url) => url.to_string(),
                 Err(err) => {
@@ -242,7 +243,8 @@ impl CollabChannel {
             let _ = event_tx.send(CollabNetworkEvent::StatusChanged(
                 ConnectionStatus::Disconnected,
             ));
-        });
+            });
+        }
 
         (
             Self {

@@ -3830,6 +3830,8 @@ fn test_task028_collab_ui_modals_and_presence() {
     // 4. Tastaturnavigation: Escape lukker modaler
     let _ = app.update(Message::OpenStartSessionModal);
     assert!(app.start_session_modal().is_some());
+    // Verificer rendering med StartSessionModal
+    let _ = app.view();
     let _ = app.update(Message::EscapePressed);
     assert!(
         app.start_session_modal().is_none(),
@@ -3838,9 +3840,17 @@ fn test_task028_collab_ui_modals_and_presence() {
 
     let _ = app.update(Message::OpenJoinSessionModal);
     assert!(app.join_session_modal().is_some());
+    // Verificer rendering med JoinSessionModal
+    let _ = app.view();
     let _ = app.update(Message::EscapePressed);
     assert!(
         app.join_session_modal().is_none(),
         "EscapePressed skal lukke JoinSessionModal"
     );
+
+    // Verificer rendering under aktiv session
+    app.set_collab_state(CollabState::Host);
+    app.set_collab_connection_status(edge::features::collab::ConnectionStatus::Connected);
+    let _ = app.view();
+    app.set_collab_state(CollabState::None);
 }
