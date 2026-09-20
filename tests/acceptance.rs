@@ -2346,3 +2346,61 @@ fn test_metadata_modal_default_placeholders_allow_direct_typing() {
     assert_eq!(app.project().metadata().name(), "Nyt FDA Modelprojekt");
     assert_eq!(app.project().metadata().version(), "0.1.0");
 }
+
+#[test]
+fn test_task018_footer_timestamp_and_model_rules_link() {
+    // 1. Nyt projekt starter som Unsaved med "Nyt projekt" tekst
+    let mut app = App::new_with_path(None);
+    assert_eq!(app.save_status(), &edge::ui::app::SaveStatus::Unsaved);
+    assert!(app.footer_status_text().contains("⚠️ Nyt projekt"));
+
+    // 2. Åbning af modelregler via Message::OpenModelRules
+    let _ = app.update(Message::OpenModelRules);
+
+    // 3. Gem til fil genererer tidsstempel med format HH:MM:SS og filnavn
+    let file_path = std::env::temp_dir().join(format!(
+        "danmark_model_{}.edge.json",
+        uuid::Uuid::new_v4()
+    ));
+    let filename = file_path
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    let _ = app.update(Message::SaveProjectToFile(file_path.clone()));
+
+    match app.save_status() {
+        edge::ui::app::SaveStatus::Saved { path, timestamp } => {
+            assert_eq!(path, &file_path.display().to_string());
+            assert_eq!(timestamp.len(), 8); // "HH:MM:SS"
+            let parts: Vec<&str> = timestamp.split(':').collect();
+            assert_eq!(parts.len(), 3);
+            let hours: u32 = parts[0].parse().expect("hours should be numeric");
+            let mins: u32 = parts[1].parse().expect("mins should be numeric");
+            let secs: u32 = parts[2].parse().expect("secs should be numeric");
+            assert!(hours < 24);
+            assert!(mins < 60);
+            assert!(secs < 60);
+        }
+        other => panic!("Expected SaveStatus::Saved, got {:?}", other),
+    }
+
+    // 4. Footer-teksten formateres korrekt med tidsstempel og filnavn
+    let footer_text = app.footer_status_text();
+    assert!(footer_text.starts_with("💾 Sidst gemt kl. "));
+    assert!(footer_text.contains(&format!("• {}", filename)));
+
+    // 5. Ændringer efter gemning viser '⚠️ Ikke gemte ændringer'
+    let _ = app.update(Message::OpenMetadataModal);
+    let _ = app.update(Message::UpdateMetadataField(
+        edge::ui::app::MetadataField::Name,
+        "Opdateret navn".to_string(),
+    ));
+    let _ = app.update(Message::SaveMetadataModal);
+
+    assert_eq!(app.save_status(), &edge::ui::app::SaveStatus::Unsaved);
+    assert_eq!(app.footer_status_text(), "⚠️ Ikke gemte ændringer");
+
+    let _ = std::fs::remove_file(&file_path);
+}
