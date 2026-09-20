@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  edge-relay:
+    build:
+      context: .
+      dockerfile: crates/edge-relay/Dockerfile
+    container_name: edge-relay
+    ports:
+      - "8080:8080"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8080
+      - RUST_LOG=info,edge_relay=debug
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

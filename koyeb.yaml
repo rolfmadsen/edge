@@ -1,0 +1,32 @@
+# Koyeb App Specification for Edge Stateless In-Memory Relay
+# Documentation: https://www.koyeb.com/docs/reference/koyeb-yaml
+app:
+  name: edge-relay
+services:
+  - name: edge-relay-service
+    type: web
+    docker:
+      dockerfile: crates/edge-relay/Dockerfile
+    ports:
+      - port: 8080
+        path: /
+        protocol: http
+    env:
+      - key: PORT
+        value: "8080"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: RUST_LOG
+        value: "info"
+    health_checks:
+      - path: /health
+        port: 8080
+        protocol: http
+        interval: 30
+        timeout: 5
+    regions:
+      - fra
+    scalings:
+      - min: 1
+        max: 1
+    instance_type: nano
