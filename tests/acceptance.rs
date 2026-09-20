@@ -2415,7 +2415,10 @@ fn test_task019_palette_header_actions_and_search_affinity() {
 
     // Start nyt begreb via header-handling
     let _ = app.update(Message::StartNewConcept);
-    assert!(app.concept_editor().is_some(), "Inline editor skal åbnes ved StartNewConcept");
+    assert!(
+        app.concept_editor().is_some(),
+        "Inline editor skal åbnes ved StartNewConcept"
+    );
 
     // Rendering af view i søgetilstand med aktiv editor
     {
