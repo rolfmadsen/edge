@@ -210,6 +210,10 @@ impl Attribute {
     }
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InformationClass {
     id: Uuid,
@@ -219,6 +223,12 @@ pub struct InformationClass {
     concept_ids: Vec<Uuid>,
     #[serde(default)]
     attributes: Vec<Attribute>,
+    #[serde(default)]
+    is_abstract: bool,
+    #[serde(default = "default_true")]
+    is_local: bool,
+    #[serde(default)]
+    origin_model: Option<String>,
 }
 
 impl InformationClass {
@@ -229,10 +239,19 @@ impl InformationClass {
             description: None,
             concept_ids: Vec::new(),
             attributes: Vec::new(),
+            is_abstract: false,
+            is_local: true,
+            origin_model: None,
         }
     }
 
     pub fn from_concept(concept: &Concept) -> Self {
+        let (is_local, origin_model) = match concept.belongs_to_domain() {
+            crate::features::concepts::BelongsToDomain::Yes => (true, None),
+            crate::features::concepts::BelongsToDomain::No => (false, None),
+            crate::features::concepts::BelongsToDomain::ModelRef(uri) => (false, Some(uri.clone())),
+        };
+
         Self {
             id: Uuid::new_v4(),
             name: concept.preferred_term().to_string(),
@@ -243,6 +262,9 @@ impl InformationClass {
             },
             concept_ids: vec![concept.id()],
             attributes: Vec::new(),
+            is_abstract: false,
+            is_local,
+            origin_model,
         }
     }
 
@@ -256,6 +278,30 @@ impl InformationClass {
 
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = name.into();
+    }
+
+    pub fn is_abstract(&self) -> bool {
+        self.is_abstract
+    }
+
+    pub fn set_abstract(&mut self, is_abstract: bool) {
+        self.is_abstract = is_abstract;
+    }
+
+    pub fn is_local(&self) -> bool {
+        self.is_local
+    }
+
+    pub fn set_local(&mut self, is_local: bool) {
+        self.is_local = is_local;
+    }
+
+    pub fn origin_model(&self) -> Option<&str> {
+        self.origin_model.as_deref()
+    }
+
+    pub fn set_origin_model(&mut self, origin: Option<String>) {
+        self.origin_model = origin;
     }
 
     pub fn description(&self) -> Option<&str> {

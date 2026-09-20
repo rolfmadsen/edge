@@ -548,6 +548,9 @@ pub enum Message {
     CreateInformationClassFromConcept(ConceptOption),
     UpdateInformationClassName(Uuid, String),
     UpdateInformationClassDescription(Uuid, String),
+    SetInformationClassAbstract(Uuid, bool),
+    SetInformationClassLocal(Uuid, bool),
+    SetInformationClassOriginModel(Uuid, String),
     AddConceptToInformationClass(Uuid, ConceptOption),
     RemoveConceptFromInformationClass(Uuid, Uuid),
     DeleteInformationClass(Uuid),
@@ -2180,6 +2183,47 @@ impl App {
                     } else {
                         Some(desc)
                     });
+                    let cls = class.clone();
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                            cls,
+                        ),
+                    );
+                    self.trigger_autosave();
+                }
+            }
+            Message::SetInformationClassAbstract(class_id, is_abstract) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    class.set_abstract(is_abstract);
+                    let cls = class.clone();
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                            cls,
+                        ),
+                    );
+                    self.trigger_autosave();
+                }
+            }
+            Message::SetInformationClassLocal(class_id, is_local) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    class.set_local(is_local);
+                    let cls = class.clone();
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                            cls,
+                        ),
+                    );
+                    self.trigger_autosave();
+                }
+            }
+            Message::SetInformationClassOriginModel(class_id, origin) => {
+                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                    let opt = if origin.trim().is_empty() {
+                        None
+                    } else {
+                        Some(origin)
+                    };
+                    class.set_origin_model(opt);
                     let cls = class.clone();
                     self.broadcast_mutation(
                         &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(

@@ -39,11 +39,11 @@ impl<'a, Message> InformationCanvas<'a, Message> {
                   node: &ClassDiagramNode,
                   is_selected: bool,
                   vp: CanvasViewport| {
-                let class_opt = model.get_class(node.class_id());
-                let class_name = class_opt.map(|c| c.name()).unwrap_or("Ukendt Klasse");
-                let attributes: Vec<(String, String, String, bool)> = class_opt
+                let (class_name, attributes, is_borrowed, is_abstract) = model
+                    .get_class(node.class_id())
                     .map(|c| {
-                        c.attributes()
+                        let attrs = c
+                            .attributes()
                             .iter()
                             .map(|a| {
                                 (
@@ -53,10 +53,20 @@ impl<'a, Message> InformationCanvas<'a, Message> {
                                     !a.concept_ids().is_empty(),
                                 )
                             })
-                            .collect()
+                            .collect();
+                        (c.name(), attrs, !c.is_local(), c.is_abstract())
                     })
-                    .unwrap_or_default();
-                render_uml_class_node(frame, node, class_name, &attributes, false, is_selected, vp);
+                    .unwrap_or(("", Vec::new(), false, false));
+                render_uml_class_node(
+                    frame,
+                    node,
+                    class_name,
+                    &attributes,
+                    is_borrowed,
+                    is_abstract,
+                    is_selected,
+                    vp,
+                );
             },
         );
 

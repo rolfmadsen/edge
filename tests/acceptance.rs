@@ -4211,7 +4211,11 @@ fn test_task_031_fda_information_class_properties_and_rendering() {
     assert_eq!(class.name(), "Køretøj");
     assert!(!class.is_abstract(), "Standard skal være ikke-abstrakt");
     assert!(class.is_local(), "Standard skal være lokal klasse");
-    assert_eq!(class.origin_model(), None, "Standard har ingen oprindelsesmodel");
+    assert_eq!(
+        class.origin_model(),
+        None,
+        "Standard har ingen oprindelsesmodel"
+    );
 
     class.set_abstract(true);
     assert!(class.is_abstract());
@@ -4280,8 +4284,10 @@ fn test_task_031_fda_information_class_properties_and_rendering() {
     let deserialized: InformationClass =
         serde_json::from_str(legacy_json).expect("Legacy JSON skal deserialisere fejlfrit");
     assert_eq!(deserialized.name(), "HistoriskKlasse");
-    assert!(!deserialized.is_abstract(), "Standard is_abstract skal være false");
+    assert!(
+        !deserialized.is_abstract(),
+        "Standard is_abstract skal være false"
+    );
     assert!(deserialized.is_local(), "Standard is_local skal være true");
     assert_eq!(deserialized.origin_model(), None);
 }
-

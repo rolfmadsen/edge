@@ -1395,12 +1395,14 @@ pub fn render_concept_node(
 }
 
 /// Standard rendering af UML 3-sektions informationsklasse-kasse
+#[allow(clippy::too_many_arguments)]
 pub fn render_uml_class_node(
     frame: &mut Frame,
     node: &ClassDiagramNode,
     class_name: &str,
     attributes: &[(String, String, String, bool)],
     is_borrowed: bool,
+    is_abstract: bool,
     is_selected: bool,
     _viewport: CanvasViewport,
 ) {
@@ -1437,8 +1439,14 @@ pub fn render_uml_class_node(
             .with_width(border_width),
     );
 
+    let stereotype_text = if is_abstract {
+        "«Informationsklasse» {abstract}".to_string()
+    } else {
+        "«Informationsklasse»".to_string()
+    };
+
     frame.fill_text(Text {
-        content: "«Informationsklasse»".to_string(),
+        content: stereotype_text,
         position: Point::new(node.x() + node.width() / 2.0, node.y() + 14.0),
         color: ThemeColors::SLATE_600,
         size: 10.5.into(),
@@ -1447,11 +1455,21 @@ pub fn render_uml_class_node(
         ..Default::default()
     });
 
+    let name_font = if is_abstract {
+        iced::Font {
+            style: iced::font::Style::Italic,
+            ..Default::default()
+        }
+    } else {
+        iced::Font::DEFAULT
+    };
+
     frame.fill_text(Text {
         content: class_name.to_string(),
         position: Point::new(node.x() + node.width() / 2.0, node.y() + 32.0),
         color: ThemeColors::SLATE_900,
         size: 14.0.into(),
+        font: name_font,
         align_x: alignment::Horizontal::Center.into(),
         align_y: alignment::Vertical::Center,
         ..Default::default()
@@ -1462,11 +1480,16 @@ pub fn render_uml_class_node(
         b.move_to(Point::new(node.x(), divider_y));
         b.line_to(Point::new(node.x() + node.width(), divider_y));
     });
+
+    let divider_color = if is_borrowed {
+        Color::from_rgb(0.55, 0.75, 0.90)
+    } else {
+        ThemeColors::FDA_SAND_BORDER
+    };
+
     frame.stroke(
         &divider_path,
-        Stroke::default()
-            .with_color(ThemeColors::FDA_SAND_BORDER)
-            .with_width(1.0),
+        Stroke::default().with_color(divider_color).with_width(1.0),
     );
 
     let mut attr_y = divider_y + 14.0;

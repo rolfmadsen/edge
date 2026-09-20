@@ -135,13 +135,44 @@ pub fn view<'a>(
             class.name()
         };
 
+        let is_abstract = class.is_abstract();
+        let is_borrowed = !class.is_local();
+
+        let mut name_text = text(display_name).size(13).color(if is_selected {
+            ThemeColors::PRIMARY
+        } else {
+            ThemeColors::SLATE_900
+        });
+        if is_abstract {
+            name_text = name_text.font(iced::Font {
+                style: iced::font::Style::Italic,
+                ..Default::default()
+            });
+        }
+
+        let mut title_row = row![name_text].spacing(4).align_y(Alignment::Center);
+        if is_borrowed {
+            title_row = title_row.push(
+                container(
+                    text("Indlånt")
+                        .size(9)
+                        .color(Color::from_rgb(0.08, 0.35, 0.65)),
+                )
+                .style(|_theme: &iced::Theme| container::Style {
+                    background: Some(iced::Background::Color(ThemeColors::FDA_BORROWED_BLUE)),
+                    border: iced::Border {
+                        radius: 3.0.into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .padding([1, 4]),
+            );
+        }
+
         let item_btn = button(
             column![
-                text(display_name).size(13).color(if is_selected {
-                    ThemeColors::PRIMARY
-                } else {
-                    ThemeColors::SLATE_900
-                }),
+                title_row,
                 text(format!("{} attr", attr_count))
                     .size(10)
                     .color(ThemeColors::TEXT_MUTED),
@@ -201,7 +232,7 @@ pub fn view<'a>(
             secondary_button_style
         })
         .on_press(Message::ToggleInfoSnapToGrid)
-        .padding([4, 8]),
+        .padding([4, 10]),
         Space::new().width(Length::Fill),
         text(format!(
             "{} klasser på diagram • {} relationer",
@@ -211,7 +242,7 @@ pub fn view<'a>(
         .size(11)
         .color(ThemeColors::TEXT_MUTED),
     ]
-    .spacing(6)
+    .spacing(4)
     .align_y(Alignment::Center);
 
     let canvas_widget = iced::widget::canvas(
@@ -229,6 +260,8 @@ pub fn view<'a>(
                 } else {
                     class_opt.map(|c| c.name()).unwrap()
                 };
+                let is_borrowed = class_opt.map(|c| !c.is_local()).unwrap_or(false);
+                let is_abstract = class_opt.map(|c| c.is_abstract()).unwrap_or(false);
                 let attributes: Vec<(String, String, String, bool)> = class_opt
                     .map(|c| {
                         c.attributes()
@@ -249,7 +282,16 @@ pub fn view<'a>(
                             .collect()
                     })
                     .unwrap_or_default();
-                render_uml_class_node(frame, node, class_name, &attributes, false, is_selected, vp);
+                render_uml_class_node(
+                    frame,
+                    node,
+                    class_name,
+                    &attributes,
+                    is_borrowed,
+                    is_abstract,
+                    is_selected,
+                    vp,
+                );
             },
             Message::SelectInfoGraphNode,
             Message::UpdateClassNodePosition,
@@ -656,6 +698,58 @@ pub fn view<'a>(
                 .on_input(move |s| Message::UpdateInformationClassDescription(class_id, s))
                 .padding([4, 6]);
 
+            let is_abstract = class.is_abstract();
+            let is_local = class.is_local();
+
+            let abstract_checkbox = checkbox(is_abstract)
+                .label("Abstrakt klasse ({abstract})")
+                .size(13)
+                .on_toggle(move |val| Message::SetInformationClassAbstract(class_id, val));
+
+            let type_selector = column![
+                crate::ui::inspector_panel::section_header("Klassetype (FDA)"),
+                row![
+                    button(text("Lokal (Sand)").size(11))
+                        .style(if is_local {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        })
+                        .on_press(Message::SetInformationClassLocal(class_id, true))
+                        .padding([3, 8]),
+                    button(text("Indlånt (Blå)").size(11))
+                        .style(if !is_local {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        })
+                        .on_press(Message::SetInformationClassLocal(class_id, false))
+                        .padding([3, 8]),
+                ]
+                .spacing(6),
+            ]
+            .spacing(4);
+
+            let origin_section: Element<'a, Message> = if !is_local {
+                column![
+                    text("Oprindelsesmodel / Kilde URI:")
+                        .size(11.0)
+                        .color(ThemeColors::SLATE_600),
+                    text_input(
+                        "https://data.gov.dk/model/...",
+                        class.origin_model().unwrap_or(""),
+                    )
+                    .style(modern_input_style)
+                    .size(11.5)
+                    .on_input(move |s| Message::SetInformationClassOriginModel(class_id, s))
+                    .padding([3, 6]),
+                ]
+                .spacing(4)
+                .into()
+            } else {
+                Space::new().height(0).into()
+            };
+
             // Begrebssporing (FDA Traceability)
             let mut concept_badges_row = row![].spacing(4);
             for cid in class.concept_ids() {
@@ -917,13 +1011,21 @@ pub fn view<'a>(
                 }
             }
 
+            let badge_bg = if is_local {
+                ThemeColors::FDA_SAND
+            } else {
+                ThemeColors::FDA_BORROWED_BLUE
+            };
+            let badge_border = if is_local {
+                ThemeColors::FDA_SAND_BORDER
+            } else {
+                Color::from_rgb(0.35, 0.65, 0.85)
+            };
+            let badge_text = if is_local { "Klasse" } else { "Indlånt" };
+
             let header = crate::ui::inspector_panel::panel_header(
                 crate::ui::inspector_panel::PROPERTIES_TITLE,
-                Some((
-                    "Klasse",
-                    ThemeColors::FDA_SAND,
-                    ThemeColors::FDA_SAND_BORDER,
-                )),
+                Some((badge_text, badge_bg, badge_border)),
                 Some(Message::SelectInformationClass(None)),
             );
 
@@ -942,6 +1044,10 @@ pub fn view<'a>(
                 crate::ui::inspector_panel::section_header("Generelt"),
                 name_input,
                 desc_input,
+                crate::ui::inspector_panel::section_header("Egenskaber (UML & FDA)"),
+                abstract_checkbox,
+                type_selector,
+                origin_section,
                 actions_row,
                 // Begreber
                 column![
