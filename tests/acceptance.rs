@@ -2418,7 +2418,9 @@ fn test_task019_palette_header_actions_and_search_affinity() {
     assert!(app.concept_editor().is_some(), "Inline editor skal åbnes ved StartNewConcept");
 
     // Rendering af view i søgetilstand med aktiv editor
-    let _view = app.view();
+    {
+        let _view = app.view();
+    }
 
     // 2. Informationsmodel fane: Valider søge-nærhed og header-handlinger
     let _ = app.update(Message::SelectTab(Tab::InformationModel));
@@ -2456,5 +2458,7 @@ fn test_task019_palette_header_actions_and_search_affinity() {
     );
 
     // Rendering af informationsmodel view med søgning
-    let _view = app.view();
+    {
+        let _view = app.view();
+    }
 }

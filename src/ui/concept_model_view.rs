@@ -46,7 +46,6 @@ pub fn view<'a>(
     let palette_header = column![
         row![
             text("Begreber").size(15).color(ThemeColors::SLATE_900),
-            Space::new().width(Length::Fill),
             container(
                 text(format!("{}", concept_count))
                     .size(11)
@@ -54,16 +53,18 @@ pub fn view<'a>(
             )
             .style(pill_container_style)
             .padding([2, 7]),
+            Space::new().width(Length::Fill),
+            button(text("+ Nyt begreb").size(11))
+                .style(primary_button_style)
+                .on_press(Message::StartNewConcept)
+                .padding([3, 7]),
         ]
+        .spacing(6)
         .align_y(Alignment::Center),
         text_input("🔍 Søg begreber...", search_query)
             .style(modern_input_style)
             .on_input(Message::ConceptModelSearchChanged)
             .padding(5),
-        button(text("+ Nyt begreb").size(12))
-            .style(primary_button_style)
-            .on_press(Message::StartNewConcept)
-            .padding([4, 10]),
     ]
     .spacing(8);
 
@@ -132,7 +133,7 @@ pub fn view<'a>(
     )
     .style(card_container_style)
     .padding(12)
-    .width(Length::Fixed(230.0))
+    .width(Length::Fixed(240.0))
     .height(Length::Fill);
 
     // ==========================================

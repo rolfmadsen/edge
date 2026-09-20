@@ -68,7 +68,6 @@ pub fn view<'a>(
     let palette_header = column![
         row![
             text("Klasser").size(15).color(ThemeColors::SLATE_900),
-            Space::new().width(Length::Fill),
             container(
                 text(format!("{}", class_count))
                     .size(11)
@@ -76,28 +75,26 @@ pub fn view<'a>(
             )
             .style(pill_container_style)
             .padding([2, 7]),
+            Space::new().width(Length::Fill),
+            button(text("+ Ny").size(11))
+                .style(primary_button_style)
+                .on_press(Message::CreateInformationClass)
+                .padding([3, 7]),
         ]
+        .spacing(6)
         .align_y(Alignment::Center),
+        pick_list(
+            concept_options.clone(),
+            None::<ConceptOption>,
+            Message::CreateInformationClassFromConcept,
+        )
+        .placeholder("+ Fra begreb...")
+        .padding(4)
+        .width(Length::Fill),
         text_input("🔍 Søg klasser...", search_query)
             .style(modern_input_style)
             .on_input(Message::InformationClassSearchChanged)
             .padding(5),
-        row![
-            button(text("+ Ny").size(12))
-                .style(primary_button_style)
-                .on_press(Message::CreateInformationClass)
-                .padding([4, 10]),
-            pick_list(
-                concept_options.clone(),
-                None::<ConceptOption>,
-                Message::CreateInformationClassFromConcept,
-            )
-            .placeholder("+ Fra begreb...")
-            .padding(4)
-            .width(Length::Fill),
-        ]
-        .spacing(6)
-        .align_y(Alignment::Center),
     ]
     .spacing(8);
 
@@ -160,7 +157,7 @@ pub fn view<'a>(
     )
     .style(card_container_style)
     .padding(12)
-    .width(Length::Fixed(230.0))
+    .width(Length::Fixed(240.0))
     .height(Length::Fill);
 
     // ==========================================

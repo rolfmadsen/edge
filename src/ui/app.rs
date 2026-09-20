@@ -568,6 +568,18 @@ impl App {
         self.selected_info_edge
     }
 
+    pub fn concept_model_search(&self) -> &str {
+        &self.concept_model_search
+    }
+
+    pub fn information_model_search(&self) -> &str {
+        &self.info_class_search
+    }
+
+    pub fn concept_editor(&self) -> Option<&ConceptEditorState> {
+        self.editor_state.as_ref()
+    }
+
     pub fn trigger_autosave(&mut self) {
         if let Some(path) = &self.current_file_path {
             match ProjectStorage::save_to_file(&self.project, path) {
