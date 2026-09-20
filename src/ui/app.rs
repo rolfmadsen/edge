@@ -164,6 +164,154 @@ impl ModelMetadataModalState {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RelayServerPreset {
+    #[default]
+    Koyeb,
+    InternalOrg,
+    LocalDocker,
+    Custom,
+}
+
+impl RelayServerPreset {
+    pub const ALL: [RelayServerPreset; 4] = [
+        RelayServerPreset::Koyeb,
+        RelayServerPreset::InternalOrg,
+        RelayServerPreset::LocalDocker,
+        RelayServerPreset::Custom,
+    ];
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Koyeb => "Koyeb Cloud (Standard - Frankfurt)",
+            Self::InternalOrg => "Intern Organisation",
+            Self::LocalDocker => "Lokal Docker (ws://localhost:8080/ws)",
+            Self::Custom => "Brugerdefineret URL...",
+        }
+    }
+
+    pub fn default_url(&self) -> &'static str {
+        match self {
+            Self::Koyeb => "wss://edge-relay.koyeb.app/ws",
+            Self::InternalOrg => "wss://collab.intern.org/ws",
+            Self::LocalDocker => "ws://localhost:8080/ws",
+            Self::Custom => "",
+        }
+    }
+}
+
+impl std::fmt::Display for RelayServerPreset {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.label())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StartSessionModalState {
+    pub preset: RelayServerPreset,
+    pub custom_url: String,
+    pub remember_choice: bool,
+    pub ticket: crate::features::collab::SessionTicket,
+    pub copied: bool,
+}
+
+impl StartSessionModalState {
+    pub fn new() -> Self {
+        let preset = RelayServerPreset::Koyeb;
+        let room = crate::features::collab::RoomId::generate();
+        let key = crate::features::collab::CollabKey::generate();
+        let ticket = crate::features::collab::SessionTicket::new(preset.default_url(), room, key);
+        Self {
+            preset,
+            custom_url: String::new(),
+            remember_choice: false,
+            ticket,
+            copied: false,
+        }
+    }
+
+    pub fn current_url(&self) -> &str {
+        if (self.preset == RelayServerPreset::Custom || self.preset == RelayServerPreset::InternalOrg)
+            && !self.custom_url.is_empty()
+        {
+            &self.custom_url
+        } else {
+            self.preset.default_url()
+        }
+    }
+
+    pub fn set_preset(&mut self, preset: RelayServerPreset) {
+        self.preset = preset;
+        let room = self.ticket.room_id.clone();
+        let key = self.ticket.key.clone();
+        let target_url = if (preset == RelayServerPreset::Custom || preset == RelayServerPreset::InternalOrg)
+            && !self.custom_url.is_empty()
+        {
+            self.custom_url.as_str()
+        } else {
+            preset.default_url()
+        };
+        self.ticket = crate::features::collab::SessionTicket::new(target_url, room, key);
+    }
+
+    pub fn set_custom_url(&mut self, url: String) {
+        self.custom_url = url.clone();
+        if self.preset == RelayServerPreset::Custom || self.preset == RelayServerPreset::InternalOrg {
+            let room = self.ticket.room_id.clone();
+            let key = self.ticket.key.clone();
+            self.ticket = crate::features::collab::SessionTicket::new(url, room, key);
+        }
+    }
+}
+
+impl Default for StartSessionModalState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct JoinSessionModalState {
+    pub token_input: String,
+    pub parsed_ticket: Option<crate::features::collab::SessionTicket>,
+    pub error_message: Option<String>,
+}
+
+impl JoinSessionModalState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn set_token_input(&mut self, token: String) {
+        let trimmed = token.trim().to_string();
+        self.token_input = token;
+        if trimmed.is_empty() {
+            self.parsed_ticket = None;
+            self.error_message = None;
+        } else {
+            match crate::features::collab::SessionTicket::from_token(&trimmed) {
+                Ok(ticket) => {
+                    self.parsed_ticket = Some(ticket);
+                    self.error_message = None;
+                }
+                Err(err) => {
+                    self.parsed_ticket = None;
+                    self.error_message = Some(format!("Ugyldig sessionskode: {err}"));
+                }
+            }
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.parsed_ticket.is_some()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GuestEndedNoticeModalState {
+    pub message: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Tab {
     ConceptList,
@@ -254,6 +402,7 @@ pub enum FileDialogMode {
 pub enum MenuType {
     File,
     Help,
+    Collab,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -283,9 +432,21 @@ pub enum Message {
     SelectTab(Tab),
     NewProject,
 
-    // Live Kollaborering (Task 027)
+    // Live Kollaborering (Task 027 & Task 028)
     CollabApplyMutation(Box<crate::features::collab::protocol::ModelMutation>),
     CollabApplySnapshot(Box<crate::features::model::ModelProject>),
+    OpenStartSessionModal,
+    CloseCollabModal,
+    CollabPresetSelected(RelayServerPreset),
+    CollabCustomUrlChanged(String),
+    CollabToggleRememberPreset(bool),
+    CollabCopyTicket,
+    CollabStartSession,
+    OpenJoinSessionModal,
+    CollabJoinTokenChanged(String),
+    CollabJoinSession,
+    CollabDisconnect,
+    CollabGuestDismissEndedModal,
 
     // Desktop Menulinje & Sidebar Toggle (Task 024)
     ToggleMenu(MenuType),
@@ -455,6 +616,11 @@ pub struct App {
     collab_channel: Option<crate::features::collab::CollabChannel>,
     collab_key: Option<crate::features::collab::CollabKey>,
     last_node_broadcast: Option<std::time::Instant>,
+    start_session_modal: Option<StartSessionModalState>,
+    join_session_modal: Option<JoinSessionModalState>,
+    guest_ended_notice: Option<GuestEndedNoticeModalState>,
+    collab_participant_count: usize,
+    collab_connection_status: crate::features::collab::ConnectionStatus,
 }
 
 impl Default for App {
@@ -510,6 +676,11 @@ impl App {
                         collab_channel: None,
                         collab_key: None,
                         last_node_broadcast: None,
+                        start_session_modal: None,
+                        join_session_modal: None,
+                        guest_ended_notice: None,
+                        collab_participant_count: 1,
+                        collab_connection_status: crate::features::collab::ConnectionStatus::Disconnected,
                     };
                 }
             }
@@ -555,6 +726,11 @@ impl App {
             collab_channel: None,
             collab_key: None,
             last_node_broadcast: None,
+            start_session_modal: None,
+            join_session_modal: None,
+            guest_ended_notice: None,
+            collab_participant_count: 1,
+            collab_connection_status: crate::features::collab::ConnectionStatus::Disconnected,
         }
     }
 
@@ -699,6 +875,83 @@ impl App {
         self.collab_channel = None;
         self.collab_key = None;
         self.collab_state = CollabState::None;
+        self.collab_connection_status = crate::features::collab::ConnectionStatus::Disconnected;
+    }
+
+    pub fn start_session_modal(&self) -> Option<&StartSessionModalState> {
+        self.start_session_modal.as_ref()
+    }
+
+    pub fn join_session_modal(&self) -> Option<&JoinSessionModalState> {
+        self.join_session_modal.as_ref()
+    }
+
+    pub fn guest_ended_notice(&self) -> Option<&GuestEndedNoticeModalState> {
+        self.guest_ended_notice.as_ref()
+    }
+
+    pub fn collab_participant_count(&self) -> usize {
+        self.collab_participant_count
+    }
+
+    pub fn set_collab_participant_count(&mut self, count: usize) {
+        self.collab_participant_count = count;
+    }
+
+    pub fn collab_connection_status(&self) -> crate::features::collab::ConnectionStatus {
+        self.collab_connection_status
+    }
+
+    pub fn set_collab_connection_status(
+        &mut self,
+        status: crate::features::collab::ConnectionStatus,
+    ) {
+        self.collab_connection_status = status;
+    }
+
+    pub fn notify_host_ended_session(&mut self) {
+        if self.collab_state.is_guest() {
+            self.collab_state = CollabState::None;
+            self.collab_channel = None;
+            self.collab_key = None;
+            self.collab_connection_status =
+                crate::features::collab::ConnectionStatus::Disconnected;
+            self.guest_ended_notice = Some(GuestEndedNoticeModalState {
+                message: "Værten har afsluttet sessionen. Vil du gemme en kopi af modellen lokalt?"
+                    .to_string(),
+            });
+        }
+    }
+
+    pub fn collab_status_summary(&self) -> String {
+        match self.collab_state {
+            CollabState::None => "Offline".to_string(),
+            CollabState::Host => {
+                let suffix = if self.collab_participant_count == 1 {
+                    "1 deltager".to_string()
+                } else {
+                    format!("{} deltagere", self.collab_participant_count)
+                };
+                match self.collab_connection_status {
+                    crate::features::collab::ConnectionStatus::Connected => {
+                        format!("Live: Vært ({suffix})")
+                    }
+                    crate::features::collab::ConnectionStatus::Reconnecting => {
+                        "Genforbinder...".to_string()
+                    }
+                    _ => format!("Live: Vært ({})", self.collab_connection_status),
+                }
+            }
+            CollabState::Guest => match self.collab_connection_status {
+                crate::features::collab::ConnectionStatus::Connected => {
+                    "Live: Gæst (Forbundet til Vært)".to_string()
+                }
+                crate::features::collab::ConnectionStatus::Reconnecting => {
+                    "Genforbinder...".to_string()
+                }
+                _ => format!("Live: Gæst ({})", self.collab_connection_status),
+            },
+        }
     }
 
     pub fn broadcast_mutation(&self, mutation: &crate::features::collab::protocol::ModelMutation) {
@@ -916,6 +1169,42 @@ impl App {
             }
             Message::CollabApplySnapshot(snapshot) => {
                 self.apply_snapshot(*snapshot);
+            }
+            Message::OpenStartSessionModal => {
+                // RED STUB
+            }
+            Message::CloseCollabModal => {
+                // RED STUB
+            }
+            Message::CollabPresetSelected(_preset) => {
+                // RED STUB
+            }
+            Message::CollabCustomUrlChanged(_url) => {
+                // RED STUB
+            }
+            Message::CollabToggleRememberPreset(_rem) => {
+                // RED STUB
+            }
+            Message::CollabCopyTicket => {
+                // RED STUB
+            }
+            Message::CollabStartSession => {
+                // RED STUB
+            }
+            Message::OpenJoinSessionModal => {
+                // RED STUB
+            }
+            Message::CollabJoinTokenChanged(_tok) => {
+                // RED STUB
+            }
+            Message::CollabJoinSession => {
+                // RED STUB
+            }
+            Message::CollabDisconnect => {
+                // RED STUB
+            }
+            Message::CollabGuestDismissEndedModal => {
+                // RED STUB
             }
             Message::SelectTab(tab) => {
                 self.active_tab = tab;
@@ -2253,6 +2542,8 @@ impl App {
             menu_button("Filer", MenuType::File),
             Space::new().width(4),
             menu_button("Hjælp", MenuType::Help),
+            Space::new().width(4),
+            menu_button("Samarbejde", MenuType::Collab),
         ]
         .align_y(Alignment::Center);
 
@@ -2942,6 +3233,38 @@ impl App {
                     ]
                     .spacing(2)
                     .width(Length::Fixed(220.0)),
+                ),
+                MenuType::Collab => (
+                    280.0,
+                    column![
+                        text("LIVE SAMARBEJDE (E2EE)")
+                            .size(10)
+                            .color(ThemeColors::TEXT_MUTED),
+                        Space::new().height(2),
+                        if self.collab_state.is_active() {
+                            column![menu_item(
+                                "🔴",
+                                "Afbryd session",
+                                Message::CollabDisconnect
+                            )]
+                        } else {
+                            column![
+                                menu_item(
+                                    "👑",
+                                    "Start session (Vært)...",
+                                    Message::OpenStartSessionModal
+                                ),
+                                menu_item(
+                                    "👥",
+                                    "Deltag i session (Gæst)...",
+                                    Message::OpenJoinSessionModal
+                                ),
+                            ]
+                            .spacing(2)
+                        },
+                    ]
+                    .spacing(2)
+                    .width(Length::Fixed(240.0)),
                 ),
             };
 

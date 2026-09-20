@@ -3686,3 +3686,161 @@ fn test_guest_autosave_suppressed() {
 
     let _ = std::fs::remove_file(&file_path);
 }
+
+#[test]
+fn test_task028_collab_ui_modals_and_presence() {
+    use edge::features::collab::crypto::{CollabKey, RoomId, SessionTicket};
+    use edge::ui::app::{App, CollabState, MenuType, Message, RelayServerPreset};
+
+    let mut app = App::new_with_path(None);
+
+    // 1. Header-bar menupunkt og Start Session modal flow
+    assert!(app.start_session_modal().is_none());
+    assert!(app.join_session_modal().is_none());
+
+    // Åbn samarbejdsmenu
+    let _ = app.update(Message::ToggleMenu(MenuType::Collab));
+    assert_eq!(app.active_menu(), Some(MenuType::Collab));
+
+    // Åbn Værtsmodal (Start Session)
+    let _ = app.update(Message::OpenStartSessionModal);
+    let start_modal = app
+        .start_session_modal()
+        .expect("StartSessionModal skal være åben efter OpenStartSessionModal");
+
+    // Standard preset skal være Koyeb Cloud Frankfurt
+    assert_eq!(start_modal.preset, RelayServerPreset::Koyeb);
+    assert_eq!(
+        start_modal.current_url(),
+        "wss://edge-relay.koyeb.app/ws"
+    );
+    let token = start_modal.ticket.to_token();
+    assert!(
+        token.starts_with("edge:v1:"),
+        "Sessionsbillet skal have det standardiserede edge:v1: præfiks"
+    );
+
+    // Skift til Lokal Docker preset
+    let _ = app.update(Message::CollabPresetSelected(RelayServerPreset::LocalDocker));
+    let start_modal = app.start_session_modal().unwrap();
+    assert_eq!(start_modal.preset, RelayServerPreset::LocalDocker);
+    assert_eq!(start_modal.current_url(), "ws://localhost:8080/ws");
+
+    // Skift til Brugerdefineret URL preset
+    let _ = app.update(Message::CollabPresetSelected(RelayServerPreset::Custom));
+    let _ = app.update(Message::CollabCustomUrlChanged(
+        "wss://my-org-relay.internal/ws".to_string(),
+    ));
+    let start_modal = app.start_session_modal().unwrap();
+    assert_eq!(start_modal.preset, RelayServerPreset::Custom);
+    assert_eq!(
+        start_modal.current_url(),
+        "wss://my-org-relay.internal/ws"
+    );
+
+    // Kopiér sessionsbillet
+    assert!(!start_modal.copied);
+    let _ = app.update(Message::CollabCopyTicket);
+    let start_modal = app.start_session_modal().unwrap();
+    assert!(start_modal.copied, "Skal sætte copied flag for feedback");
+
+    // Start session
+    let _ = app.update(Message::CollabStartSession);
+    assert!(
+        app.start_session_modal().is_none(),
+        "Værtsdialogen skal lukkes ved opstart af session"
+    );
+    assert_eq!(app.collab_state(), CollabState::Host);
+    assert!(
+        app.collab_status_summary().starts_with("Live: Vært"),
+        "Statusindikator skal vise Live: Vært"
+    );
+
+    // Invariant: Simultan opstart må IKKE tillades under aktiv session
+    let _ = app.update(Message::OpenStartSessionModal);
+    assert!(
+        app.start_session_modal().is_none(),
+        "Må IKKE åbne StartSessionModal hvis en session allerede er aktiv"
+    );
+    let _ = app.update(Message::OpenJoinSessionModal);
+    assert!(
+        app.join_session_modal().is_none(),
+        "Må IKKE åbne JoinSessionModal hvis en session allerede er aktiv"
+    );
+
+    // Afbryd session
+    let _ = app.update(Message::CollabDisconnect);
+    assert_eq!(app.collab_state(), CollabState::None);
+    assert_eq!(app.collab_status_summary(), "Offline");
+
+    // 2. Gæstedialog (Join Session) og realtids-validering
+    let _ = app.update(Message::OpenJoinSessionModal);
+    let join_modal = app
+        .join_session_modal()
+        .expect("JoinSessionModal skal være åben efter OpenJoinSessionModal");
+    assert!(!join_modal.is_valid());
+
+    // Indtast ugyldig kode
+    let _ = app.update(Message::CollabJoinTokenChanged("ugyldig-tekst-uden-edge-prefix".to_string()));
+    let join_modal = app.join_session_modal().unwrap();
+    assert!(!join_modal.is_valid());
+    assert!(
+        join_modal.error_message.is_some(),
+        "Ugyldigt token skal give fejlmeddelelse"
+    );
+
+    // Indtast gyldig sessionskode
+    let valid_ticket = SessionTicket::new(
+        "wss://relay.ku.dk/ws",
+        RoomId::generate(),
+        CollabKey::generate(),
+    );
+    let valid_token_str = valid_ticket.to_token();
+    let _ = app.update(Message::CollabJoinTokenChanged(valid_token_str));
+    let join_modal = app.join_session_modal().unwrap();
+    assert!(
+        join_modal.is_valid(),
+        "Gyldigt token skal valideres med succes"
+    );
+    assert!(join_modal.error_message.is_none());
+
+    // Forbind til session som gæst
+    let _ = app.update(Message::CollabJoinSession);
+    assert!(
+        app.join_session_modal().is_none(),
+        "Gæstedialog skal lukkes ved tilslutning"
+    );
+    assert_eq!(app.collab_state(), CollabState::Guest);
+    app.set_collab_connection_status(edge::features::collab::ConnectionStatus::Connected);
+    assert_eq!(
+        app.collab_status_summary(),
+        "Live: Gæst (Forbundet til Vært)"
+    );
+
+    // 3. Vært afslutter session -> Gæst modtager advarsel og tilbud om lokal kopi
+    app.notify_host_ended_session();
+    assert_eq!(app.collab_state(), CollabState::None);
+    let notice = app
+        .guest_ended_notice()
+        .expect("Gæst skal modtage notice ved afbrudt session");
+    assert!(notice.message.contains("gemme en kopi"));
+    let _ = app.update(Message::CollabGuestDismissEndedModal);
+    assert!(app.guest_ended_notice().is_none());
+
+    // 4. Tastaturnavigation: Escape lukker modaler
+    let _ = app.update(Message::OpenStartSessionModal);
+    assert!(app.start_session_modal().is_some());
+    let _ = app.update(Message::EscapePressed);
+    assert!(
+        app.start_session_modal().is_none(),
+        "EscapePressed skal lukke StartSessionModal"
+    );
+
+    let _ = app.update(Message::OpenJoinSessionModal);
+    assert!(app.join_session_modal().is_some());
+    let _ = app.update(Message::EscapePressed);
+    assert!(
+        app.join_session_modal().is_none(),
+        "EscapePressed skal lukke JoinSessionModal"
+    );
+}

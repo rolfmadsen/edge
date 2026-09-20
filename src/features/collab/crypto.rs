@@ -202,6 +202,16 @@ impl SessionTicket {
         format!("edge:v1:{}", URL_SAFE_NO_PAD.encode(json))
     }
 
+    /// Alias for `to_ticket_string`.
+    pub fn to_token(&self) -> String {
+        self.to_ticket_string()
+    }
+
+    /// Alias for `from_ticket_string`.
+    pub fn from_token(s: &str) -> Result<Self, SessionTicketError> {
+        Self::from_ticket_string(s)
+    }
+
     /// Parser en sessionsbillet fra enten `edge:v1:<base64-payload>` eller
     /// `edge:v1:<base64(server)>:<room_id>:<base64(key)>`.
     pub fn from_ticket_string(s: &str) -> Result<Self, SessionTicketError> {
