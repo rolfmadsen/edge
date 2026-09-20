@@ -177,7 +177,6 @@ async fn handle_socket(
         .send(Message::Binary(make_presence_frame(current_count)))
         .await;
 
-
     // Broadcast reader task: forward frames from peers to this client
     let outbound_tx_clone = outbound_tx.clone();
     let mut bcast_rx = broadcast_rx;
@@ -256,7 +255,6 @@ async fn handle_socket(
         }
         count == 0
     };
-
 
     if is_empty {
         let rooms = state.rooms.clone();

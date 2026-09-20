@@ -125,7 +125,6 @@ mod tests {
     use super::*;
     use crate::features::concepts::BelongsToDomain;
 
-
     #[test]
     fn test_relation_constructors() {
         let from = Uuid::new_v4();
@@ -184,4 +183,3 @@ mod tests {
         assert!(!replay_envelope.is_newer_than(2));
     }
 }
-

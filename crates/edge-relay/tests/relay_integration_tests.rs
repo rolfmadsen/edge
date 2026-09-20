@@ -88,7 +88,11 @@ async fn test_ws_handshake_and_broadcast() {
     let echo = tokio::time::timeout(Duration::from_millis(100), client1.next()).await;
     // Echo might receive Client 2's presence frame, but not its own payload
     if let Ok(Some(Ok(Message::Binary(data)))) = echo {
-        assert_ne!(data.as_ref(), payload.as_slice(), "Client 1 received its own echo frame");
+        assert_ne!(
+            data.as_ref(),
+            payload.as_slice(),
+            "Client 1 received its own echo frame"
+        );
     }
 }
 
@@ -127,7 +131,6 @@ async fn test_room_isolation() {
         "Client B in room-beta received message from room-alpha"
     );
 }
-
 
 #[tokio::test]
 async fn test_last_snapshot_delivery_to_late_joiner() {
@@ -211,10 +214,13 @@ async fn test_max_payload_rejection() {
     // Server skal lukke forbindelsen pga. overskridelse af MAX_PAYLOAD_SIZE
     let resp = tokio::time::timeout(Duration::from_millis(500), client.next()).await;
     match resp {
-        Ok(None) => {} // Forbindelse lukket rent
+        Ok(None) => {}                        // Forbindelse lukket rent
         Ok(Some(Ok(Message::Close(_)))) => {} // Lukke-frame modtaget
-        Ok(Some(Err(_))) => {} // I/O fejl pga. lukning
-        other => panic!("Forventede afbrydelse ved overdimensioneret frame, modtog: {:?}", other),
+        Ok(Some(Err(_))) => {}                // I/O fejl pga. lukning
+        other => panic!(
+            "Forventede afbrydelse ved overdimensioneret frame, modtog: {:?}",
+            other
+        ),
     }
 }
 
@@ -259,4 +265,3 @@ async fn test_presence_updates_on_join_and_leave() {
         assert_eq!(count, 1);
     }
 }
-

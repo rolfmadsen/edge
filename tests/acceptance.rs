@@ -3344,7 +3344,11 @@ async fn test_task_026_e2ee_crypto_and_network_channel() {
     assert!(!ws_url.as_str().contains("key"));
 
     // 3. Sessionsbillet (Token) serialisering og parsing
-    let ticket = SessionTicket::new("https://relay.ku.dk", room_id.clone(), host_key.clone());
+    let ticket = SessionTicket::new(
+        "https://relay.edge.internal",
+        room_id.clone(),
+        host_key.clone(),
+    );
     let ticket_str = ticket.to_ticket_string();
     assert!(ticket_str.starts_with("edge:v1:"));
 
@@ -3447,7 +3451,6 @@ async fn test_task_026_e2ee_crypto_and_network_channel() {
     // Pæn afbrydelse
     host_channel.disconnect();
     guest_channel.disconnect();
-
 }
 
 #[test]
@@ -3794,7 +3797,7 @@ fn test_task028_collab_ui_modals_and_presence() {
 
     // Indtast gyldig sessionskode
     let valid_ticket = SessionTicket::new(
-        "wss://relay.ku.dk/ws",
+        "wss://relay.edge.internal/ws",
         RoomId::generate(),
         CollabKey::generate(),
     );
@@ -3872,11 +3875,15 @@ async fn test_task029_e2e_collab_sync_and_presence() {
     let listener = TcpListener::bind("127.0.0.1:0")
         .await
         .expect("Kunne ikke binde TCP listener");
-    let addr = listener.local_addr().expect("Kunne ikke hente lokal adresse");
+    let addr = listener
+        .local_addr()
+        .expect("Kunne ikke hente lokal adresse");
     let state = AppState::new(RelayConfig::default());
     let relay_app = create_app(state);
     tokio::spawn(async move {
-        axum::serve(listener, relay_app).await.expect("Relay stoppede uventet");
+        axum::serve(listener, relay_app)
+            .await
+            .expect("Relay stoppede uventet");
     });
     let relay_url = format!("ws://{}", addr);
 
@@ -3933,15 +3940,22 @@ async fn test_task029_e2e_collab_sync_and_presence() {
             break;
         }
     }
-    assert_eq!(host.collab_participant_count(), 2, "Vært skal registrere 2 deltagere");
-    assert_eq!(guest.collab_participant_count(), 2, "Gæst skal registrere 2 deltagere");
+    assert_eq!(
+        host.collab_participant_count(),
+        2,
+        "Vært skal registrere 2 deltagere"
+    );
+    assert_eq!(
+        guest.collab_participant_count(),
+        2,
+        "Gæst skal registrere 2 deltagere"
+    );
 
     // 4. Vært opretter et begreb -> synkroniseres til Gæst
     let new_concept = Concept::new("Vejafgift", "Gebyr for passage", BelongsToDomain::Yes);
     let concept_id = new_concept.id();
     host.apply_mutation(ModelMutation::ConceptAdded(new_concept.clone()));
     host.broadcast_mutation(&ModelMutation::ConceptAdded(new_concept.clone()));
-
 
     // Pump events til Gæst
     let mut guest_synced = false;
@@ -3953,7 +3967,12 @@ async fn test_task029_e2e_collab_sync_and_presence() {
         .await
         {
             let _ = guest.update(Message::CollabNetworkEventReceived(ev));
-            if guest.project().concepts().iter().any(|c| c.id() == concept_id) {
+            if guest
+                .project()
+                .concepts()
+                .iter()
+                .any(|c| c.id() == concept_id)
+            {
                 guest_synced = true;
                 break;
             }
@@ -3961,7 +3980,10 @@ async fn test_task029_e2e_collab_sync_and_presence() {
     }
     assert!(guest_synced, "Gæst modtog ikke begrebet tilføjet af Vært");
     assert!(
-        guest.project().concept_graph().is_concept_on_diagram(concept_id),
+        guest
+            .project()
+            .concept_graph()
+            .is_concept_on_diagram(concept_id),
         "Gæst skal have tilføjet noden til diagrammet"
     );
 
@@ -3997,7 +4019,10 @@ async fn test_task029_e2e_collab_sync_and_presence() {
             }
         }
     }
-    assert!(host_synced, "Vært modtog ikke nodeflytning foretaget af Gæst");
+    assert!(
+        host_synced,
+        "Vært modtog ikke nodeflytning foretaget af Gæst"
+    );
 
     // 6. Vært afbryder sessionen -> Gæst modtager notice og advarsel
     let _ = host.update(Message::CollabDisconnect);
@@ -4018,7 +4043,9 @@ async fn test_task029_e2e_collab_sync_and_presence() {
             }
         }
     }
-    assert!(guest_received_ended, "Gæst modtog ikke HostEndedSession notice");
+    assert!(
+        guest_received_ended,
+        "Gæst modtog ikke HostEndedSession notice"
+    );
     assert_eq!(guest.collab_state(), CollabState::None);
 }
-

@@ -874,8 +874,6 @@ impl App {
     }
 
     pub fn set_collab_session(
-
-
         &mut self,
         channel: crate::features::collab::CollabChannel,
         key: crate::features::collab::CollabKey,
@@ -1028,7 +1026,6 @@ impl App {
         }
     }
 
-
     pub fn broadcast_node_moved_throttled(&mut self, id: Uuid, x: f32, y: f32) {
         if !self.collab_state.is_active() {
             return;
@@ -1145,8 +1142,10 @@ impl App {
             NodeMoved { id, x, y } => {
                 if let Some(node) = self.project.concept_graph_mut().find_node_mut(id) {
                     node.set_position(x, y);
-                } else if let Some(node) =
-                    self.project.concept_graph_mut().find_node_by_concept_mut(id)
+                } else if let Some(node) = self
+                    .project
+                    .concept_graph_mut()
+                    .find_node_by_concept_mut(id)
                 {
                     node.set_position(x, y);
                 } else if let Some(class_node) =
@@ -1155,7 +1154,6 @@ impl App {
                     class_node.set_position(x, y);
                 }
             }
-
         }
         self.trigger_autosave();
     }
@@ -1245,9 +1243,10 @@ impl App {
                                             }
                                         }
                                     }
-                                } else if let Ok(payload) = serde_json::from_slice::<
-                                    crate::features::collab::protocol::CollabPayload,
-                                >(&decrypted)
+                                } else if let Ok(payload) =
+                                    serde_json::from_slice::<
+                                        crate::features::collab::protocol::CollabPayload,
+                                    >(&decrypted)
                                 {
                                     match payload {
                                         crate::features::collab::protocol::CollabPayload::Snapshot(proj) => {
@@ -1264,7 +1263,6 @@ impl App {
                     crate::features::collab::CollabNetworkEvent::Error(err) => {
                         eprintln!("Kollaborations netværksfejl: {err}");
                     }
-
                 }
             }
             Message::CollabApplyMutation(mutation) => {
@@ -2646,7 +2644,6 @@ impl App {
             keyboard_sub
         }
     }
-
 
     pub fn view(&self) -> Element<'_, Message> {
         // 1. Desktop Header Bar

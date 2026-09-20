@@ -77,7 +77,7 @@ impl CollabKey {
     }
 }
 
-/// Alfanumerisk identifikator for et kollaboreringsrum (f.eks. "KU-4821").
+/// Alfanumerisk identifikator for et kollaboreringsrum (f.eks. "PEER-4821").
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RoomId(String);
 
@@ -86,16 +86,12 @@ impl RoomId {
         Self(id.into().trim().to_uppercase())
     }
 
-    /// Genererer en læsevenlig, tilfældig rum-identifikator (f.eks. "KU-4821").
+    /// Genererer en læsevenlig, tilfældig rum-identifikator med P2P-relation (f.eks. "PEER-4821").
     pub fn generate() -> Self {
         use rand::Rng;
         let mut rng = rand::rng();
-        let prefix: [char; 2] = [
-            rng.random_range(b'A'..=b'Z') as char,
-            rng.random_range(b'A'..=b'Z') as char,
-        ];
         let num: u16 = rng.random_range(1000..=9999);
-        Self(format!("{}{}-{}", prefix[0], prefix[1], num))
+        Self(format!("PEER-{}", num))
     }
 
     pub fn as_str(&self) -> &str {
@@ -275,7 +271,8 @@ mod tests {
     #[test]
     fn test_room_id_generation() {
         let room = RoomId::generate();
-        assert_eq!(room.as_str().len(), 7); // f.eks. "AB-1234"
+        assert_eq!(room.as_str().len(), 9); // f.eks. "PEER-4821"
+        assert!(room.as_str().starts_with("PEER-"));
         assert!(room.as_str().contains('-'));
     }
 
@@ -325,7 +322,7 @@ mod tests {
     fn test_session_ticket_roundtrip_edge_v1() {
         let ticket = SessionTicket::new(
             "https://edge.relay.internal",
-            RoomId::new("KU-1234"),
+            RoomId::new("PEER-1234"),
             CollabKey::from_bytes([9u8; 32]),
         );
         let s = ticket.to_ticket_string();
@@ -336,8 +333,8 @@ mod tests {
 
     #[test]
     fn test_session_ticket_colon_format() {
-        let server = "https://relay.ku.dk";
-        let room_id = RoomId::new("KU-4821");
+        let server = "https://relay.edge.internal";
+        let room_id = RoomId::new("PEER-4821");
         let key = CollabKey::from_bytes([7u8; 32]);
 
         let s = format!(

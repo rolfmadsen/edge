@@ -296,7 +296,7 @@ impl ConceptEditorState {
         // Foldbar sektion med supplerende felter
         let toggle_supplementary_btn = button(
             text(if self.show_supplementary {
-                "▲ Skjul supplerende felter (Bilag D & E)"
+                "▲ Skjul supplerende felter"
             } else {
                 "▼ Vis supplerende felter (Accepteret term, Eksempel, Identifikator m.fl.)"
             })

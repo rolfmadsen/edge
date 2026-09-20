@@ -16,7 +16,7 @@ tags: [collaboration, crypto, chacha20poly1305, e2ee, websocket, tokio-tungsteni
 ## 🎯 Formål
 1. Implementere et klientside kryptografisk modul i `src/features/collab/crypto.rs` baseret på `chacha20poly1305` (AEAD):
    - Generering af kryptografisk sikre 256-bit symmetriske nøgler.
-   - Generering af alfanumeriske `RoomId` identifikatorer (f.eks. `KU-4821`).
+   - Generering af alfanumeriske `RoomId` identifikatorer (f.eks. `PEER-4821`).
    - Funktioner til symmetrisk kryptering og dekryptering af vilkårlige payloads (`&[u8]`).
 2. Implementere en **Sessionsbillet (Session Token)**:
    - Serialisering og deserialisering af en kompakt, url-sikker sessionsstreng, som værten kan kopiere og gæsten kan indsætte.

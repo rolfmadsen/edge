@@ -33,10 +33,12 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::LazyLock;
 
+type ReceiverSlot = Arc<tokio::sync::Mutex<UnboundedReceiver<CollabNetworkEvent>>>;
+type RegistryMap = HashMap<u64, ReceiverSlot>;
+
 static NEXT_SUB_ID: AtomicU64 = AtomicU64::new(1);
-static COLLAB_REGISTRY: LazyLock<
-    std::sync::Mutex<HashMap<u64, Arc<tokio::sync::Mutex<UnboundedReceiver<CollabNetworkEvent>>>>>,
-> = LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
+static COLLAB_REGISTRY: LazyLock<std::sync::Mutex<RegistryMap>> =
+    LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
 
 /// Henter næste netværkshændelse for et givet abonnements-ID.
 pub async fn next_registered_collab_event(sub_id: u64) -> Option<CollabNetworkEvent> {
@@ -358,7 +360,6 @@ impl CollabChannel {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -387,16 +388,16 @@ mod tests {
 
     #[test]
     fn test_build_relay_ws_url_formats() {
-        let room = RoomId::new("KU-4821");
+        let room = RoomId::new("PEER-4821");
 
         let u1 = build_relay_ws_url("http://127.0.0.1:3000", &room).unwrap();
-        assert_eq!(u1.as_str(), "ws://127.0.0.1:3000/ws?room=KU-4821");
+        assert_eq!(u1.as_str(), "ws://127.0.0.1:3000/ws?room=PEER-4821");
 
         let u2 = build_relay_ws_url("https://edge.relay.internal/ws", &room).unwrap();
-        assert_eq!(u2.as_str(), "wss://edge.relay.internal/ws?room=KU-4821");
+        assert_eq!(u2.as_str(), "wss://edge.relay.internal/ws?room=PEER-4821");
 
         let u3 = build_relay_ws_url("127.0.0.1:8080", &room).unwrap();
-        assert_eq!(u3.as_str(), "ws://127.0.0.1:8080/ws?room=KU-4821");
+        assert_eq!(u3.as_str(), "ws://127.0.0.1:8080/ws?room=PEER-4821");
 
         // Invariant: Nøglen må ALDRIG fremgå af URL
         assert!(!u1.as_str().contains("key"));
@@ -475,7 +476,6 @@ mod tests {
         if let Ok(Some(CollabNetworkEvent::MessageReceived(bytes))) = echo {
             panic!("Klient 1 modtog sit eget ekko: {:?}", bytes);
         }
-
 
         // 5. Afbrydelse
         channel1.disconnect();
