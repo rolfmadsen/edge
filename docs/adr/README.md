@@ -10,3 +10,4 @@
 | [ADR 006](006-information-model-and-concept-traceability.md) | Informationsmodel med FDA Primitives og M:N Begrebssporing | `accepted` | 2026-09-19 |
 | [ADR 007](007-canvas-studio-paradigm-and-uml-class-canvas.md) | Canvas Studio Paradigmet og UML Klassediagram Canvas | `accepted` | 2026-09-19 |
 | [ADR 008](008-e2ee-realtime-collaboration-and-stateless-relay.md) | E2EE Realtids-kollaborering og Stateless WebSocket Relay | `accepted` | 2026-09-20 |
+| [ADR 009](009-rebranding-from-edge-to-kant.md) | Rebranding fra Edge til Kant og Filendelsesstyring | `accepted` | 2026-09-20 |

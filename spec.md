@@ -1,13 +1,13 @@
 ---
 type: System Specification
-title: Specification - edge Architecture & Capabilities
-description: Macro system architecture, philosophy, and invariants for edge
+title: Specification - Kant Architecture & Capabilities
+description: Macro system architecture, philosophy, and invariants for Kant
 status: active
 generated: { by: process:xgauntlet-init, at: "2026-09-06T18:00:00Z" }
 tags: [specification, architecture, invariants]
 ---
 
-# Specification: edge Architecture & Capabilities
+# Specification: Kant Architecture & Capabilities
 
 ## 🎯 Philosophy & Core Capabilities
 1. **Clean Architecture & Autonomous Features**:
@@ -26,7 +26,7 @@ tags: [specification, architecture, invariants]
 - `src/features/concept_model/`: Begrebsmodel-graf med noder, generaliseringer og associationer.
 - `src/features/information_model/`: Informationsmodel med klasser, attributter, standard datatyper og multipliciteter.
 - `src/features/collab/`: E2EE krypto, sessionsbilletter, WebSocket sync og mutation bridge.
-- `crates/edge-relay/`: Ultralet, in-memory, blind Axum WebSocket pub/sub relay.
+- `crates/kant-relay/`: Ultralet, in-memory, blind Axum WebSocket pub/sub relay.
 - `src/ui/`: Iced shell, faner, tema og præsentationslogik.
 - `tasks/`: Eksekverbare opgavepakker med acceptkriterier.
 - `docs/adr/`: Arkitektoniske beslutningsreferater.
