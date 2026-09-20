@@ -845,7 +845,9 @@ checksum = "edf234dd1594d6dd434a8fb8cada51ddbbc593e40e4a01556a0b31c62da2775b"
 name = "edge"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "base64",
+ "bytes",
  "chacha20poly1305",
  "edge-relay",
  "futures-util",

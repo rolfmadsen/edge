@@ -1,7 +1,15 @@
 use crate::features::collab::crypto::RoomId;
+use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc::UnboundedReceiver;
+use std::sync::{Arc, RwLock};
+use std::time::Duration;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::watch;
+use tokio_tungstenite::connect_async;
+use tokio_tungstenite::tungstenite::Message;
+use url::Url;
 
+/// Forbindelsens livscyklustilstand.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ConnectionStatus {
     Disconnected,
@@ -10,6 +18,18 @@ pub enum ConnectionStatus {
     Reconnecting,
 }
 
+impl std::fmt::Display for ConnectionStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Disconnected => write!(f, "Afbrudt"),
+            Self::Connecting => write!(f, "Forbinder..."),
+            Self::Connected => write!(f, "Forbundet"),
+            Self::Reconnecting => write!(f, "Genforbinder..."),
+        }
+    }
+}
+
+/// Netværkshændelser fra WebSocket-kanalen til Iced/UI.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CollabNetworkEvent {
     StatusChanged(ConnectionStatus),
@@ -17,41 +37,377 @@ pub enum CollabNetworkEvent {
     Error(String),
 }
 
+/// Konstruerer en gyldig WebSocket-URL baseret på relay URL og rum-identifikator.
+/// Invariant: URL'en indeholder KUN server-adresse og room-id - ALDRIG krypteringsnøglen!
+pub fn build_relay_ws_url(relay_url: &str, room_id: &RoomId) -> Result<Url, String> {
+    let trimmed = relay_url.trim();
+    if trimmed.is_empty() {
+        return Err("Relay-URL kan ikke være tom".to_string());
+    }
+
+    let mut url_str = trimmed.to_string();
+    if url_str.starts_with("http://") {
+        url_str = format!("ws://{}", &url_str["http://".len()..]);
+    } else if url_str.starts_with("https://") {
+        url_str = format!("wss://{}", &url_str["https://".len()..]);
+    } else if !url_str.starts_with("ws://") && !url_str.starts_with("wss://") {
+        url_str = format!("ws://{}", url_str);
+    }
+
+    let mut parsed = Url::parse(&url_str).map_err(|e| format!("Ugyldig relay-URL: {e}"))?;
+
+    // Sørg for at stien har /ws som endepunkt
+    let current_path = parsed.path().trim_end_matches('/');
+    if !current_path.ends_with("/ws") {
+        if current_path.is_empty() {
+            parsed.set_path("/ws");
+        } else {
+            parsed.set_path(&format!("{}/ws", current_path));
+        }
+    }
+
+    // Sæt kun ?room=<room_id> query parameter
+    parsed.set_query(Some(&format!("room={}", room_id.as_str())));
+
+    Ok(parsed)
+}
+
+/// Tovejs netværkskanal til asynkron kommunikation med relay-serveren.
 #[derive(Clone)]
 pub struct CollabChannel {
-    _private: (),
+    outbound_tx: UnboundedSender<Vec<u8>>,
+    cancel_tx: watch::Sender<bool>,
+    status: Arc<RwLock<ConnectionStatus>>,
 }
 
 impl CollabChannel {
+    /// Opretter forbindelse til relay-serveren for et givet rum.
+    /// Returnerer kanal-håndtaget og en modtager for indgående netværkshændelser.
     pub fn connect(
-        _relay_url: &str,
-        _room_id: &RoomId,
+        relay_url: &str,
+        room_id: &RoomId,
     ) -> (Self, UnboundedReceiver<CollabNetworkEvent>) {
-        todo!("RED: not implemented yet")
+        let (outbound_tx, mut outbound_rx) = unbounded_channel::<Vec<u8>>();
+        let (event_tx, event_rx) = unbounded_channel::<CollabNetworkEvent>();
+        let (cancel_tx, mut cancel_rx) = watch::channel(false);
+        let status = Arc::new(RwLock::new(ConnectionStatus::Connecting));
+
+        let ws_url_res = build_relay_ws_url(relay_url, room_id);
+        let status_clone = Arc::clone(&status);
+
+        tokio::spawn(async move {
+            let ws_url = match ws_url_res {
+                Ok(url) => url.to_string(),
+                Err(err) => {
+                    let _ = event_tx.send(CollabNetworkEvent::Error(err));
+                    let _ = event_tx.send(CollabNetworkEvent::StatusChanged(
+                        ConnectionStatus::Disconnected,
+                    ));
+                    if let Ok(mut s) = status_clone.write() {
+                        *s = ConnectionStatus::Disconnected;
+                    }
+                    return;
+                }
+            };
+
+            let mut backoff = Duration::from_millis(500);
+            let max_backoff = Duration::from_secs(10);
+            let mut is_reconnect = false;
+
+            loop {
+                if *cancel_rx.borrow() {
+                    break;
+                }
+
+                let current_phase = if is_reconnect {
+                    ConnectionStatus::Reconnecting
+                } else {
+                    ConnectionStatus::Connecting
+                };
+
+                if let Ok(mut s) = status_clone.write() {
+                    *s = current_phase;
+                }
+                let _ = event_tx.send(CollabNetworkEvent::StatusChanged(current_phase));
+
+                // Forsøg at etablere WebSocket-forbindelse med 5s timeout
+                let connect_attempt =
+                    tokio::time::timeout(Duration::from_secs(5), connect_async(&ws_url)).await;
+
+                match connect_attempt {
+                    Ok(Ok((ws_stream, _))) => {
+                        // Nulstil backoff ved succesfuld forbindelse
+                        backoff = Duration::from_millis(500);
+                        is_reconnect = true;
+
+                        if let Ok(mut s) = status_clone.write() {
+                            *s = ConnectionStatus::Connected;
+                        }
+                        let _ = event_tx.send(CollabNetworkEvent::StatusChanged(
+                            ConnectionStatus::Connected,
+                        ));
+
+                        let (mut ws_sink, mut ws_stream) = ws_stream.split();
+
+                        // Indre loop: pump data frem og tilbage
+                        loop {
+                            tokio::select! {
+                                _ = cancel_rx.changed() => {
+                                    if *cancel_rx.borrow() {
+                                        let _ = ws_sink.send(Message::Close(None)).await;
+                                        break;
+                                    }
+                                }
+                                outbound = outbound_rx.recv() => {
+                                    match outbound {
+                                        Some(data) => {
+                                            if let Err(e) = ws_sink.send(Message::Binary(bytes::Bytes::from(data))).await {
+                                                let _ = event_tx.send(CollabNetworkEvent::Error(format!("Fejl ved afsendelse: {e}")));
+                                                break;
+                                            }
+                                        }
+                                        None => {
+                                            // Outbound sender droppet - afslutter forbindelsen
+                                            break;
+                                        }
+                                    }
+                                }
+                                inbound = ws_stream.next() => {
+                                    match inbound {
+                                        Some(Ok(msg)) => {
+                                            match msg {
+                                                Message::Binary(bytes) => {
+                                                    let _ = event_tx.send(CollabNetworkEvent::MessageReceived(bytes.to_vec()));
+                                                }
+                                                Message::Ping(payload) => {
+                                                    let _ = ws_sink.send(Message::Pong(payload)).await;
+                                                }
+                                                Message::Close(_) => {
+                                                    break;
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                        Some(Err(e)) => {
+                                            let _ = event_tx.send(CollabNetworkEvent::Error(format!("Netværksfejl i modtagelse: {e}")));
+                                            break;
+                                        }
+                                        None => {
+                                            // Socket lukket af modparten
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if *cancel_rx.borrow() {
+                            break;
+                        }
+                    }
+                    Ok(Err(e)) => {
+                        let _ = event_tx.send(CollabNetworkEvent::Error(format!(
+                            "Kunne ikke forbinde til relay: {e}"
+                        )));
+                        is_reconnect = true;
+                    }
+                    Err(_) => {
+                        let _ = event_tx.send(CollabNetworkEvent::Error(
+                            "Forbindelse fik timeout (5s)".to_string(),
+                        ));
+                        is_reconnect = true;
+                    }
+                }
+
+                if *cancel_rx.borrow() {
+                    break;
+                }
+
+                // Exponential backoff pause før næste forsøg
+                tokio::select! {
+                    _ = cancel_rx.changed() => {
+                        if *cancel_rx.borrow() {
+                            break;
+                        }
+                    }
+                    _ = tokio::time::sleep(backoff) => {
+                        backoff = (backoff * 2).min(max_backoff);
+                    }
+                }
+            }
+
+            if let Ok(mut s) = status_clone.write() {
+                *s = ConnectionStatus::Disconnected;
+            }
+            let _ =
+                event_tx.send(CollabNetworkEvent::StatusChanged(ConnectionStatus::Disconnected));
+        });
+
+        (
+            Self {
+                outbound_tx,
+                cancel_tx,
+                status,
+            },
+            event_rx,
+        )
     }
 
-    pub fn send(&self, _data: Vec<u8>) -> Result<(), String> {
-        todo!("RED: not implemented yet")
+    /// Sender krypteret data over netværkskanalen.
+    pub fn send(&self, data: Vec<u8>) -> Result<(), String> {
+        self.outbound_tx
+            .send(data)
+            .map_err(|_| "Netværkskanalens afsender er lukket".to_string())
     }
 
+    /// Afbryder netværksforbindelsen rent.
     pub fn disconnect(&self) {
-        todo!("RED: not implemented yet")
+        let _ = self.cancel_tx.send(true);
     }
 
+    /// Henter den aktuelle forbindelsestilstand.
     pub fn status(&self) -> ConnectionStatus {
-        todo!("RED: not implemented yet")
+        self.status
+            .read()
+            .map(|s| *s)
+            .unwrap_or(ConnectionStatus::Disconnected)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::features::collab::crypto::{decrypt, encrypt, CollabKey};
+    use edge_relay::{create_app, AppState, RelayConfig};
+    use tokio::net::TcpListener;
+
+    async fn spawn_ephemeral_relay() -> String {
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("Fejl ved binding af test TCP port");
+        let addr = listener.local_addr().expect("Fejl ved læsning af lokal adresse");
+        let state = AppState::new(RelayConfig::default());
+        let app = create_app(state);
+
+        tokio::spawn(async move {
+            axum::serve(listener, app)
+                .await
+                .expect("Test relay server stoppede uventet");
+        });
+
+        format!("ws://{}", addr)
+    }
+
+    #[test]
+    fn test_build_relay_ws_url_formats() {
+        let room = RoomId::new("KU-4821");
+
+        let u1 = build_relay_ws_url("http://127.0.0.1:3000", &room).unwrap();
+        assert_eq!(u1.as_str(), "ws://127.0.0.1:3000/ws?room=KU-4821");
+
+        let u2 = build_relay_ws_url("https://edge.relay.internal/ws", &room).unwrap();
+        assert_eq!(u2.as_str(), "wss://edge.relay.internal/ws?room=KU-4821");
+
+        let u3 = build_relay_ws_url("127.0.0.1:8080", &room).unwrap();
+        assert_eq!(u3.as_str(), "ws://127.0.0.1:8080/ws?room=KU-4821");
+
+        // Invariant: Nøglen må ALDRIG fremgå af URL
+        assert!(!u1.as_str().contains("key"));
+        assert!(!u2.as_str().contains("key"));
+        assert!(!u3.as_str().contains("key"));
+    }
 
     #[tokio::test]
-    async fn test_network_connect_and_exchange() {
-        let room = RoomId::new("TEST-ROOM-1");
-        let (_channel, mut rx) = CollabChannel::connect("ws://127.0.0.1:9999", &room);
-        let event = rx.recv().await;
-        assert!(event.is_some());
+    async fn test_network_channel_e2e_communication() {
+        let relay_addr = spawn_ephemeral_relay().await;
+        let room = RoomId::new("TEST-COLLAB-1");
+        let key = CollabKey::generate();
+
+        // 1. Opret klient 1 og klient 2
+        let (channel1, mut rx1) = CollabChannel::connect(&relay_addr, &room);
+        let (channel2, mut rx2) = CollabChannel::connect(&relay_addr, &room);
+
+        // Vent på at begge klienter når status Connected
+        let mut c1_connected = false;
+        let mut c2_connected = false;
+
+        for _ in 0..10 {
+            if let Ok(event) = tokio::time::timeout(Duration::from_millis(500), rx1.recv()).await {
+                if event == Some(CollabNetworkEvent::StatusChanged(ConnectionStatus::Connected)) {
+                    c1_connected = true;
+                    break;
+                }
+            }
+        }
+        assert!(c1_connected, "Klient 1 nåede ikke Connected");
+
+        for _ in 0..10 {
+            if let Ok(event) = tokio::time::timeout(Duration::from_millis(500), rx2.recv()).await {
+                if event == Some(CollabNetworkEvent::StatusChanged(ConnectionStatus::Connected)) {
+                    c2_connected = true;
+                    break;
+                }
+            }
+        }
+        assert!(c2_connected, "Klient 2 nåede ikke Connected");
+
+        // 2. Klient 1 krypterer og sender payload
+        let original_data = b"FDA E2EE Kollaborering Test Besked";
+        let encrypted_payload = encrypt(&key, original_data).expect("Kryptering fejlede");
+        channel1
+            .send(encrypted_payload.clone())
+            .expect("Afsendelse fejlede");
+
+        // 3. Klient 2 modtager beskeden
+        let received_event = tokio::time::timeout(Duration::from_millis(1000), rx2.recv())
+            .await
+            .expect("Klient 2 fik timeout ved modtagelse")
+            .expect("Stream lukket");
+
+        match received_event {
+            CollabNetworkEvent::MessageReceived(bytes) => {
+                assert_eq!(bytes, encrypted_payload);
+                let decrypted = decrypt(&key, &bytes).expect("Dekryptering hos klient 2 fejlede");
+                assert_eq!(decrypted, original_data);
+            }
+            other => panic!("Forventede MessageReceived, modtog: {:?}", other),
+        }
+
+        // 4. Invariant: Klient 1 må IKKE modtage sit eget ekko
+        let echo = tokio::time::timeout(Duration::from_millis(150), rx1.recv()).await;
+        assert!(echo.is_err(), "Klient 1 modtog sit eget ekko (loopback fejl)");
+
+        // 5. Afbrydelse
+        channel1.disconnect();
+        channel2.disconnect();
+    }
+
+    #[tokio::test]
+    async fn test_network_reconnect_status_on_unavailable_server() {
+        let room = RoomId::new("UNAVAILABLE-ROOM");
+        // Forbind til en usandsynlig lokal port for at teste reconnect-håndtering
+        let (channel, mut rx) = CollabChannel::connect("ws://127.0.0.1:59999", &room);
+
+        let first = tokio::time::timeout(Duration::from_millis(500), rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            first,
+            CollabNetworkEvent::StatusChanged(ConnectionStatus::Connecting)
+        );
+
+        // Næste hændelse bør være enten en fejl eller overgang til Reconnecting
+        let mut got_reconnecting = false;
+        for _ in 0..5 {
+            if let Ok(Some(event)) = tokio::time::timeout(Duration::from_millis(1000), rx.recv()).await {
+                if event == CollabNetworkEvent::StatusChanged(ConnectionStatus::Reconnecting) {
+                    got_reconnecting = true;
+                    break;
+                }
+            }
+        }
+        assert!(got_reconnecting, "Forventede overgang til Reconnecting");
+        channel.disconnect();
     }
 }

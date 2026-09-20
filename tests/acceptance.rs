@@ -3308,3 +3308,140 @@ fn test_task024_desktop_menu_bar_and_sidebar_toggle() {
     let _ = app.update(Message::ToggleMenu(MenuType::Help));
     let _ = app.view();
 }
+
+#[tokio::test]
+async fn test_task_026_e2ee_crypto_and_network_channel() {
+    use edge::features::collab::crypto::{
+        decrypt, encrypt, CollabKey, CryptoError, RoomId, SessionTicket,
+    };
+    use edge::features::collab::network::{
+        build_relay_ws_url, CollabChannel, CollabNetworkEvent, ConnectionStatus,
+    };
+    use edge_relay::{create_app, AppState, RelayConfig};
+    use std::time::Duration;
+    use tokio::net::TcpListener;
+
+    // 1. Krypto Invarianter: CollabKey generering og base64 serialisering
+    let host_key = CollabKey::generate();
+    let guest_wrong_key = CollabKey::generate();
+    assert_ne!(host_key, guest_wrong_key);
+
+    let b64_key = host_key.to_base64();
+    let recovered_key = CollabKey::from_base64(&b64_key).expect("Skal kunne parses fra base64");
+    assert_eq!(host_key, recovered_key);
+
+    // 2. RoomId og URL Sikkerhed: Nøglen må ALDRIG lekke i URL
+    let room_id = RoomId::generate();
+    assert!(room_id.as_str().contains('-'));
+
+    let ws_url = build_relay_ws_url("http://127.0.0.1:3000", &room_id)
+        .expect("Gyldig URL skal konstrueres");
+    assert_eq!(
+        ws_url.as_str(),
+        format!("ws://127.0.0.1:3000/ws?room={}", room_id.as_str())
+    );
+    assert!(!ws_url.as_str().contains(b64_key.as_str()));
+    assert!(!ws_url.as_str().contains("key"));
+
+    // 3. Sessionsbillet (Token) serialisering og parsing
+    let ticket = SessionTicket::new("https://relay.ku.dk", room_id.clone(), host_key.clone());
+    let ticket_str = ticket.to_ticket_string();
+    assert!(ticket_str.starts_with("edge:v1:"));
+
+    let parsed_ticket =
+        SessionTicket::from_ticket_string(&ticket_str).expect("Billet skal parses uden fejl");
+    assert_eq!(ticket, parsed_ticket);
+
+    // 4. ChaCha20-Poly1305 kryptering og dekryptering af model-data
+    let model_data = br#"{"name":"FDA Grunddata Model","version":"1.0.0"}"#;
+    let encrypted_payload = encrypt(&host_key, model_data).expect("Kryptering skal lykkes");
+    assert_ne!(encrypted_payload, model_data);
+
+    // Tabsløs dekryptering med korrekt nøgle
+    let decrypted = decrypt(&host_key, &encrypted_payload).expect("Dekryptering skal lykkes");
+    assert_eq!(decrypted, model_data);
+
+    // Dekryptering med forkert nøgle afvises af AEAD auth tag
+    let wrong_decrypt = decrypt(&guest_wrong_key, &encrypted_payload);
+    assert_eq!(wrong_decrypt, Err(CryptoError::AuthenticationFailed));
+
+    // Manipuleret ciphertext afvises
+    let mut tampered = encrypted_payload.clone();
+    let len = tampered.len();
+    tampered[len - 1] ^= 0x42;
+    assert_eq!(
+        decrypt(&host_key, &tampered),
+        Err(CryptoError::AuthenticationFailed)
+    );
+
+    // 5. End-to-End WebSocket netværkskanal integrationstest mod in-memory relay
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("TcpListener binding fejlede");
+    let addr = listener.local_addr().expect("Local addr fejlede");
+    let relay_state = AppState::new(RelayConfig::default());
+    let relay_app = create_app(relay_state);
+
+    tokio::spawn(async move {
+        axum::serve(listener, relay_app).await.ok();
+    });
+
+    let relay_url = format!("ws://{}", addr);
+
+    // Etabler tovejs kanal for Host og Guest
+    let (host_channel, mut host_rx) = CollabChannel::connect(&relay_url, &room_id);
+    let (guest_channel, mut guest_rx) = CollabChannel::connect(&relay_url, &room_id);
+
+    // Vent på at begge er forbundet
+    let mut host_ok = false;
+    for _ in 0..10 {
+        if let Ok(Some(CollabNetworkEvent::StatusChanged(ConnectionStatus::Connected))) =
+            tokio::time::timeout(Duration::from_millis(500), host_rx.recv()).await
+        {
+            host_ok = true;
+            break;
+        }
+    }
+    assert!(host_ok, "Host kanal forbandt ikke");
+
+    let mut guest_ok = false;
+    for _ in 0..10 {
+        if let Ok(Some(CollabNetworkEvent::StatusChanged(ConnectionStatus::Connected))) =
+            tokio::time::timeout(Duration::from_millis(500), guest_rx.recv()).await
+        {
+            guest_ok = true;
+            break;
+        }
+    }
+    assert!(guest_ok, "Guest kanal forbandt ikke");
+
+    // Host sender krypteret payload over WebSocket
+    host_channel
+        .send(encrypted_payload.clone())
+        .expect("Host afsendelse fejlede");
+
+    // Guest modtager den krypterede payload og dekrypterer den
+    let guest_msg = tokio::time::timeout(Duration::from_millis(1000), guest_rx.recv())
+        .await
+        .expect("Guest timeout ved modtagelse af host besked")
+        .expect("Guest stream sluttede uventet");
+
+    match guest_msg {
+        CollabNetworkEvent::MessageReceived(received_bytes) => {
+            assert_eq!(received_bytes, encrypted_payload);
+            let recovered =
+                decrypt(&host_key, &received_bytes).expect("Guest kunne ikke dekryptere besked");
+            assert_eq!(recovered, model_data);
+        }
+        other => panic!("Forventede MessageReceived hos guest, modtog {:?}", other),
+    }
+
+    // Host modtager IKKE sin egen besked (loopback beskyttelse)
+    let host_echo = tokio::time::timeout(Duration::from_millis(150), host_rx.recv()).await;
+    assert!(host_echo.is_err(), "Host modtog sit eget ekko");
+
+    // Pæn afbrydelse
+    host_channel.disconnect();
+    guest_channel.disconnect();
+}
+
