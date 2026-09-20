@@ -1,34 +1,30 @@
 # Verification Report
 
-**Task ID**: `017-model-metadata-modal-and-3phase-tabs`  
-**Task Title**: Task 017: Model Omslag & Metadata Redigeringsmodal og 3-Faset Navigation  
+**Task ID**: `020-harmonized-inspector-and-guidance-panels`  
+**Task Title**: Task 020: Harmoniseret Egenskaber- og Vejledningspanel i Begrebs- og Informationsmodel  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Source Manifest Digest**: `de5ab86158882ada31c1c092efc7c5413f4a1aa624e8c8492e5471c74b82e9e7`  
-**Timestamp**: `2026-09-20T08:06:22Z`  
-**Head**: `5bf6fc9`  
-**Commit**: `5bf6fc9`  
+**Timestamp**: `2026-09-20T10:35:00Z`  
+**Head**: `fe0e3e6`  
+**Commit**: `fe0e3e6`  
 
 ## Acceptance Criteria
 
-- [x] Top-fanebaren indeholder præcis 3 faner: Begrebsliste, Begrebsmodel og Informationsmodel.
-- [x] `Tab::Metadata` er fjernet fra fanelinjen, og default aktiv fane ved opstart eller nyt projekt er `Tab::ConceptList`.
-- [x] En knap i headeren åbner `ModelMetadataModal`.
-- [x] Modalen indeholder formularfelter for samtlige metadatafelter (navn, beskrivelse, status, emneområde, ansvarlig myndighed, URI, version).
-- [x] Gem-knap i modalen opdaterer `project.metadata` og sætter applikationen i unsaved-status.
-- [x] Annuller/Luk knapper og Escape-tast lukker modalen uden at gemme utilsigtede ændringer.
-- [x] Enhedstests validerer korrekt opdatering og serialisering af de redigerede metadatafelter.
-- [x] 100% test pass rate på `cargo test --workspace` og clippy uden advarsler.
+- [x] Titler og header-styling i højre panel er ensartede på tværs af `concept_model_view.rs` og `information_model_view.rs`.
+- [x] Tom tilstand (ingen selektion) viser et rent, velstruktureret **VEJLEDNING** panel med tips til henholdsvis grafmodellering og informationsmodellering.
+- [x] Selektionstilstand viser et velstruktureret **EGENSKABER** panel med klare kortsektioner.
+- [x] Hjælpe- og redigeringsfunktionalitet bevares 100%, men med ensartet typografi og COSMIC-styling.
+- [x] 100% test pass rate på `cargo test` og clippy uden advarsler.
 
 ---
 
 ## Verification Checks
 
-| Check Name | Status | Exit Code | Duration (s) |
-|---|---|---|---|
-| `lint` | `PASSED` | `0` | `0.486s` |
-| `types` | `PASSED` | `0` | `0.532s` |
-| `unit` | `PASSED` | `0` | `1.499s` |
-| `invariants` | `PASSED` | `0` | `0.248s` |
+| Check Name | Status | Exit Code |
+|---|---|---|
+| `lint` (`cargo clippy --all-targets -- -D warnings`) | `PASSED` | `0` |
+| `fmt` (`cargo fmt --check`) | `PASSED` | `0` |
+| `tests` (`cargo test --workspace`) | `PASSED` | `0` |
+| `check` (`cargo check --all-targets`) | `PASSED` | `0` |
 
 ---

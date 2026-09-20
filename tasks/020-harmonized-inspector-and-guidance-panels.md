@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 020: Harmoniseret Egenskaber- og Vejledningspanel i Begrebs- og Informationsmodel"
 description: "Ensretning af højre panel på tværs af Begrebsmodel og Informationsmodel med ensartet navngivning (Egenskaber vs Vejledning), sektionsopbygning og visuelt hierarki"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-20T09:55:00Z" }
 tags: [ui, ux, inspector, properties, guidance, consistency]
 ---
 
 # Task 020: Harmoniseret Egenskaber- og Vejledningspanel i Begrebs- og Informationsmodel
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🔄 ENHANCEMENT`
 **Oprettet**: `2026-09-20`
 
@@ -22,11 +22,11 @@ tags: [ui, ux, inspector, properties, guidance, consistency]
 3. Ensrette sektionsopbygningen (f.eks. Generelt, Beskrivelse, Attributter/Egenskaber, Forbindelser) så modellereren genkender strukturen øjeblikkeligt.
 
 ## 📋 Acceptance Criteria
-- [ ] Titler og header-styling i højre panel er ensartede på tværs af `concept_model_view.rs` og `information_model_view.rs`.
-- [ ] Tom tilstand (ingen selektion) viser et rent, velstruktureret **VEJLEDNING** panel med tips til henholdsvis grafmodellering og informationsmodellering.
-- [ ] Selektionstilstand viser et velstruktureret **EGENSKABER** panel med klare kortsektioner.
-- [ ] Hjælpe- og redigeringsfunktionalitet bevares 100%, men med ensartet typografi og COSMIC-styling.
-- [ ] 100% test pass rate på `cargo test` og clippy uden advarsler.
+- [x] Titler og header-styling i højre panel er ensartede på tværs af `concept_model_view.rs` og `information_model_view.rs`.
+- [x] Tom tilstand (ingen selektion) viser et rent, velstruktureret **VEJLEDNING** panel med tips til henholdsvis grafmodellering og informationsmodellering.
+- [x] Selektionstilstand viser et velstruktureret **EGENSKABER** panel med klare kortsektioner.
+- [x] Hjælpe- og redigeringsfunktionalitet bevares 100%, men med ensartet typografi og COSMIC-styling.
+- [x] 100% test pass rate på `cargo test` og clippy uden advarsler.
 
 ## 🚫 Must NOT
 - Må IKKE fjerne eksisterende redigeringsmuligheder for begreber eller klasser.
