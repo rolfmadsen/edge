@@ -2465,3 +2465,95 @@ fn test_task019_palette_header_actions_and_search_affinity() {
         let _view = app.view();
     }
 }
+
+#[test]
+fn test_task020_harmonized_inspector_and_guidance_panels() {
+    use edge::ui::inspector_panel::{GUIDANCE_TITLE, PROPERTIES_TITLE};
+
+    assert_eq!(PROPERTIES_TITLE, "Egenskaber");
+    assert_eq!(GUIDANCE_TITLE, "Vejledning");
+
+    let mut app = App::new_with_path(None);
+
+    // 1. Begrebsmodel: Tom tilstand viser Vejledning
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    assert_eq!(app.selected_graph_node_id(), None);
+    assert_eq!(app.selected_edge(), None);
+    let _view = app.view();
+
+    // 2. Begrebsmodel: Node valgt viser Egenskaber
+    let c = Concept::new("Bygning", "Fast konstruktion", BelongsToDomain::Yes);
+    let node_id = app.project_mut().concept_graph_mut().add_node(&c);
+    app.project_mut().concepts_mut().push(c);
+    let _ = app.update(Message::GraphNodeSelected(Some(node_id)));
+    assert_eq!(app.selected_graph_node_id(), Some(node_id));
+    let _view = app.view();
+
+    // Luk Egenskaber via deselect
+    let _ = app.update(Message::GraphNodeSelected(None));
+    assert_eq!(app.selected_graph_node_id(), None);
+    let _view = app.view();
+
+    // 3. Begrebsmodel: Relation valgt viser Egenskaber
+    let c2 = Concept::new("Etage", "Vandret del af bygning", BelongsToDomain::Yes);
+    let node2_id = app.project_mut().concept_graph_mut().add_node(&c2);
+    app.project_mut().concepts_mut().push(c2);
+    app.project_mut()
+        .concept_graph_mut()
+        .add_relation(node_id, node2_id, RelationKind::Composition);
+    let _ = app.update(Message::GraphEdgeSelected(Some((node_id, node2_id))));
+    assert_eq!(app.selected_edge(), Some((node_id, node2_id)));
+    let _view = app.view();
+
+    // Luk relation via deselect
+    let _ = app.update(Message::GraphEdgeSelected(None));
+    assert_eq!(app.selected_edge(), None);
+    let _view = app.view();
+
+    // 4. Informationsmodel: Tom tilstand viser Vejledning
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    assert_eq!(app.selected_info_class_id(), None);
+    assert_eq!(app.selected_info_edge(), None);
+    let _view = app.view();
+
+    // 5. Informationsmodel: Klasse valgt viser Egenskaber
+    let class = InformationClass::new("Bygningsdel");
+    let class_id = class.id();
+    let _ = app.project_mut().information_model_mut().add_class(class);
+    let _ = app.update(Message::SelectInformationClass(Some(class_id)));
+    assert_eq!(app.selected_info_class_id(), Some(class_id));
+    let _view = app.view();
+
+    // Luk klasse via deselect
+    let _ = app.update(Message::SelectInformationClass(None));
+    assert_eq!(app.selected_info_class_id(), None);
+    let _view = app.view();
+
+    // 6. Informationsmodel: Relation valgt viser Egenskaber
+    let class2 = InformationClass::new("Rum");
+    let class2_id = class2.id();
+    let _ = app.project_mut().information_model_mut().add_class(class2);
+    let info_node1 = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(class_id, 0);
+    let info_node2 = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node(class2_id, 0);
+    let _ = app.update(Message::AddClassRelation(
+        info_node1,
+        info_node2,
+        RelationKind::Association,
+        None,
+    ));
+    let _ = app.update(Message::InfoEdgeSelected(Some((info_node1, info_node2))));
+    assert_eq!(app.selected_info_edge(), Some((info_node1, info_node2)));
+    let _view = app.view();
+
+    // Luk info relation via deselect
+    let _ = app.update(Message::InfoEdgeSelected(None));
+    assert_eq!(app.selected_info_edge(), None);
+    let _view = app.view();
+}
+
