@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 021: Informationsmodel: Attribut-til-Begreb Lineage Vælger"
 description: "Etablering af visuel kobling og lineage i UI fra Informationsmodellens klasseattributter til forretningsbegreber jf. ADR 006"
-status: pending
+status: active
 generated: { by: process:antigravity-task-init, at: "2026-09-20T09:55:00Z" }
 tags: [ui, information-model, attributes, lineage, traceability, concepts, adr-006]
 ---
 
 # Task 021: Informationsmodel: Attribut-til-Begreb Lineage Vælger
 
-**Status**: `PENDING`
+**Status**: `ACTIVE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-20`
 
