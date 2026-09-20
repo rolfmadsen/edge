@@ -17,7 +17,7 @@ use crate::ui::theme::{
 use iced::event::{self, Event};
 use iced::keyboard::{self, key::Named, Key};
 use iced::widget::{
-    button, column, container, operation, pick_list, row, stack, text, text_input, Space,
+    button, column, container, operation, pick_list, row, stack, text, text_input, tooltip, Space,
 };
 use iced::{Alignment, Element, Length, Point, Subscription, Task};
 use serde::{Deserialize, Serialize};
@@ -158,10 +158,79 @@ pub enum Tab {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SaveStatus {
-    Saved(String),
+    Saved { path: String, timestamp: String },
     Saving,
     Unsaved,
     Error(String),
+}
+
+impl SaveStatus {
+    pub fn is_saved(&self) -> bool {
+        matches!(self, SaveStatus::Saved { .. })
+    }
+
+    pub fn display_text(&self, current_file_path: Option<&PathBuf>) -> String {
+        match self {
+            SaveStatus::Saved { path, timestamp } => {
+                let filename = std::path::Path::new(path)
+                    .file_name()
+                    .and_then(|f| f.to_str())
+                    .unwrap_or(path);
+                format!("💾 Sidst gemt kl. {} • {}", timestamp, filename)
+            }
+            SaveStatus::Saving => "⏳ Gemmer...".to_string(),
+            SaveStatus::Unsaved => {
+                if current_file_path.is_some() {
+                    "⚠️ Ikke gemte ændringer".to_string()
+                } else {
+                    "⚠️ Nyt projekt (ikke gemt til disk - tryk Gem)".to_string()
+                }
+            }
+            SaveStatus::Error(msg) => format!("❌ Fejl ved gemning: {}", msg),
+        }
+    }
+}
+
+pub fn current_timestamp() -> String {
+    unsafe {
+        let mut now: libc::time_t = 0;
+        libc::time(&mut now);
+        let mut tm: libc::tm = std::mem::zeroed();
+        if !libc::localtime_r(&now, &mut tm).is_null() {
+            format!("{:02}:{:02}:{:02}", tm.tm_hour, tm.tm_min, tm.tm_sec)
+        } else {
+            "00:00:00".to_string()
+        }
+    }
+}
+
+pub fn open_browser(url: &str) -> std::io::Result<()> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", url])
+            .spawn()?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(url)
+            .spawn()?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(url)
+            .spawn()?;
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "Unsupported platform",
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -181,6 +250,9 @@ pub enum Message {
     SaveMetadataModal,
     UpdateMetadataField(MetadataField, String),
     UpdateMetadataStatus(ModelStatus),
+
+    // Statusbar / Eksterne links (Task 018)
+    OpenModelRules,
 
     // Begrebsliste CRUD-handlinger
     StartNewConcept,
@@ -350,7 +422,10 @@ impl App {
                         editor_state: None,
                         search_query: String::new(),
                         current_file_path: path.clone(),
-                        save_status: SaveStatus::Saved(p.display().to_string()),
+                        save_status: SaveStatus::Saved {
+                            path: p.display().to_string(),
+                            timestamp: current_timestamp(),
+                        },
                         file_dialog_mode: None,
                         file_dialog_input: String::new(),
                         selected_graph_node_id: None,
@@ -376,7 +451,10 @@ impl App {
         }
 
         let save_status = match &path {
-            Some(p) => SaveStatus::Saved(p.display().to_string()),
+            Some(p) => SaveStatus::Saved {
+                path: p.display().to_string(),
+                timestamp: current_timestamp(),
+            },
             None => SaveStatus::Unsaved,
         };
 
@@ -415,6 +493,11 @@ impl App {
 
     pub fn save_status(&self) -> &SaveStatus {
         &self.save_status
+    }
+
+    pub fn footer_status_text(&self) -> String {
+        self.save_status
+            .display_text(self.current_file_path.as_ref())
     }
 
     pub fn theme(&self) -> iced::Theme {
@@ -493,7 +576,10 @@ impl App {
         if let Some(path) = &self.current_file_path {
             match ProjectStorage::save_to_file(&self.project, path) {
                 Ok(()) => {
-                    self.save_status = SaveStatus::Saved(path.display().to_string());
+                    self.save_status = SaveStatus::Saved {
+                        path: path.display().to_string(),
+                        timestamp: current_timestamp(),
+                    };
                 }
                 Err(err) => {
                     self.save_status = SaveStatus::Error(err.to_string());
@@ -759,7 +845,10 @@ impl App {
                     self.project = proj;
                     let display = path.display().to_string();
                     self.current_file_path = Some(path);
-                    self.save_status = SaveStatus::Saved(display);
+                    self.save_status = SaveStatus::Saved {
+                        path: display,
+                        timestamp: current_timestamp(),
+                    };
                     self.file_dialog_mode = None;
                     self.selected_graph_node_id = None;
                     self.relation_dialog = None;
@@ -778,6 +867,12 @@ impl App {
                 self.current_file_path = Some(path);
                 self.trigger_autosave();
                 self.file_dialog_mode = None;
+            }
+            Message::OpenModelRules => {
+                let url = "https://arkitektur.digst.dk/modelregler";
+                if let Err(err) = open_browser(url) {
+                    eprintln!("Kunne ikke åbne browser for {}: {}", url, err);
+                }
             }
 
             // Tastaturnavigation & genveje
@@ -2316,19 +2411,70 @@ impl App {
         };
 
         // 4. Status Bar
-        let save_status_text = match &self.save_status {
-            SaveStatus::Saved(target) => {
-                let full_path =
-                    std::fs::canonicalize(target).unwrap_or_else(|_| PathBuf::from(target));
-                format!("💾 Gemt: {}", full_path.display())
+        let save_status_text = self.footer_status_text();
+
+        let rules_button = button(
+            row![
+                text("FDA Modelregler v2.1")
+                    .size(12)
+                    .color(ThemeColors::TEXT_MUTED),
+                text("↗").size(10).color(ThemeColors::SLATE_400),
+            ]
+            .spacing(4)
+            .align_y(Alignment::Center),
+        )
+        .on_press(Message::OpenModelRules)
+        .style(|_theme, status| {
+            let text_color = match status {
+                button::Status::Hovered => ThemeColors::PRIMARY,
+                _ => ThemeColors::SLATE_500,
+            };
+            button::Style {
+                background: None,
+                text_color,
+                border: iced::Border::default(),
+                shadow: iced::Shadow::default(),
+                ..Default::default()
             }
-            SaveStatus::Saving => "⏳ Gemmer...".to_string(),
-            SaveStatus::Unsaved => "⚠️ Nyt projekt (ikke gemt til disk - tryk Gem)".to_string(),
-            SaveStatus::Error(msg) => format!("❌ Fejl ved gemning: {}", msg),
+        })
+        .padding([0, 2]);
+
+        let save_widget: Element<Message> = match &self.save_status {
+            SaveStatus::Saved { path, .. } => {
+                let full_path =
+                    std::fs::canonicalize(path).unwrap_or_else(|_| PathBuf::from(path));
+                tooltip(
+                    text(format!("• {}", save_status_text))
+                        .size(12)
+                        .color(ThemeColors::TEXT_MUTED),
+                    container(
+                        text(full_path.display().to_string())
+                            .size(11)
+                            .color(ThemeColors::TEXT_DARK),
+                    )
+                    .padding([4, 8])
+                    .style(|_| container::Style {
+                        background: Some(iced::Background::Color(ThemeColors::SURFACE_CARD)),
+                        border: iced::Border {
+                            color: ThemeColors::SURFACE_BORDER,
+                            width: 1.0,
+                            radius: 4.0.into(),
+                        },
+                        ..Default::default()
+                    }),
+                    tooltip::Position::Top,
+                )
+                .into()
+            }
+            _ => text(format!("• {}", save_status_text))
+                .size(12)
+                .color(ThemeColors::TEXT_MUTED)
+                .into(),
         };
 
         let status_bar = row![
-            text("FDA Modelregler v2.1 • Klar")
+            rules_button,
+            text("• Klar")
                 .size(12)
                 .color(ThemeColors::SLATE_500),
             Space::new().width(12),
@@ -2336,9 +2482,7 @@ impl App {
                 .size(12)
                 .color(ThemeColors::SLATE_600),
             Space::new().width(12),
-            text(format!("• {}", save_status_text))
-                .size(12)
-                .color(ThemeColors::TEXT_MUTED),
+            save_widget,
             Space::new().width(Length::Fill),
             text(format!("Aktiv fane: {:?}", self.active_tab))
                 .size(12)
