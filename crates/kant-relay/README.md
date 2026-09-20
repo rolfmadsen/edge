@@ -2,7 +2,7 @@
 
 Ultralet, in-memory, blind Axum WebSocket pub/sub relay til **Kant E2EE Realtids-kollaborering** ([ADR 008](../../docs/adr/008-e2ee-realtime-collaboration-and-stateless-relay.md)).
 
-[![Deploy to Koyeb](https://www.koyeb.com/static/images/deploy/button.svg)](https://app.koyeb.com/deploy?type=git&repository=github.com/rolfmadsen/edge&branch=main&dockerfile=crates/kant-relay/Dockerfile&build_context=.&env[PORT]=8080&env[HOST]=0.0.0.0&env[RUST_LOG]=info)
+[![Deploy to Koyeb](https://www.koyeb.com/static/images/deploy/button.svg)](https://app.koyeb.com/deploy?type=docker&image=ghcr.io/rolfmadsen/kant-relay:latest&ports=8080;http;/&env[PORT]=8080&env[HOST]=0.0.0.0&env[RUST_LOG]=info&name=kant-relay)
 
 ---
 
