@@ -96,8 +96,9 @@ fn default_is_local() -> bool {
 impl DiagramNode {
     pub fn new(concept: &Concept, x: f32, y: f32) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: concept.id(),
             concept_id: concept.id(),
+
             label: concept.preferred_term().to_string(),
             is_local: concept.belongs_to_domain().is_local(),
             x,

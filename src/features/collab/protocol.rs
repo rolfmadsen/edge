@@ -76,10 +76,55 @@ pub enum CollabPayload {
     Mutation(ModelMutation),
 }
 
+/// Eksplicitte transport frame-typer mod nonce-kollision og protokolforveksling.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FrameType {
+    Snapshot = 0x01,
+    Mutation = 0x02,
+    Presence = 0x03,
+    HostLeft = 0x04,
+}
+
+impl FrameType {
+    pub fn from_u8(b: u8) -> Option<Self> {
+        match b {
+            0x01 => Some(Self::Snapshot),
+            0x02 => Some(Self::Mutation),
+            0x03 => Some(Self::Presence),
+            0x04 => Some(Self::HostLeft),
+            _ => None,
+        }
+    }
+}
+
+/// Sikkerhedskuvert med sekvensnummer og tidsstempel til beskyttelse mod replay-angreb.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CollabEnvelope {
+    pub seq: u64,
+    pub timestamp: u64,
+    pub payload: CollabPayload,
+}
+
+impl CollabEnvelope {
+    pub fn new(seq: u64, timestamp: u64, payload: CollabPayload) -> Self {
+        Self {
+            seq,
+            timestamp,
+            payload,
+        }
+    }
+
+    pub fn is_newer_than(&self, last_seq: u64) -> bool {
+        self.seq > last_seq
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::features::concepts::BelongsToDomain;
+
 
     #[test]
     fn test_relation_constructors() {

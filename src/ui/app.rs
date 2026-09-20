@@ -436,8 +436,10 @@ pub enum Message {
     NewProject,
 
     // Live Kollaborering (Task 027 & Task 028)
+    CollabNetworkEventReceived(crate::features::collab::CollabNetworkEvent),
     CollabApplyMutation(Box<crate::features::collab::protocol::ModelMutation>),
     CollabApplySnapshot(Box<crate::features::model::ModelProject>),
+
     OpenStartSessionModal,
     CloseCollabModal,
     CollabPresetSelected(RelayServerPreset),
@@ -624,6 +626,8 @@ pub struct App {
     guest_ended_notice: Option<GuestEndedNoticeModalState>,
     collab_participant_count: usize,
     collab_connection_status: crate::features::collab::ConnectionStatus,
+    collab_seq: std::sync::atomic::AtomicU64,
+    collab_last_seen_seq: u64,
 }
 
 impl Default for App {
@@ -685,6 +689,8 @@ impl App {
                         collab_participant_count: 1,
                         collab_connection_status:
                             crate::features::collab::ConnectionStatus::Disconnected,
+                        collab_seq: std::sync::atomic::AtomicU64::new(0),
+                        collab_last_seen_seq: 0,
                     };
                 }
             }
@@ -735,6 +741,8 @@ impl App {
             guest_ended_notice: None,
             collab_participant_count: 1,
             collab_connection_status: crate::features::collab::ConnectionStatus::Disconnected,
+            collab_seq: std::sync::atomic::AtomicU64::new(0),
+            collab_last_seen_seq: 0,
         }
     }
 
@@ -861,7 +869,13 @@ impl App {
         self.collab_state = state;
     }
 
+    pub fn collab_channel(&self) -> Option<&crate::features::collab::CollabChannel> {
+        self.collab_channel.as_ref()
+    }
+
     pub fn set_collab_session(
+
+
         &mut self,
         channel: crate::features::collab::CollabChannel,
         key: crate::features::collab::CollabKey,
@@ -870,16 +884,21 @@ impl App {
         self.collab_channel = Some(channel);
         self.collab_key = Some(key);
         self.collab_state = role;
+        self.collab_last_seen_seq = 0;
     }
 
     pub fn disconnect_collab(&mut self) {
         if let Some(channel) = &self.collab_channel {
+            if self.collab_state.is_host() {
+                let _ = channel.send_host_left();
+            }
             channel.disconnect();
         }
         self.collab_channel = None;
         self.collab_key = None;
         self.collab_state = CollabState::None;
         self.collab_connection_status = crate::features::collab::ConnectionStatus::Disconnected;
+        self.collab_last_seen_seq = 0;
     }
 
     pub fn start_session_modal(&self) -> Option<&StartSessionModalState> {
@@ -962,11 +981,22 @@ impl App {
             return;
         }
         if let (Some(channel), Some(key)) = (&self.collab_channel, &self.collab_key) {
-            let payload =
-                crate::features::collab::protocol::CollabPayload::Mutation(mutation.clone());
-            if let Ok(json_bytes) = serde_json::to_vec(&payload) {
+            let seq = self
+                .collab_seq
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                + 1;
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let envelope = crate::features::collab::protocol::CollabEnvelope::new(
+                seq,
+                now,
+                crate::features::collab::protocol::CollabPayload::Mutation(mutation.clone()),
+            );
+            if let Ok(json_bytes) = serde_json::to_vec(&envelope) {
                 if let Ok(encrypted) = crate::features::collab::crypto::encrypt(key, &json_bytes) {
-                    let _ = channel.send(encrypted);
+                    let _ = channel.send_mutation(encrypted);
                 }
             }
         }
@@ -977,15 +1007,27 @@ impl App {
             return;
         }
         if let (Some(channel), Some(key)) = (&self.collab_channel, &self.collab_key) {
-            let payload =
-                crate::features::collab::protocol::CollabPayload::Snapshot(self.project.clone());
-            if let Ok(json_bytes) = serde_json::to_vec(&payload) {
+            let seq = self
+                .collab_seq
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                + 1;
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let envelope = crate::features::collab::protocol::CollabEnvelope::new(
+                seq,
+                now,
+                crate::features::collab::protocol::CollabPayload::Snapshot(self.project.clone()),
+            );
+            if let Ok(json_bytes) = serde_json::to_vec(&envelope) {
                 if let Ok(encrypted) = crate::features::collab::crypto::encrypt(key, &json_bytes) {
-                    let _ = channel.send(encrypted);
+                    let _ = channel.send_snapshot(encrypted);
                 }
             }
         }
     }
+
 
     pub fn broadcast_node_moved_throttled(&mut self, id: Uuid, x: f32, y: f32) {
         if !self.collab_state.is_active() {
@@ -1103,12 +1145,17 @@ impl App {
             NodeMoved { id, x, y } => {
                 if let Some(node) = self.project.concept_graph_mut().find_node_mut(id) {
                     node.set_position(x, y);
+                } else if let Some(node) =
+                    self.project.concept_graph_mut().find_node_by_concept_mut(id)
+                {
+                    node.set_position(x, y);
                 } else if let Some(class_node) =
                     self.project.information_graph_mut().find_node_mut(id)
                 {
                     class_node.set_position(x, y);
                 }
             }
+
         }
         self.trigger_autosave();
     }
@@ -1167,6 +1214,59 @@ impl App {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            Message::CollabNetworkEventReceived(event) => {
+                match event {
+                    crate::features::collab::CollabNetworkEvent::StatusChanged(status) => {
+                        self.set_collab_connection_status(status);
+                    }
+                    crate::features::collab::CollabNetworkEvent::PresenceUpdated(count) => {
+                        self.set_collab_participant_count(count);
+                    }
+                    crate::features::collab::CollabNetworkEvent::HostEndedSession => {
+                        self.notify_host_ended_session();
+                    }
+                    crate::features::collab::CollabNetworkEvent::MessageReceived(bytes) => {
+                        if let Some(key) = &self.collab_key {
+                            if let Ok(decrypted) =
+                                crate::features::collab::crypto::decrypt(key, &bytes)
+                            {
+                                if let Ok(envelope) = serde_json::from_slice::<
+                                    crate::features::collab::protocol::CollabEnvelope,
+                                >(&decrypted)
+                                {
+                                    if envelope.is_newer_than(self.collab_last_seen_seq) {
+                                        self.collab_last_seen_seq = envelope.seq;
+                                        match envelope.payload {
+                                            crate::features::collab::protocol::CollabPayload::Snapshot(proj) => {
+                                                self.apply_snapshot(proj);
+                                            }
+                                            crate::features::collab::protocol::CollabPayload::Mutation(mutation) => {
+                                                self.apply_mutation(mutation);
+                                            }
+                                        }
+                                    }
+                                } else if let Ok(payload) = serde_json::from_slice::<
+                                    crate::features::collab::protocol::CollabPayload,
+                                >(&decrypted)
+                                {
+                                    match payload {
+                                        crate::features::collab::protocol::CollabPayload::Snapshot(proj) => {
+                                            self.apply_snapshot(proj);
+                                        }
+                                        crate::features::collab::protocol::CollabPayload::Mutation(mutation) => {
+                                            self.apply_mutation(mutation);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    crate::features::collab::CollabNetworkEvent::Error(err) => {
+                        eprintln!("Kollaborations netværksfejl: {err}");
+                    }
+
+                }
+            }
             Message::CollabApplyMutation(mutation) => {
                 self.apply_mutation(*mutation);
             }
@@ -1210,7 +1310,7 @@ impl App {
                 if let Some(modal) = self.start_session_modal.take() {
                     self.active_menu = None;
                     let ticket = modal.ticket;
-                    let (channel, _rx) = crate::features::collab::CollabChannel::connect(
+                    let channel = crate::features::collab::CollabChannel::connect_registered(
                         &ticket.relay_url,
                         &ticket.room_id,
                     );
@@ -1237,7 +1337,7 @@ impl App {
                 if let Some(modal) = self.join_session_modal.take() {
                     if let Some(ticket) = modal.parsed_ticket {
                         self.active_menu = None;
-                        let (channel, _rx) = crate::features::collab::CollabChannel::connect(
+                        let channel = crate::features::collab::CollabChannel::connect_registered(
                             &ticket.relay_url,
                             &ticket.room_id,
                         );
@@ -1248,6 +1348,7 @@ impl App {
                     }
                 }
             }
+
             Message::CollabDisconnect => {
                 self.active_menu = None;
                 self.disconnect_collab();
@@ -2463,7 +2564,7 @@ impl App {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        event::listen_with(|event, status, _window| {
+        let keyboard_sub = event::listen_with(|event, status, _window| {
             if let Event::Window(iced::window::Event::Unfocused) = event {
                 return Some(Message::CanvasSpacePressed(false));
             }
@@ -2528,8 +2629,24 @@ impl App {
                 }
                 _ => None,
             }
-        })
+        });
+
+        if let Some(channel) = &self.collab_channel {
+            let sub_id = channel.sub_id();
+            let collab_sub = Subscription::run_with(sub_id, |&sub_id| {
+                iced::futures::stream::unfold(sub_id, |sub_id| async move {
+                    let event =
+                        crate::features::collab::network::next_registered_collab_event(sub_id)
+                            .await?;
+                    Some((Message::CollabNetworkEventReceived(event), sub_id))
+                })
+            });
+            Subscription::batch([keyboard_sub, collab_sub])
+        } else {
+            keyboard_sub
+        }
     }
+
 
     pub fn view(&self) -> Element<'_, Message> {
         // 1. Desktop Header Bar

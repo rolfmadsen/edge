@@ -23,6 +23,20 @@ use tokio::sync::{broadcast, Mutex, RwLock};
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 
+pub const MAX_PAYLOAD_SIZE: usize = 5 * 1024 * 1024; // 5 MB
+pub const MAX_ROOMS: usize = 1000;
+pub const FRAME_SNAPSHOT: u8 = 0x01;
+pub const FRAME_MUTATION: u8 = 0x02;
+pub const FRAME_PRESENCE: u8 = 0x03;
+pub const FRAME_HOST_LEFT: u8 = 0x04;
+
+pub fn make_presence_frame(count: usize) -> Bytes {
+    let mut b = Vec::with_capacity(5);
+    b.push(FRAME_PRESENCE);
+    b.extend_from_slice(&(count as u32).to_be_bytes());
+    Bytes::from(b)
+}
+
 #[derive(Clone, Debug)]
 pub struct RelayConfig {
     pub cleanup_timeout: Duration,
@@ -76,8 +90,6 @@ impl AppState {
     }
 
     pub fn room_count(&self) -> usize {
-        // Fast synchronous check using try_read, or block_in_place if needed
-        // For testing, let's provide synchronous or async
         if let Ok(guard) = self.rooms.try_read() {
             guard.len()
         } else {
@@ -85,12 +97,15 @@ impl AppState {
         }
     }
 
-    pub async fn get_or_create_room(&self, room_id: &str) -> Arc<Mutex<Room>> {
+    pub async fn get_or_create_room(&self, room_id: &str) -> Result<Arc<Mutex<Room>>, StatusCode> {
         let mut rooms = self.rooms.write().await;
-        rooms
+        if rooms.len() >= MAX_ROOMS && !rooms.contains_key(room_id) {
+            return Err(StatusCode::SERVICE_UNAVAILABLE);
+        }
+        Ok(rooms
             .entry(room_id.to_string())
             .or_insert_with(|| Arc::new(Mutex::new(Room::new())))
-            .clone()
+            .clone())
     }
 }
 
@@ -115,17 +130,29 @@ async fn ws_handler(
         }
     };
 
-    ws.on_upgrade(move |socket| handle_socket(socket, state, room_id))
+    let room = match state.get_or_create_room(&room_id).await {
+        Ok(r) => r,
+        Err(status) => return (status, "Room limit exceeded").into_response(),
+    };
+
+    ws.on_upgrade(move |socket| handle_socket(socket, state, room, room_id))
 }
 
-async fn handle_socket(socket: WebSocket, state: AppState, room_id: String) {
+async fn handle_socket(
+    socket: WebSocket,
+    state: AppState,
+    room: Arc<Mutex<Room>>,
+    room_id: String,
+) {
     let client_id = state.next_client_id.fetch_add(1, Ordering::Relaxed);
-    let room = state.get_or_create_room(&room_id).await;
 
-    let (broadcast_rx, initial_snapshot) = {
+    let (broadcast_rx, initial_snapshot, current_count) = {
         let mut r = room.lock().await;
         r.client_count += 1;
-        (r.tx.subscribe(), r.last_snapshot.clone())
+        let count = r.client_count;
+        // Broadcast opdateret tilstedeværelse til øvrige deltagere
+        let _ = r.tx.send((client_id, make_presence_frame(count)));
+        (r.tx.subscribe(), r.last_snapshot.clone(), count)
     };
 
     let (mut ws_sink, mut ws_stream) = socket.split();
@@ -144,6 +171,12 @@ async fn handle_socket(socket: WebSocket, state: AppState, room_id: String) {
     if let Some(snap) = initial_snapshot {
         let _ = outbound_tx.send(Message::Binary(snap)).await;
     }
+
+    // Send nuværende presence frame til den nyligt tilsluttede klient
+    let _ = outbound_tx
+        .send(Message::Binary(make_presence_frame(current_count)))
+        .await;
+
 
     // Broadcast reader task: forward frames from peers to this client
     let outbound_tx_clone = outbound_tx.clone();
@@ -180,12 +213,26 @@ async fn handle_socket(socket: WebSocket, state: AppState, room_id: String) {
 
         match msg {
             Message::Binary(bytes) => {
-                let mut r = room.lock().await;
-                // Buffer snapshot if empty or explicitly marked with 0x01 prefix
-                if r.last_snapshot.is_none() || bytes.first() == Some(&0x01) {
-                    r.last_snapshot = Some(bytes.clone());
+                if bytes.len() > MAX_PAYLOAD_SIZE {
+                    tracing::warn!(
+                        client_id,
+                        len = bytes.len(),
+                        "Frame exceeded MAX_PAYLOAD_SIZE, terminating client"
+                    );
+                    break;
                 }
-                let _ = r.tx.send((client_id, bytes));
+
+                match bytes.first() {
+                    Some(&FRAME_SNAPSHOT) => {
+                        let mut r = room.lock().await;
+                        r.last_snapshot = Some(bytes.clone());
+                        let _ = r.tx.send((client_id, bytes));
+                    }
+                    _ => {
+                        let r = room.lock().await;
+                        let _ = r.tx.send((client_id, bytes));
+                    }
+                }
             }
             Message::Ping(payload) => {
                 let _ = outbound_tx.send(Message::Pong(payload)).await;
@@ -199,12 +246,17 @@ async fn handle_socket(socket: WebSocket, state: AppState, room_id: String) {
     bcast_handle.abort();
     writer_handle.abort();
 
-    // Decrement client count and schedule cleanup if room is empty
+    // Decrement client count and notify remaining participants
     let is_empty = {
         let mut r = room.lock().await;
         r.client_count = r.client_count.saturating_sub(1);
-        r.client_count == 0
+        let count = r.client_count;
+        if count > 0 {
+            let _ = r.tx.send((client_id, make_presence_frame(count)));
+        }
+        count == 0
     };
+
 
     if is_empty {
         let rooms = state.rooms.clone();

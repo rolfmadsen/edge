@@ -3421,28 +3421,33 @@ async fn test_task_026_e2ee_crypto_and_network_channel() {
         .expect("Host afsendelse fejlede");
 
     // Guest modtager den krypterede payload og dekrypterer den
-    let guest_msg = tokio::time::timeout(Duration::from_millis(1000), guest_rx.recv())
-        .await
-        .expect("Guest timeout ved modtagelse af host besked")
-        .expect("Guest stream sluttede uventet");
-
-    match guest_msg {
-        CollabNetworkEvent::MessageReceived(received_bytes) => {
-            assert_eq!(received_bytes, encrypted_payload);
-            let recovered =
-                decrypt(&host_key, &received_bytes).expect("Guest kunne ikke dekryptere besked");
-            assert_eq!(recovered, model_data);
+    let mut received_bytes = None;
+    for _ in 0..5 {
+        if let Ok(Some(event)) =
+            tokio::time::timeout(Duration::from_millis(500), guest_rx.recv()).await
+        {
+            if let CollabNetworkEvent::MessageReceived(bytes) = event {
+                received_bytes = Some(bytes);
+                break;
+            }
         }
-        other => panic!("Forventede MessageReceived hos guest, modtog {:?}", other),
     }
+    let received_bytes = received_bytes.expect("Guest modtog ikke MessageReceived");
+    assert_eq!(received_bytes, encrypted_payload);
+    let recovered =
+        decrypt(&host_key, &received_bytes).expect("Guest kunne ikke dekryptere besked");
+    assert_eq!(recovered, model_data);
 
     // Host modtager IKKE sin egen besked (loopback beskyttelse)
     let host_echo = tokio::time::timeout(Duration::from_millis(150), host_rx.recv()).await;
-    assert!(host_echo.is_err(), "Host modtog sit eget ekko");
+    if let Ok(Some(CollabNetworkEvent::MessageReceived(bytes))) = host_echo {
+        panic!("Host modtog sit eget ekko: {:?}", bytes);
+    }
 
     // Pæn afbrydelse
     host_channel.disconnect();
     guest_channel.disconnect();
+
 }
 
 #[test]
@@ -3852,3 +3857,168 @@ fn test_task028_collab_ui_modals_and_presence() {
     let _ = app.view();
     app.set_collab_state(CollabState::None);
 }
+
+#[tokio::test]
+async fn test_task029_e2e_collab_sync_and_presence() {
+    use edge::features::collab::network::next_registered_collab_event;
+    use edge::features::collab::protocol::ModelMutation;
+    use edge::features::concepts::{BelongsToDomain, Concept};
+    use edge::ui::app::{App, CollabState, Message, RelayServerPreset};
+    use edge_relay::{create_app, AppState, RelayConfig};
+    use std::time::Duration;
+    use tokio::net::TcpListener;
+
+    // 1. Start ephemeral test relay server
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("Kunne ikke binde TCP listener");
+    let addr = listener.local_addr().expect("Kunne ikke hente lokal adresse");
+    let state = AppState::new(RelayConfig::default());
+    let relay_app = create_app(state);
+    tokio::spawn(async move {
+        axum::serve(listener, relay_app).await.expect("Relay stoppede uventet");
+    });
+    let relay_url = format!("ws://{}", addr);
+
+    // 2. Opret Vært App og Gæst App
+    let mut host = App::new();
+    let mut guest = App::new();
+
+    // Vært konfigurerer custom relay og starter session
+    let _ = host.update(Message::OpenStartSessionModal);
+    let _ = host.update(Message::CollabPresetSelected(RelayServerPreset::Custom));
+    let _ = host.update(Message::CollabCustomUrlChanged(relay_url.clone()));
+    let ticket_token = host
+        .start_session_modal()
+        .expect("StartSessionModal skal være åben")
+        .ticket
+        .to_token();
+    let _ = host.update(Message::CollabStartSession);
+    assert_eq!(host.collab_state(), CollabState::Host);
+
+    // Gæst tilslutter via sessionskoden
+    let _ = guest.update(Message::OpenJoinSessionModal);
+    let _ = guest.update(Message::CollabJoinTokenChanged(ticket_token));
+    let _ = guest.update(Message::CollabJoinSession);
+    assert_eq!(guest.collab_state(), CollabState::Guest);
+
+    let host_sub_id = host
+        .collab_channel()
+        .expect("Host collab_channel skal eksistere")
+        .sub_id();
+    let guest_sub_id = guest
+        .collab_channel()
+        .expect("Guest collab_channel skal eksistere")
+        .sub_id();
+
+    // 3. Pump netværkshændelser for initial opkobling, presence og snapshot
+    for _ in 0..15 {
+        if let Ok(Some(ev)) = tokio::time::timeout(
+            Duration::from_millis(100),
+            next_registered_collab_event(host_sub_id),
+        )
+        .await
+        {
+            let _ = host.update(Message::CollabNetworkEventReceived(ev));
+        }
+        if let Ok(Some(ev)) = tokio::time::timeout(
+            Duration::from_millis(100),
+            next_registered_collab_event(guest_sub_id),
+        )
+        .await
+        {
+            let _ = guest.update(Message::CollabNetworkEventReceived(ev));
+        }
+        if host.collab_participant_count() == 2 && guest.collab_participant_count() == 2 {
+            break;
+        }
+    }
+    assert_eq!(host.collab_participant_count(), 2, "Vært skal registrere 2 deltagere");
+    assert_eq!(guest.collab_participant_count(), 2, "Gæst skal registrere 2 deltagere");
+
+    // 4. Vært opretter et begreb -> synkroniseres til Gæst
+    let new_concept = Concept::new("Vejafgift", "Gebyr for passage", BelongsToDomain::Yes);
+    let concept_id = new_concept.id();
+    host.apply_mutation(ModelMutation::ConceptAdded(new_concept.clone()));
+    host.broadcast_mutation(&ModelMutation::ConceptAdded(new_concept.clone()));
+
+
+    // Pump events til Gæst
+    let mut guest_synced = false;
+    for _ in 0..15 {
+        if let Ok(Some(ev)) = tokio::time::timeout(
+            Duration::from_millis(100),
+            next_registered_collab_event(guest_sub_id),
+        )
+        .await
+        {
+            let _ = guest.update(Message::CollabNetworkEventReceived(ev));
+            if guest.project().concepts().iter().any(|c| c.id() == concept_id) {
+                guest_synced = true;
+                break;
+            }
+        }
+    }
+    assert!(guest_synced, "Gæst modtog ikke begrebet tilføjet af Vært");
+    assert!(
+        guest.project().concept_graph().is_concept_on_diagram(concept_id),
+        "Gæst skal have tilføjet noden til diagrammet"
+    );
+
+    // 5. Gæst flytter en node -> synkroniseres til Vært
+    let node = guest
+        .project()
+        .concept_graph()
+        .find_node_by_concept(concept_id)
+        .expect("Node skal findes på lærredet");
+    let node_id = node.id();
+
+    guest.broadcast_mutation(&ModelMutation::NodeMoved {
+        id: node_id,
+        x: 420.0,
+        y: 680.0,
+    });
+
+    // Pump events til Vært
+    let mut host_synced = false;
+    for _ in 0..15 {
+        if let Ok(Some(ev)) = tokio::time::timeout(
+            Duration::from_millis(100),
+            next_registered_collab_event(host_sub_id),
+        )
+        .await
+        {
+            let _ = host.update(Message::CollabNetworkEventReceived(ev));
+            if let Some(host_node) = host.project().concept_graph().find_node(node_id) {
+                if (host_node.x() - 420.0).abs() < 1.0 && (host_node.y() - 680.0).abs() < 1.0 {
+                    host_synced = true;
+                    break;
+                }
+            }
+        }
+    }
+    assert!(host_synced, "Vært modtog ikke nodeflytning foretaget af Gæst");
+
+    // 6. Vært afbryder sessionen -> Gæst modtager notice og advarsel
+    let _ = host.update(Message::CollabDisconnect);
+    assert_eq!(host.collab_state(), CollabState::None);
+
+    let mut guest_received_ended = false;
+    for _ in 0..15 {
+        if let Ok(Some(ev)) = tokio::time::timeout(
+            Duration::from_millis(100),
+            next_registered_collab_event(guest_sub_id),
+        )
+        .await
+        {
+            let _ = guest.update(Message::CollabNetworkEventReceived(ev));
+            if guest.guest_ended_notice().is_some() {
+                guest_received_ended = true;
+                break;
+            }
+        }
+    }
+    assert!(guest_received_ended, "Gæst modtog ikke HostEndedSession notice");
+    assert_eq!(guest.collab_state(), CollabState::None);
+}
+

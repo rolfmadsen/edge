@@ -63,6 +63,9 @@ async fn test_ws_handshake_and_broadcast() {
         .await
         .expect("Client 2 handshake failed");
 
+    // Client 2 consumes initial presence frame
+    let _ = tokio::time::timeout(Duration::from_millis(500), client2.next()).await;
+
     let payload = vec![10u8, 20, 30, 40];
     client1
         .send(Message::Binary(payload.clone().into()))
@@ -83,7 +86,10 @@ async fn test_ws_handshake_and_broadcast() {
 
     // Client 1 should NOT receive its own message back (loopback prevention)
     let echo = tokio::time::timeout(Duration::from_millis(100), client1.next()).await;
-    assert!(echo.is_err(), "Client 1 received its own echo frame");
+    // Echo might receive Client 2's presence frame, but not its own payload
+    if let Ok(Some(Ok(Message::Binary(data)))) = echo {
+        assert_ne!(data.as_ref(), payload.as_slice(), "Client 1 received its own echo frame");
+    }
 }
 
 #[tokio::test]
@@ -99,18 +105,29 @@ async fn test_room_isolation() {
         .await
         .expect("Client B connect failed");
 
+    // Client B consumes its own initial presence frame
+    let initial_b = tokio::time::timeout(Duration::from_millis(500), client_b.next())
+        .await
+        .expect("Client B timeout on initial presence")
+        .expect("Stream ended")
+        .expect("Client B read error");
+    if let Message::Binary(data) = initial_b {
+        assert_eq!(data[0], 0x03, "Expected presence frame for Client B");
+    }
+
     client_a
         .send(Message::Binary(vec![99, 88].into()))
         .await
         .expect("Client A send failed");
 
-    // Client B in another room should NOT receive anything
+    // Client B in another room should NOT receive anything from room-alpha
     let result = tokio::time::timeout(Duration::from_millis(150), client_b.next()).await;
     assert!(
         result.is_err(),
         "Client B in room-beta received message from room-alpha"
     );
 }
+
 
 #[tokio::test]
 async fn test_last_snapshot_delivery_to_late_joiner() {
@@ -175,3 +192,71 @@ async fn test_room_cleanup_after_disconnect() {
         "Room should be pruned from RAM after cleanup timeout"
     );
 }
+
+#[tokio::test]
+async fn test_max_payload_rejection() {
+    let (addr, _) = spawn_test_server(RelayConfig::default()).await;
+    let url = format!("ws://{}/ws?room=room-large", addr);
+
+    let (mut client, _) = connect_async(&url).await.expect("Connect failed");
+
+    // Forbrug initial presence frame
+    let _ = client.next().await;
+
+    // Overdimensioneret payload (større end 5 MB)
+    let huge_payload = vec![0x02; 5 * 1024 * 1024 + 10];
+
+    let _ = client.send(Message::Binary(huge_payload.into())).await;
+
+    // Server skal lukke forbindelsen pga. overskridelse af MAX_PAYLOAD_SIZE
+    let resp = tokio::time::timeout(Duration::from_millis(500), client.next()).await;
+    match resp {
+        Ok(None) => {} // Forbindelse lukket rent
+        Ok(Some(Ok(Message::Close(_)))) => {} // Lukke-frame modtaget
+        Ok(Some(Err(_))) => {} // I/O fejl pga. lukning
+        other => panic!("Forventede afbrydelse ved overdimensioneret frame, modtog: {:?}", other),
+    }
+}
+
+#[tokio::test]
+async fn test_presence_updates_on_join_and_leave() {
+    let (addr, _) = spawn_test_server(RelayConfig::default()).await;
+    let url = format!("ws://{}/ws?room=room-presence", addr);
+
+    // 1. Klient 1 tilslutter -> modtager presence(1)
+    let (mut client1, _) = connect_async(&url).await.expect("Client 1 connect failed");
+    let msg1 = client1.next().await.unwrap().unwrap();
+    if let Message::Binary(data) = msg1 {
+        assert_eq!(data[0], 0x03);
+        let count = u32::from_be_bytes(data[1..5].try_into().unwrap());
+        assert_eq!(count, 1);
+    } else {
+        panic!("Forventede presence frame");
+    }
+
+    // 2. Klient 2 tilslutter -> Klient 1 modtager presence(2), Klient 2 modtager presence(2)
+    let (mut client2, _) = connect_async(&url).await.expect("Client 2 connect failed");
+    let c1_update = client1.next().await.unwrap().unwrap();
+    if let Message::Binary(data) = c1_update {
+        assert_eq!(data[0], 0x03);
+        let count = u32::from_be_bytes(data[1..5].try_into().unwrap());
+        assert_eq!(count, 2);
+    }
+
+    let c2_init = client2.next().await.unwrap().unwrap();
+    if let Message::Binary(data) = c2_init {
+        assert_eq!(data[0], 0x03);
+        let count = u32::from_be_bytes(data[1..5].try_into().unwrap());
+        assert_eq!(count, 2);
+    }
+
+    // 3. Klient 2 forlader -> Klient 1 modtager presence(1)
+    drop(client2);
+    let c1_leave_update = client1.next().await.unwrap().unwrap();
+    if let Message::Binary(data) = c1_leave_update {
+        assert_eq!(data[0], 0x03);
+        let count = u32::from_be_bytes(data[1..5].try_into().unwrap());
+        assert_eq!(count, 1);
+    }
+}
+

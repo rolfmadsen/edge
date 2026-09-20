@@ -29,11 +29,32 @@ impl std::fmt::Display for ConnectionStatus {
     }
 }
 
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::LazyLock;
+
+static NEXT_SUB_ID: AtomicU64 = AtomicU64::new(1);
+static COLLAB_REGISTRY: LazyLock<
+    std::sync::Mutex<HashMap<u64, Arc<tokio::sync::Mutex<UnboundedReceiver<CollabNetworkEvent>>>>>,
+> = LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
+
+/// Henter næste netværkshændelse for et givet abonnements-ID.
+pub async fn next_registered_collab_event(sub_id: u64) -> Option<CollabNetworkEvent> {
+    let receiver = {
+        let guard = COLLAB_REGISTRY.lock().ok()?;
+        guard.get(&sub_id).cloned()?
+    };
+    let mut rx = receiver.lock().await;
+    rx.recv().await
+}
+
 /// Netværkshændelser fra WebSocket-kanalen til Iced/UI.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CollabNetworkEvent {
     StatusChanged(ConnectionStatus),
     MessageReceived(Vec<u8>),
+    PresenceUpdated(usize),
+    HostEndedSession,
     Error(String),
 }
 
@@ -75,18 +96,29 @@ pub fn build_relay_ws_url(relay_url: &str, room_id: &RoomId) -> Result<Url, Stri
 /// Tovejs netværkskanal til asynkron kommunikation med relay-serveren.
 #[derive(Clone)]
 pub struct CollabChannel {
+    sub_id: u64,
     outbound_tx: UnboundedSender<Vec<u8>>,
     cancel_tx: watch::Sender<bool>,
     status: Arc<RwLock<ConnectionStatus>>,
 }
 
 impl CollabChannel {
+    /// Opretter forbindelse til relay-serveren for et givet rum og registrerer modtageren i det globale registry.
+    pub fn connect_registered(relay_url: &str, room_id: &RoomId) -> Self {
+        let (channel, rx) = Self::connect(relay_url, room_id);
+        if let Ok(mut guard) = COLLAB_REGISTRY.lock() {
+            guard.insert(channel.sub_id, Arc::new(tokio::sync::Mutex::new(rx)));
+        }
+        channel
+    }
+
     /// Opretter forbindelse til relay-serveren for et givet rum.
     /// Returnerer kanal-håndtaget og en modtager for indgående netværkshændelser.
     pub fn connect(
         relay_url: &str,
         room_id: &RoomId,
     ) -> (Self, UnboundedReceiver<CollabNetworkEvent>) {
+        let sub_id = NEXT_SUB_ID.fetch_add(1, Ordering::Relaxed);
         let (outbound_tx, mut outbound_rx) = unbounded_channel::<Vec<u8>>();
         let (event_tx, event_rx) = unbounded_channel::<CollabNetworkEvent>();
         let (cancel_tx, mut cancel_rx) = watch::channel(false);
@@ -155,10 +187,14 @@ impl CollabChannel {
                             tokio::select! {
                                 _ = cancel_rx.changed() => {
                                     if *cancel_rx.borrow() {
+                                        while let Ok(data) = outbound_rx.try_recv() {
+                                            let _ = ws_sink.send(Message::Binary(bytes::Bytes::from(data))).await;
+                                        }
                                         let _ = ws_sink.send(Message::Close(None)).await;
                                         break;
                                     }
                                 }
+
                                 outbound = outbound_rx.recv() => {
                                     match outbound {
                                         Some(data) => {
@@ -178,7 +214,23 @@ impl CollabChannel {
                                         Some(Ok(msg)) => {
                                             match msg {
                                                 Message::Binary(bytes) => {
-                                                    let _ = event_tx.send(CollabNetworkEvent::MessageReceived(bytes.to_vec()));
+                                                    match bytes.first() {
+                                                        Some(&0x03) if bytes.len() >= 5 => {
+                                                            let count = u32::from_be_bytes(bytes[1..5].try_into().unwrap_or([0; 4]));
+                                                            let _ = event_tx.send(CollabNetworkEvent::PresenceUpdated(count as usize));
+                                                        }
+                                                        Some(&0x04) => {
+                                                            let _ = event_tx.send(CollabNetworkEvent::HostEndedSession);
+                                                        }
+                                                        Some(&0x01) | Some(&0x02) => {
+                                                            // Strip framing byte so message contains ciphertext directly
+                                                            let _ = event_tx.send(CollabNetworkEvent::MessageReceived(bytes[1..].to_vec()));
+                                                        }
+                                                        _ => {
+                                                            // Legacy / unframed
+                                                            let _ = event_tx.send(CollabNetworkEvent::MessageReceived(bytes.to_vec()));
+                                                        }
+                                                    }
                                                 }
                                                 Message::Ping(payload) => {
                                                     let _ = ws_sink.send(Message::Pong(payload)).await;
@@ -248,6 +300,7 @@ impl CollabChannel {
 
         (
             Self {
+                sub_id,
                 outbound_tx,
                 cancel_tx,
                 status,
@@ -256,7 +309,32 @@ impl CollabChannel {
         )
     }
 
-    /// Sender krypteret data over netværkskanalen.
+    pub fn sub_id(&self) -> u64 {
+        self.sub_id
+    }
+
+    /// Sender snapshot med 0x01 frame type.
+    pub fn send_snapshot(&self, data: Vec<u8>) -> Result<(), String> {
+        let mut framed = Vec::with_capacity(1 + data.len());
+        framed.push(0x01);
+        framed.extend_from_slice(&data);
+        self.send(framed)
+    }
+
+    /// Sender mutation med 0x02 frame type.
+    pub fn send_mutation(&self, data: Vec<u8>) -> Result<(), String> {
+        let mut framed = Vec::with_capacity(1 + data.len());
+        framed.push(0x02);
+        framed.extend_from_slice(&data);
+        self.send(framed)
+    }
+
+    /// Sender besked om at værten har forladt sessionen (0x04 frame type).
+    pub fn send_host_left(&self) -> Result<(), String> {
+        self.send(vec![0x04])
+    }
+
+    /// Sender rå bytes over netværkskanalen.
     pub fn send(&self, data: Vec<u8>) -> Result<(), String> {
         self.outbound_tx
             .send(data)
@@ -266,6 +344,9 @@ impl CollabChannel {
     /// Afbryder netværksforbindelsen rent.
     pub fn disconnect(&self) {
         let _ = self.cancel_tx.send(true);
+        if let Ok(mut map) = COLLAB_REGISTRY.lock() {
+            map.remove(&self.sub_id);
+        }
     }
 
     /// Henter den aktuelle forbindelsestilstand.
@@ -276,6 +357,7 @@ impl CollabChannel {
             .unwrap_or(ConnectionStatus::Disconnected)
     }
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -364,34 +446,36 @@ mod tests {
         }
         assert!(c2_connected, "Klient 2 nåede ikke Connected");
 
-        // 2. Klient 1 krypterer og sender payload
+        // 2. Klient 1 krypterer og sender payload med mutation framing
         let original_data = b"FDA E2EE Kollaborering Test Besked";
         let encrypted_payload = encrypt(&key, original_data).expect("Kryptering fejlede");
         channel1
-            .send(encrypted_payload.clone())
+            .send_mutation(encrypted_payload.clone())
             .expect("Afsendelse fejlede");
 
-        // 3. Klient 2 modtager beskeden
-        let received_event = tokio::time::timeout(Duration::from_millis(1000), rx2.recv())
-            .await
-            .expect("Klient 2 fik timeout ved modtagelse")
-            .expect("Stream lukket");
-
-        match received_event {
-            CollabNetworkEvent::MessageReceived(bytes) => {
-                assert_eq!(bytes, encrypted_payload);
-                let decrypted = decrypt(&key, &bytes).expect("Dekryptering hos klient 2 fejlede");
-                assert_eq!(decrypted, original_data);
+        // 3. Klient 2 modtager beskeden (kan have modtaget PresenceUpdated først)
+        let mut received_payload = None;
+        for _ in 0..5 {
+            if let Ok(Some(event)) =
+                tokio::time::timeout(Duration::from_millis(500), rx2.recv()).await
+            {
+                if let CollabNetworkEvent::MessageReceived(bytes) = event {
+                    received_payload = Some(bytes);
+                    break;
+                }
             }
-            other => panic!("Forventede MessageReceived, modtog: {:?}", other),
         }
+        let bytes = received_payload.expect("Klient 2 modtog ikke MessageReceived");
+        assert_eq!(bytes, encrypted_payload);
+        let decrypted = decrypt(&key, &bytes).expect("Dekryptering hos klient 2 fejlede");
+        assert_eq!(decrypted, original_data);
 
         // 4. Invariant: Klient 1 må IKKE modtage sit eget ekko
         let echo = tokio::time::timeout(Duration::from_millis(150), rx1.recv()).await;
-        assert!(
-            echo.is_err(),
-            "Klient 1 modtog sit eget ekko (loopback fejl)"
-        );
+        if let Ok(Some(CollabNetworkEvent::MessageReceived(bytes))) = echo {
+            panic!("Klient 1 modtog sit eget ekko: {:?}", bytes);
+        }
+
 
         // 5. Afbrydelse
         channel1.disconnect();
