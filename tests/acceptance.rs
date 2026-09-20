@@ -2722,3 +2722,235 @@ fn test_task021_attribute_to_concept_lineage_and_traceability() {
 fn test_attribute_lineage() {
     test_task021_attribute_to_concept_lineage_and_traceability();
 }
+
+#[test]
+fn test_task022_information_model_association_multiplicities() {
+    use edge::features::concept_model::NodeId;
+    use edge::features::information_model::ClassDiagramEdge;
+    use edge::ui::diagram_canvas::CanvasEdge;
+    use uuid::Uuid;
+
+    let mut app = App::default();
+    let _ = app.update(Message::SwitchTab(Tab::InformationModel));
+
+    // 1. Opret to klasser i informationsmodellen
+    let _ = app.update(Message::AddInformationClass(
+        "Kunde".to_string(),
+        "En kunde i systemet".to_string(),
+    ));
+    let _ = app.update(Message::AddInformationClass(
+        "Ordre".to_string(),
+        "En ordre afgivet af en kunde".to_string(),
+    ));
+
+    let classes = app.project().information_model().classes();
+    let class_kunde_id = classes[0].id();
+    let class_ordre_id = classes[1].id();
+
+    let node_kunde_id = app
+        .project()
+        .information_graph()
+        .find_node_by_class(class_kunde_id)
+        .unwrap()
+        .id();
+    let node_ordre_id = app
+        .project()
+        .information_graph()
+        .find_node_by_class(class_ordre_id)
+        .unwrap()
+        .id();
+
+    // 2. Test ClassDiagramEdge domænefelter og serde bagudkompatibilitet
+    let mut direct_edge = ClassDiagramEdge::new(
+        node_kunde_id,
+        node_ordre_id,
+        RelationKind::Association,
+        Some("har".to_string()),
+    );
+    assert_eq!(direct_edge.source_multiplicity(), None);
+    assert_eq!(direct_edge.target_multiplicity(), None);
+
+    direct_edge.set_source_multiplicity(Some(Multiplicity::exactly_one()));
+    direct_edge.set_target_multiplicity(Some(Multiplicity::zero_or_more()));
+    assert_eq!(
+        direct_edge.source_multiplicity(),
+        Some(Multiplicity::exactly_one())
+    );
+    assert_eq!(
+        direct_edge.target_multiplicity(),
+        Some(Multiplicity::zero_or_more())
+    );
+
+    // Serde roundtrip på ClassDiagramEdge
+    let edge_json = serde_json::to_string(&direct_edge).expect("Skal kunne serialiseres");
+    let deser_edge: ClassDiagramEdge =
+        serde_json::from_str(&edge_json).expect("Skal kunne deserialiseres");
+    assert_eq!(
+        deser_edge.source_multiplicity(),
+        Some(Multiplicity::exactly_one())
+    );
+    assert_eq!(
+        deser_edge.target_multiplicity(),
+        Some(Multiplicity::zero_or_more())
+    );
+
+    // Bagudkompatibilitet: legacy edge uden multiplicitetsfelter
+    let legacy_json = format!(
+        r#"{{"from":"{}","to":"{}","kind":"Association","label":"legacy"}}"#,
+        node_kunde_id, node_ordre_id
+    );
+    let legacy_edge: ClassDiagramEdge =
+        serde_json::from_str(&legacy_json).expect("Skal kunne deserialisere legacy json");
+    assert_eq!(legacy_edge.source_multiplicity(), None);
+    assert_eq!(legacy_edge.target_multiplicity(), None);
+
+    // CanvasEdge trait abstraction
+    assert_eq!(
+        <ClassDiagramEdge as CanvasEdge>::source_multiplicity(&direct_edge),
+        Some("1".to_string())
+    );
+    assert_eq!(
+        <ClassDiagramEdge as CanvasEdge>::target_multiplicity(&direct_edge),
+        Some("0..*".to_string())
+    );
+
+    // 3. Test oprettelsesdialogen for relationer med multipliciteter
+    let _ = app.update(Message::OpenInfoRelationDialog);
+    let _ = app.update(Message::InfoRelationFromChanged(edge::ui::app::NodeOption {
+        id: node_kunde_id,
+        label: "Kunde".to_string(),
+    }));
+    let _ = app.update(Message::InfoRelationToChanged(edge::ui::app::NodeOption {
+        id: node_ordre_id,
+        label: "Ordre".to_string(),
+    }));
+    let _ = app.update(Message::InfoRelationKindChanged(RelationKind::Association));
+    let _ = app.update(Message::InfoRelationLabelChanged("afgiver".to_string()));
+    let _ = app.update(Message::InfoRelationSourceMultiplicityChanged(Some(
+        Multiplicity::one_or_more(),
+    )));
+    let _ = app.update(Message::InfoRelationTargetMultiplicityChanged(Some(
+        Multiplicity::zero_or_more(),
+    )));
+
+    // View under åben dialog med multiplicitetsvælgere
+    {
+        let _dialog_view = app.view();
+    }
+
+    let _ = app.update(Message::InfoCreateRelation);
+
+    let created_edge = app
+        .project()
+        .information_graph()
+        .find_edge(node_kunde_id, node_ordre_id)
+        .expect("Relation skal være oprettet i grafen");
+    assert_eq!(
+        created_edge.source_multiplicity(),
+        Some(Multiplicity::one_or_more())
+    );
+    assert_eq!(
+        created_edge.target_multiplicity(),
+        Some(Multiplicity::zero_or_more())
+    );
+
+    // 4. Test Egenskaber-panelet (Inspector) for valgt relation
+    let _ = app.update(Message::InfoEdgeSelected(Some((
+        node_kunde_id,
+        node_ordre_id,
+    ))));
+
+    // Rediger kildemultiplicitet til 0..1 via inspector
+    let _ = app.update(Message::InfoUpdateEdgeSourceMultiplicity(
+        node_kunde_id,
+        node_ordre_id,
+        Some(Multiplicity::zero_or_one()),
+    ));
+    // Rediger målmultiplicitet til 1 via inspector
+    let _ = app.update(Message::InfoUpdateEdgeTargetMultiplicity(
+        node_kunde_id,
+        node_ordre_id,
+        Some(Multiplicity::exactly_one()),
+    ));
+
+    {
+        let edge = app
+            .project()
+            .information_graph()
+            .find_edge(node_kunde_id, node_ordre_id)
+            .unwrap();
+        assert_eq!(
+            edge.source_multiplicity(),
+            Some(Multiplicity::zero_or_one())
+        );
+        assert_eq!(edge.target_multiplicity(), Some(Multiplicity::exactly_one()));
+    }
+
+    // 5. Test reversering af relation (vender også multipliciteter jf. symmetri)
+    let _ = app.update(Message::InfoReverseEdge(node_kunde_id, node_ordre_id));
+    {
+        let reversed = app
+            .project()
+            .information_graph()
+            .find_edge(node_ordre_id, node_kunde_id)
+            .expect("Reverseret relation skal eksistere");
+        assert_eq!(
+            reversed.source_multiplicity(),
+            Some(Multiplicity::exactly_one())
+        );
+        assert_eq!(
+            reversed.target_multiplicity(),
+            Some(Multiplicity::zero_or_one())
+        );
+    }
+
+    // 6. Must NOT: Generalisering må IKKE have obligatorisk multiplicitet
+    let _ = app.update(Message::InfoUpdateEdgeKind(
+        node_ordre_id,
+        node_kunde_id,
+        RelationKind::Generalization,
+    ));
+    let gen_edge = app
+        .project()
+        .information_graph()
+        .find_edge(node_ordre_id, node_kunde_id)
+        .unwrap();
+    assert_eq!(gen_edge.kind(), RelationKind::Generalization);
+    // Generalisering på canvas må ikke vise association-multipliciteter
+    assert_eq!(
+        <ClassDiagramEdge as CanvasEdge>::source_multiplicity(gen_edge),
+        None
+    );
+    assert_eq!(
+        <ClassDiagramEdge as CanvasEdge>::target_multiplicity(gen_edge),
+        None
+    );
+
+    // 7. Skift tilbage til association og verificer lærredsrendering
+    let _ = app.update(Message::InfoUpdateEdgeKind(
+        node_ordre_id,
+        node_kunde_id,
+        RelationKind::Association,
+    ));
+    let _ = app.update(Message::InfoUpdateEdgeSourceMultiplicity(
+        node_ordre_id,
+        node_kunde_id,
+        Some(Multiplicity::exactly_one()),
+    ));
+    let _ = app.update(Message::InfoUpdateEdgeTargetMultiplicity(
+        node_ordre_id,
+        node_kunde_id,
+        Some(Multiplicity::zero_or_more()),
+    ));
+
+    // Verificer at canvas og inspector renderer uden panics og med multipliciteter
+    {
+        let _view = app.view();
+    }
+}
+
+#[test]
+fn test_class_diagram_edge() {
+    test_task022_information_model_association_multiplicities();
+}
+
