@@ -425,17 +425,14 @@ pub fn view<'a>(
                 .map(|c| c.name())
                 .unwrap_or("Mål");
 
-            let header = row![
-                text("Relation").size(14).color(ThemeColors::PRIMARY),
-                Space::new().width(Length::Fill),
-                button(text("✕").size(11))
-                    .style(secondary_button_style)
-                    .on_press(Message::InfoEdgeSelected(None))
-                    .padding([2, 5]),
-            ]
-            .align_y(Alignment::Center);
+            let header = crate::ui::inspector_panel::panel_header(
+                crate::ui::inspector_panel::PROPERTIES_TITLE,
+                Some(("Relation", ThemeColors::SLATE_100, ThemeColors::SLATE_300)),
+                Some(Message::InfoEdgeSelected(None)),
+            );
 
             let nodes_info = column![
+                crate::ui::inspector_panel::section_header("Forbindelse"),
                 row![
                     text(format!("{} ➔ {}", from_class, to_class))
                         .size(13)
@@ -447,16 +444,11 @@ pub fn view<'a>(
                         .padding([2, 6]),
                 ]
                 .align_y(Alignment::Center),
-                text("Rediger relationens egenskaber:")
-                    .size(11)
-                    .color(ThemeColors::TEXT_MUTED),
             ]
             .spacing(4);
 
             let kind_selector = column![
-                text("Relationstype:")
-                    .size(11)
-                    .color(ThemeColors::SLATE_600),
+                crate::ui::inspector_panel::section_header("Relationstype"),
                 row![
                     button(text("Association").size(11))
                         .style(if edge.kind() == RelationKind::Association {
@@ -503,9 +495,7 @@ pub fn view<'a>(
                 == RelationKind::Association
             {
                 column![
-                    text("Retning / Navigabilitet:")
-                        .size(11)
-                        .color(ThemeColors::SLATE_600),
+                    crate::ui::inspector_panel::section_header("Retning / Navigabilitet"),
                     checkbox(edge.is_directed())
                         .label("Halv pil (rettet)")
                         .size(14)
@@ -518,9 +508,7 @@ pub fn view<'a>(
             };
 
             let label_input = column![
-                text("Associationsnavn (valgfri):")
-                    .size(11)
-                    .color(ThemeColors::SLATE_600),
+                crate::ui::inspector_panel::section_header("Associationsnavn (valgfri)"),
                 text_input("f.eks. omfatter, ejer...", edge.label().unwrap_or(""))
                     .id("info_edge_label_input")
                     .style(modern_input_style)
@@ -546,21 +534,14 @@ pub fn view<'a>(
             ]
             .spacing(12);
 
-            container(scrollable(insp_col))
-                .style(card_container_style)
-                .padding(14)
-                .width(Length::Fixed(290.0))
-                .height(Length::Fill)
-                .into()
+            crate::ui::inspector_panel::panel_container(insp_col.into())
         } else {
-            container(
+            crate::ui::inspector_panel::panel_container(
                 text("Relation ikke fundet")
                     .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
+                    .color(ThemeColors::TEXT_MUTED)
+                    .into(),
             )
-            .width(Length::Fixed(290.0))
-            .height(Length::Fill)
-            .into()
         }
     } else if let Some(class_id) = selected_class_id {
         if let Some(class) = info_model.get_class(class_id) {
@@ -781,26 +762,31 @@ pub fn view<'a>(
                 }
             }
 
+            let header = crate::ui::inspector_panel::panel_header(
+                crate::ui::inspector_panel::PROPERTIES_TITLE,
+                Some(("Klasse", ThemeColors::FDA_SAND, ThemeColors::FDA_SAND_BORDER)),
+                Some(Message::SelectInformationClass(None)),
+            );
+
+            let actions_row = row![
+                canvas_action_btn,
+                Space::new().width(Length::Fill),
+                button(text("🗑️ Slet klasse").size(11))
+                    .style(danger_button_style)
+                    .on_press(Message::DeleteInformationClass(class_id))
+                    .padding([3, 7]),
+            ]
+            .align_y(Alignment::Center);
+
             let inspector_content = column![
-                row![
-                    text("Klasse Inspector")
-                        .size(15)
-                        .color(ThemeColors::PRIMARY),
-                    Space::new().width(Length::Fill),
-                    button(text("Slet").size(11))
-                        .style(danger_button_style)
-                        .on_press(Message::DeleteInformationClass(class_id))
-                        .padding([3, 7]),
-                ]
-                .align_y(Alignment::Center),
+                header,
+                crate::ui::inspector_panel::section_header("Generelt"),
                 name_input,
                 desc_input,
-                canvas_action_btn,
+                actions_row,
                 // Begreber
                 column![
-                    text("Tilknyttede Begreber")
-                        .size(11)
-                        .color(ThemeColors::SLATE_700),
+                    crate::ui::inspector_panel::section_header("Tilknyttede Begreber"),
                     concept_badges,
                     add_concept_picker,
                 ]
@@ -826,53 +812,45 @@ pub fn view<'a>(
             ]
             .spacing(10);
 
-            container(scrollable(inspector_content))
-                .style(card_container_style)
-                .padding(12)
-                .width(Length::Fixed(290.0))
-                .height(Length::Fill)
-                .into()
+            crate::ui::inspector_panel::panel_container(inspector_content.into())
         } else {
-            container(
+            crate::ui::inspector_panel::panel_container(
                 text("Klasse ikke fundet")
                     .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
+                    .color(ThemeColors::TEXT_MUTED)
+                    .into(),
             )
-            .style(card_container_style)
-            .padding(12)
-            .width(Length::Fixed(290.0))
-            .height(Length::Fill)
-            .into()
         }
     } else {
-        container(
-            column![
-                text("💡 UML Klasse Inspector")
-                    .size(14)
-                    .color(ThemeColors::PRIMARY),
-                text("• Vælg en klasse på canvas eller i venstre palet for at redigere navn og attributter.")
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
-                text("• Attributter formateres i UML-kassen som + navn : Datatype [multiplicitet].")
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
-                text("• UML-kassen udvider automatisk sin højde, når du tilføjer attributter.")
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
-                text("• FDA Sand (#FEFAF7) markerer informationsklasser.")
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
-                text("• Træk i noder for at arrangere diagrammet, eller brug snap-to-grid.")
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
-            ]
-            .spacing(8),
+        crate::ui::inspector_panel::guidance_panel(
+            "Informationsmodel",
+            &[
+                (
+                    "Vælg eller opret klasse",
+                    "Klik på en klasse på canvas eller brug [+ Ny Klasse] i venstre palet.",
+                ),
+                (
+                    "Tilknyt begreber",
+                    "Tilknyt begreber for at sikre 100% semantisk sporbarhed mod FDA begrebsmodellen.",
+                ),
+                (
+                    "Attributter & Datatyper",
+                    "Tilføj attributter med standard primitive typer (String, Integer m.fl.) og multipliciteter.",
+                ),
+                (
+                    "Forbind klasser",
+                    "Forbind klasser med associationer, generaliseringer eller kompositioner.",
+                ),
+                (
+                    "Automatisk tilpasning",
+                    "UML-kassen udvider automatisk sin højde i grid-intervaller, når attributter tilføjes.",
+                ),
+                (
+                    "FDA Farvekoder",
+                    "Sand (#FEFAF7) markerer forretningens egne informationsklasser.",
+                ),
+            ],
         )
-        .style(card_container_style)
-        .padding(14)
-        .width(Length::Fixed(290.0))
-        .height(Length::Fill)
-        .into()
     };
 
     // ==========================================

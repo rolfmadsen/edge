@@ -370,17 +370,14 @@ pub fn view<'a>(
             let from_name = from_node.map(|n| n.label()).unwrap_or("Kilde");
             let to_name = to_node.map(|n| n.label()).unwrap_or("Mål");
 
-            let header = row![
-                text("Relation").size(14).color(ThemeColors::PRIMARY),
-                Space::new().width(Length::Fill),
-                button(text("✕").size(11))
-                    .style(secondary_button_style)
-                    .on_press(Message::GraphEdgeSelected(None))
-                    .padding([2, 5]),
-            ]
-            .align_y(Alignment::Center);
+            let header = crate::ui::inspector_panel::panel_header(
+                crate::ui::inspector_panel::PROPERTIES_TITLE,
+                Some(("Relation", ThemeColors::SLATE_100, ThemeColors::SLATE_300)),
+                Some(Message::GraphEdgeSelected(None)),
+            );
 
             let nodes_info = column![
+                crate::ui::inspector_panel::section_header("Forbindelse"),
                 row![
                     text(format!("{} ➔ {}", from_name, to_name))
                         .size(13)
@@ -392,16 +389,11 @@ pub fn view<'a>(
                         .padding([2, 6]),
                 ]
                 .align_y(Alignment::Center),
-                text("Rediger relationens egenskaber:")
-                    .size(11)
-                    .color(ThemeColors::TEXT_MUTED),
             ]
             .spacing(4);
 
             let kind_selector = column![
-                text("Relationstype:")
-                    .size(11)
-                    .color(ThemeColors::SLATE_600),
+                crate::ui::inspector_panel::section_header("Relationstype"),
                 row![
                     button(text("Association").size(11))
                         .style(if edge.kind() == RelationKind::Association {
@@ -447,9 +439,7 @@ pub fn view<'a>(
             let directed_selector: Element<'a, Message> =
                 if edge.kind() == RelationKind::Association {
                     column![
-                        text("Retning / Navigabilitet:")
-                            .size(11)
-                            .color(ThemeColors::SLATE_600),
+                        crate::ui::inspector_panel::section_header("Retning / Navigabilitet"),
                         checkbox(edge.is_directed())
                             .label("Halv pil (rettet)")
                             .size(14)
@@ -464,9 +454,7 @@ pub fn view<'a>(
                 };
 
             let label_input = column![
-                text("Associationsnavn (valgfri):")
-                    .size(11)
-                    .color(ThemeColors::SLATE_600),
+                crate::ui::inspector_panel::section_header("Associationsnavn (valgfri)"),
                 text_input("f.eks. omfatter, ejer...", edge.label().unwrap_or(""))
                     .id("edge_label_input")
                     .style(modern_input_style)
@@ -492,38 +480,31 @@ pub fn view<'a>(
             ]
             .spacing(12);
 
-            container(scrollable(insp_col))
-                .style(card_container_style)
-                .padding(14)
-                .width(Length::Fixed(290.0))
-                .height(Length::Fill)
-                .into()
+            crate::ui::inspector_panel::panel_container(insp_col.into())
         } else {
-            container(
+            crate::ui::inspector_panel::panel_container(
                 text("Relation ikke fundet")
                     .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
+                    .color(ThemeColors::TEXT_MUTED)
+                    .into(),
             )
-            .width(Length::Fixed(290.0))
-            .height(Length::Fill)
-            .into()
         }
     } else if let Some(selected_id) = selected_node_id {
         if let Some(node) = concept_graph.find_node(selected_id) {
             match (is_inline_editing, editor_state) {
                 (true, Some(editor)) => {
+                    let header = crate::ui::inspector_panel::panel_header(
+                        crate::ui::inspector_panel::PROPERTIES_TITLE,
+                        Some((
+                            "Hurtigredigering",
+                            ThemeColors::FDA_BORROWED_BLUE_BG,
+                            ThemeColors::FDA_BORROWED_BLUE,
+                        )),
+                        Some(Message::CancelConceptEdit),
+                    );
+
                     let mut edit_col = column![
-                        row![
-                            text("Hurtigredigering")
-                                .size(14)
-                                .color(ThemeColors::PRIMARY),
-                            Space::new().width(Length::Fill),
-                            button(text("✕").size(11))
-                                .style(secondary_button_style)
-                                .on_press(Message::CancelConceptEdit)
-                                .padding([2, 5]),
-                        ]
-                        .align_y(Alignment::Center),
+                        header,
                         text("Rediger nodens begreb direkte:")
                             .size(11)
                             .color(ThemeColors::TEXT_MUTED),
@@ -545,9 +526,7 @@ pub fn view<'a>(
 
                     edit_col = edit_col.push(
                         column![
-                            text("Foretrukken term *")
-                                .size(11)
-                                .color(ThemeColors::SLATE_700),
+                            crate::ui::inspector_panel::section_header("Foretrukken term *"),
                             text_input("Foretrukken term...", &editor.preferred_term)
                                 .id("preferred_term_input")
                                 .style(modern_input_style)
@@ -563,9 +542,9 @@ pub fn view<'a>(
 
                     edit_col = edit_col.push(
                         column![
-                            text("Definition (Aristoteles' formel) *")
-                                .size(11)
-                                .color(ThemeColors::SLATE_700),
+                            crate::ui::inspector_panel::section_header(
+                                "Definition (Aristoteles' formel) *"
+                            ),
                             text_input("Definition...", &editor.definition)
                                 .style(modern_input_style)
                                 .on_input(|v| {
@@ -593,12 +572,7 @@ pub fn view<'a>(
 
                     edit_col = edit_col.push(edit_actions);
 
-                    container(scrollable(edit_col.spacing(10)))
-                        .style(card_container_style)
-                        .padding(14)
-                        .width(Length::Fixed(290.0))
-                        .height(Length::Fill)
-                        .into()
+                    crate::ui::inspector_panel::panel_container(edit_col.spacing(10).into())
                 }
                 _ => {
                     let concept = concepts.iter().find(|c| c.id() == node.concept_id());
@@ -619,30 +593,15 @@ pub fn view<'a>(
                         )
                     };
 
-                    let badge = container(text(badge_text).size(11).color(ThemeColors::SLATE_800))
-                        .style(move |_| container::Style {
-                            background: Some(iced::Background::Color(badge_bg)),
-                            border: iced::Border {
-                                color: badge_border,
-                                width: 1.0,
-                                radius: 4.0.into(),
-                            },
-                            ..Default::default()
-                        })
-                        .padding([3, 8]);
+                    let header = crate::ui::inspector_panel::panel_header(
+                        crate::ui::inspector_panel::PROPERTIES_TITLE,
+                        Some((badge_text, badge_bg, badge_border)),
+                        Some(Message::GraphNodeSelected(None)),
+                    );
 
                     let mut insp = column![
-                        row![
-                            text("Inspector").size(11).color(ThemeColors::TEXT_MUTED),
-                            Space::new().width(Length::Fill),
-                            badge,
-                            button(text("✕").size(11))
-                                .style(secondary_button_style)
-                                .on_press(Message::GraphNodeSelected(None))
-                                .padding([2, 5]),
-                        ]
-                        .align_y(Alignment::Center),
-                        text(title).size(18).color(ThemeColors::SLATE_900),
+                        header,
+                        text(title).size(16).color(ThemeColors::SLATE_900),
                     ]
                     .spacing(8);
 
@@ -650,7 +609,7 @@ pub fn view<'a>(
                         insp = insp.push(
                             container(
                                 column![
-                                    text("Definition").size(11).color(ThemeColors::TEXT_MUTED),
+                                    crate::ui::inspector_panel::section_header("Definition"),
                                     text(if c.definition().is_empty() {
                                         "Ingen definition angivet."
                                     } else {
@@ -691,11 +650,9 @@ pub fn view<'a>(
 
                     if !connected_edges.is_empty() {
                         insp = insp.push(Space::new().height(4));
-                        insp = insp.push(
-                            text("Tilknyttede relationer:")
-                                .size(12)
-                                .color(ThemeColors::PRIMARY),
-                        );
+                        insp = insp.push(crate::ui::inspector_panel::section_header(
+                            "Tilknyttede relationer:",
+                        ));
 
                         for edge in connected_edges {
                             let from_node = concept_graph.find_node(edge.from());
@@ -737,57 +694,45 @@ pub fn view<'a>(
                         }
                     }
 
-                    container(scrollable(insp.spacing(8)))
-                        .style(card_container_style)
-                        .padding(14)
-                        .width(Length::Fixed(290.0))
-                        .height(Length::Fill)
-                        .into()
+                    crate::ui::inspector_panel::panel_container(insp.spacing(8).into())
                 }
             }
         } else {
-            container(
+            crate::ui::inspector_panel::panel_container(
                 text("Ingen node valgt")
                     .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
+                    .color(ThemeColors::TEXT_MUTED)
+                    .into(),
             )
-            .width(Length::Fixed(290.0))
-            .height(Length::Fill)
-            .into()
         }
     } else {
-        container(
-            column![
-                text("💡 Begrebsmodel Studio")
-                    .size(14)
-                    .color(ThemeColors::PRIMARY),
-                text("• Venstre palet: Klik [+] for at tilføje et begreb til diagrammet.")
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
-                text("• Canvas: Træk en node med musen for at ændre placering.")
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
-                text("• Klik '+ Opret Relation' for at forbinde begreber.")
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
-                text("• FDA Sand (#FEFAF7) = Lokalt begreb.")
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
-                text("• FDA Blå (#87CDEB) = Lånt begreb.")
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
-                text("• 'Fjern fra diagram' fjerner kun kassen på canvas - begrebet bevares i projektet.")
-                    .size(12)
-                    .color(ThemeColors::TEXT_MUTED),
-            ]
-            .spacing(8),
+        crate::ui::inspector_panel::guidance_panel(
+            "Begrebsmodel",
+            &[
+                (
+                    "Tilføj begreber til diagram",
+                    "Klik [+] ud for et begreb i venstre palet for at placere det på canvas.",
+                ),
+                (
+                    "Flyt og placer",
+                    "Træk noder på canvas med musen for at organisere diagrammet overskueligt.",
+                ),
+                (
+                    "Opret relation",
+                    "Klik '+ Opret Relation' for at forbinde begreber med association, generalisering eller komposition.",
+                ),
+                (
+                    "FDA Farvekoder",
+                    "Sand (#FEFAF7) = Eget lokalt begreb. Blå (#87CDEB) = Indlånt/genbrugt begreb.",
+                ),
+                (
+                    "Fjern fra diagram",
+                    "'Fjern fra diagram' fjerner kun kassen på canvas – begrebet bevares i begrebslisten.",
+                ),
+            ],
         )
-        .style(card_container_style)
-        .padding(14)
-        .width(Length::Fixed(290.0))
-        .height(Length::Fill)
-        .into()
     };
+
 
     row![left_palette, center_content, right_inspector]
         .spacing(12)
