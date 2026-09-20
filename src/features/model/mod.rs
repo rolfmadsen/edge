@@ -217,3 +217,43 @@ impl Default for ModelProject {
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_model_metadata_setters_and_status() {
+        let mut meta = ModelMetadata::new(
+            "Orig",
+            "Desc",
+            "https://orig",
+            "Org",
+            "Domain",
+            "1.0.0",
+            ModelStatus::Draft,
+        );
+
+        meta.set_name("Updated Name");
+        meta.set_description("Updated Desc");
+        meta.set_uri("https://updated");
+        meta.set_responsible_org("Updated Org");
+        meta.set_domain_area("Updated Domain");
+        meta.set_version("2.0.0");
+        meta.set_status(ModelStatus::Approved);
+
+        assert_eq!(meta.name(), "Updated Name");
+        assert_eq!(meta.description(), "Updated Desc");
+        assert_eq!(meta.uri(), "https://updated");
+        assert_eq!(meta.responsible_org(), "Updated Org");
+        assert_eq!(meta.domain_area(), "Updated Domain");
+        assert_eq!(meta.version(), "2.0.0");
+        assert_eq!(meta.status(), ModelStatus::Approved);
+
+        assert_eq!(ModelStatus::ALL.len(), 3);
+        assert_eq!(format!("{}", ModelStatus::Draft), "Udkast (Draft)");
+        assert_eq!(format!("{}", ModelStatus::Candidate), "Kandidat (Candidate)");
+        assert_eq!(format!("{}", ModelStatus::Approved), "Godkendt (Approved)");
+    }
+}
+

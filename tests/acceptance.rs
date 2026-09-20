@@ -2242,3 +2242,86 @@ fn test_directed_association_half_arrow_and_reversal() {
     assert_eq!(filtered_concept_options.len(), 1);
     assert_eq!(filtered_concept_options[0].preferred_term(), "KlasseC");
 }
+
+#[test]
+fn test_task_017_model_metadata_modal_and_3phase_tabs() {
+    let mut app = App::new_with_path(None);
+
+    // 1. Standard fanen ved opstart skal være Tab::ConceptList (3-faset navigation)
+    assert_eq!(app.active_tab(), Tab::ConceptList);
+
+    // Skift imellem faserne
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    assert_eq!(app.active_tab(), Tab::ConceptModel);
+
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    assert_eq!(app.active_tab(), Tab::InformationModel);
+
+    let _ = app.update(Message::SelectTab(Tab::ConceptList));
+    assert_eq!(app.active_tab(), Tab::ConceptList);
+
+    // 2. Åbn ModelMetadataModal
+    assert!(app.metadata_modal().is_none());
+    let _ = app.update(Message::OpenMetadataModal);
+    assert!(app.metadata_modal().is_some());
+
+    // 3. Opdater metadatafelter i modalen
+    let _ = app.update(Message::UpdateMetadataField(
+        edge::ui::app::MetadataField::Name,
+        "Danmarks Grunddatamodel".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        edge::ui::app::MetadataField::Description,
+        "Fællesoffentlig referencemodel".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataStatus(ModelStatus::Approved));
+    let _ = app.update(Message::UpdateMetadataField(
+        edge::ui::app::MetadataField::DomainArea,
+        "Tværoffentlig Grunddata".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        edge::ui::app::MetadataField::ResponsibleOrg,
+        "Digitaliseringsstyrelsen".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        edge::ui::app::MetadataField::Uri,
+        "https://data.gov.dk/model/core/grunddata".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        edge::ui::app::MetadataField::Version,
+        "2.1.0".to_string(),
+    ));
+
+    // Før gem er projektets metadata uændret
+    assert_eq!(app.project().metadata().name(), "Nyt FDA Modelprojekt");
+
+    // 4. Gem ændringer
+    let _ = app.update(Message::SaveMetadataModal);
+    assert!(app.metadata_modal().is_none());
+
+    let meta = app.project().metadata();
+    assert_eq!(meta.name(), "Danmarks Grunddatamodel");
+    assert_eq!(meta.description(), "Fællesoffentlig referencemodel");
+    assert_eq!(meta.status(), ModelStatus::Approved);
+    assert_eq!(meta.domain_area(), "Tværoffentlig Grunddata");
+    assert_eq!(meta.responsible_org(), "Digitaliseringsstyrelsen");
+    assert_eq!(meta.uri(), "https://data.gov.dk/model/core/grunddata");
+    assert_eq!(meta.version(), "2.1.0");
+    assert_eq!(app.save_status(), edge::ui::app::SaveStatus::Unsaved);
+
+    // 5. Test annullering via Escape / Close
+    let _ = app.update(Message::OpenMetadataModal);
+    assert!(app.metadata_modal().is_some());
+    let _ = app.update(Message::UpdateMetadataField(
+        edge::ui::app::MetadataField::Name,
+        "Uønsket ændring".to_string(),
+    ));
+    let _ = app.update(Message::EscapePressed);
+    assert!(app.metadata_modal().is_none());
+    assert_eq!(app.project().metadata().name(), "Danmarks Grunddatamodel");
+
+    let _ = app.update(Message::OpenMetadataModal);
+    let _ = app.update(Message::CloseMetadataModal);
+    assert!(app.metadata_modal().is_none());
+}
+
