@@ -239,8 +239,9 @@ impl CollabChannel {
             if let Ok(mut s) = status_clone.write() {
                 *s = ConnectionStatus::Disconnected;
             }
-            let _ =
-                event_tx.send(CollabNetworkEvent::StatusChanged(ConnectionStatus::Disconnected));
+            let _ = event_tx.send(CollabNetworkEvent::StatusChanged(
+                ConnectionStatus::Disconnected,
+            ));
         });
 
         (
@@ -285,7 +286,9 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .expect("Fejl ved binding af test TCP port");
-        let addr = listener.local_addr().expect("Fejl ved læsning af lokal adresse");
+        let addr = listener
+            .local_addr()
+            .expect("Fejl ved læsning af lokal adresse");
         let state = AppState::new(RelayConfig::default());
         let app = create_app(state);
 
@@ -333,7 +336,11 @@ mod tests {
 
         for _ in 0..10 {
             if let Ok(event) = tokio::time::timeout(Duration::from_millis(500), rx1.recv()).await {
-                if event == Some(CollabNetworkEvent::StatusChanged(ConnectionStatus::Connected)) {
+                if event
+                    == Some(CollabNetworkEvent::StatusChanged(
+                        ConnectionStatus::Connected,
+                    ))
+                {
                     c1_connected = true;
                     break;
                 }
@@ -343,7 +350,11 @@ mod tests {
 
         for _ in 0..10 {
             if let Ok(event) = tokio::time::timeout(Duration::from_millis(500), rx2.recv()).await {
-                if event == Some(CollabNetworkEvent::StatusChanged(ConnectionStatus::Connected)) {
+                if event
+                    == Some(CollabNetworkEvent::StatusChanged(
+                        ConnectionStatus::Connected,
+                    ))
+                {
                     c2_connected = true;
                     break;
                 }
@@ -375,7 +386,10 @@ mod tests {
 
         // 4. Invariant: Klient 1 må IKKE modtage sit eget ekko
         let echo = tokio::time::timeout(Duration::from_millis(150), rx1.recv()).await;
-        assert!(echo.is_err(), "Klient 1 modtog sit eget ekko (loopback fejl)");
+        assert!(
+            echo.is_err(),
+            "Klient 1 modtog sit eget ekko (loopback fejl)"
+        );
 
         // 5. Afbrydelse
         channel1.disconnect();
@@ -400,7 +414,9 @@ mod tests {
         // Næste hændelse bør være enten en fejl eller overgang til Reconnecting
         let mut got_reconnecting = false;
         for _ in 0..5 {
-            if let Ok(Some(event)) = tokio::time::timeout(Duration::from_millis(1000), rx.recv()).await {
+            if let Ok(Some(event)) =
+                tokio::time::timeout(Duration::from_millis(1000), rx.recv()).await
+            {
                 if event == CollabNetworkEvent::StatusChanged(ConnectionStatus::Reconnecting) {
                     got_reconnecting = true;
                     break;

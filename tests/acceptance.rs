@@ -3334,8 +3334,8 @@ async fn test_task_026_e2ee_crypto_and_network_channel() {
     let room_id = RoomId::generate();
     assert!(room_id.as_str().contains('-'));
 
-    let ws_url = build_relay_ws_url("http://127.0.0.1:3000", &room_id)
-        .expect("Gyldig URL skal konstrueres");
+    let ws_url =
+        build_relay_ws_url("http://127.0.0.1:3000", &room_id).expect("Gyldig URL skal konstrueres");
     assert_eq!(
         ws_url.as_str(),
         format!("ws://127.0.0.1:3000/ws?room={}", room_id.as_str())
@@ -3444,4 +3444,3 @@ async fn test_task_026_e2ee_crypto_and_network_channel() {
     host_channel.disconnect();
     guest_channel.disconnect();
 }
-
