@@ -2397,3 +2397,64 @@ fn test_task018_footer_timestamp_and_model_rules_link() {
 
     let _ = std::fs::remove_file(&file_path);
 }
+
+#[test]
+fn test_task019_palette_header_actions_and_search_affinity() {
+    let mut app = App::new_with_path(None);
+
+    // 1. Begrebsmodel fane: Valider søge-nærhed og header-handlinger
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+    assert_eq!(app.active_tab(), Tab::ConceptModel);
+
+    // Initial søgetilstand er tom
+    assert_eq!(app.concept_model_search(), "");
+
+    // Søgning opdaterer søgestrengen
+    let _ = app.update(Message::ConceptModelSearchChanged("køre".to_string()));
+    assert_eq!(app.concept_model_search(), "køre");
+
+    // Start nyt begreb via header-handling
+    let _ = app.update(Message::StartNewConcept);
+    assert!(app.concept_editor().is_some(), "Inline editor skal åbnes ved StartNewConcept");
+
+    // Rendering af view i søgetilstand med aktiv editor
+    let _view = app.view();
+
+    // 2. Informationsmodel fane: Valider søge-nærhed og header-handlinger
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+    assert_eq!(app.active_tab(), Tab::InformationModel);
+
+    // Initial søgetilstand er tom
+    assert_eq!(app.information_model_search(), "");
+
+    // Søgning opdaterer søgestrengen
+    let _ = app.update(Message::InformationClassSearchChanged("bil".to_string()));
+    assert_eq!(app.information_model_search(), "bil");
+
+    // Opret ny klasse direkte via header handling
+    let initial_class_count = app.project().information_model().classes().len();
+    let _ = app.update(Message::CreateInformationClass);
+    assert_eq!(
+        app.project().information_model().classes().len(),
+        initial_class_count + 1,
+        "Ny klasse skal oprettes"
+    );
+
+    // Opret klasse fra begreb via header pick_list
+    // Først tilføjer vi et begreb i projektet
+    let c = Concept::new("Vejkøretøj", "Køretøj på vej", BelongsToDomain::Yes);
+    let c_id = c.id();
+    app.project_mut().concepts_mut().push(c);
+    let _ = app.update(Message::CreateInformationClassFromConcept(ConceptOption {
+        id: c_id,
+        term: "Vejkøretøj".to_string(),
+    }));
+    assert_eq!(
+        app.project().information_model().classes().len(),
+        initial_class_count + 2,
+        "Klasse fra begreb skal oprettes"
+    );
+
+    // Rendering af informationsmodel view med søgning
+    let _view = app.view();
+}
