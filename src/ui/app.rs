@@ -928,8 +928,20 @@ impl App {
         self.collab_participant_count
     }
 
+    /// Returnerer den aktuelle sekvensnummer-tæller — primært til test-inspektion.
+    pub fn collab_seq_value(&self) -> u64 {
+        self.collab_seq.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
     pub fn set_collab_participant_count(&mut self, count: usize) {
+        let previous = self.collab_participant_count;
         self.collab_participant_count = count;
+        // Lag 2-forsvar: vært re-broadcaster snapshot når en ny deltager tilslutter sig,
+        // som sikkerhedsnet hvis relay's last_snapshot-cache ikke nåede at modtage
+        // snapshot inden gæsten forbandt (timing race ved session-opstart).
+        if self.collab_state.is_host() && count > previous {
+            self.broadcast_snapshot();
+        }
     }
 
     pub fn collab_connection_status(&self) -> crate::features::collab::ConnectionStatus {
