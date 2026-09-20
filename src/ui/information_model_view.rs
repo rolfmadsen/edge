@@ -78,11 +78,6 @@ pub fn view<'a>(
             )
             .style(pill_container_style)
             .padding([2, 7]),
-            Space::new().width(Length::Fill),
-            button(text("+ Ny").size(11))
-                .style(primary_button_style)
-                .on_press(Message::CreateInformationClass)
-                .padding([3, 7]),
         ]
         .spacing(6)
         .align_y(Alignment::Center),
@@ -1092,7 +1087,7 @@ pub fn view<'a>(
             &[
                 (
                     "Vælg eller opret klasse",
-                    "Klik på en klasse på canvas eller brug [+ Ny Klasse] i venstre palet.",
+                    "Klik på en klasse på canvas eller brug [+ Opret klasse] på værktøjslinjen.",
                 ),
                 (
                     "Tilknyt begreber",

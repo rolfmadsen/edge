@@ -3,7 +3,7 @@
 **Status**: `DONE`  
 **Intent**: 🔄 `ENHANCEMENT`  
 **Dato**: `2026-09-20`  
-**Scope**: `src/ui/concept_editor.rs`, `src/ui/concept_model_view.rs`, `src/ui/app.rs`, `tests/acceptance.rs`  
+**Scope**: `src/ui/concept_editor.rs`, `src/ui/concept_model_view.rs`, `src/ui/information_model_view.rs`, `src/ui/app.rs`, `tests/acceptance.rs`  
 
 ---
 
@@ -14,9 +14,11 @@ Forbedrer brugergrænsefladen for oprettelse og redigering af begreber samt rens
    - Hvis "Indlånt begreb (Nej)" vælges, fremvises et valgfrit underfelt til `Kildemodel URI` med hjælpetekst.
    - Forbedre hjælpeteksten under `Identifikator (HTTP-URI)` (Bilag D), så det fremgår tydeligt, at dette er begrebets eget unikke ID, uafhængigt af en eventuel kildemodel-URI.
 2. **Oprydning i Begrebsmodel-paletten**:
-   - Fjerne den overflødige `+ Nyt begreb` knap øverst til højre i venstre panel på Begrebsmodel-fanen for at skabe et rent og ensartet udtryk svarende til Informationsmodellen.
+   - Fjerne den overflødige `+ Nyt begreb` knap øverst til højre i venstre panel på Begrebsmodel-fanen for at skabe et rent og ensartet udtryk.
 3. **Oprydning i top-headeren**:
    - Fjerne det overflødige `FDA v2.1` badge ved siden af "Kant" i brand-sektionen i headeren, da modelreglerne allerede fremgår med klikbart link i footeren.
+4. **Oprydning i Informationsmodel-paletten**:
+   - Fjerne knappen `+ Ny` øverst til højre i venstre panel på Informationsmodel-fanen for at give et ensartet minimalistisk design, idet klasser oprettes direkte via canvas-værktøjslinjen (`+ Opret klasse`) eller canvas-dobbeltklik.
 
 ---
 
@@ -26,7 +28,8 @@ Forbedrer brugergrænsefladen for oprettelse og redigering af begreber samt rens
 - [x] **AC3 - Bagudkompatibilitet**: `editor.update_field(ConceptFormField::BelongsToDomain, ...)` fungerer fortsat fejlfrit for ældre kald og tests.
 - [x] **AC4 - Palet-header oprydning**: Knappen `+ Nyt begreb` er fjernet fra venstre palet i `concept_model_view.rs`.
 - [x] **AC5 - Header-badge oprydning**: `FDA v2.1` badget er fjernet fra headerens brand-sektion for at give et renere udtryk.
-- [x] **AC6 - Verifikation**: Alle tests i suiten passerer uden regressionsfejl.
+- [x] **AC6 - Informationsmodel palet-oprydning**: Knappen `+ Ny` er fjernet fra venstre palet i `information_model_view.rs`.
+- [x] **AC7 - Verifikation**: Alle tests i suiten passerer uden regressionsfejl.
 
 ---
 
