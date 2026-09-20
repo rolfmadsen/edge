@@ -2725,27 +2725,37 @@ fn test_attribute_lineage() {
 
 #[test]
 fn test_task022_information_model_association_multiplicities() {
-    use edge::features::concept_model::NodeId;
     use edge::features::information_model::ClassDiagramEdge;
     use edge::ui::diagram_canvas::CanvasEdge;
-    use uuid::Uuid;
 
-    let mut app = App::default();
-    let _ = app.update(Message::SwitchTab(Tab::InformationModel));
+    let temp_dir = std::env::temp_dir();
+    let file_path = temp_dir.join(format!(
+        "test_task022_multiplicities_{}.edge.json",
+        uuid::Uuid::new_v4()
+    ));
 
-    // 1. Opret to klasser i informationsmodellen
-    let _ = app.update(Message::AddInformationClass(
+    let mut app = App::new_with_path(Some(file_path.clone()));
+    let _ = app.update(Message::SelectTab(Tab::InformationModel));
+
+    // 1. Opret to nye klasser i informationsmodellen
+    let initial_count = app.project().information_model().classes().len();
+
+    let _ = app.update(Message::CreateInformationClass);
+    let class_kunde_id = app.project().information_model().classes()[initial_count].id();
+    let _ = app.update(Message::UpdateInformationClassName(
+        class_kunde_id,
         "Kunde".to_string(),
-        "En kunde i systemet".to_string(),
-    ));
-    let _ = app.update(Message::AddInformationClass(
-        "Ordre".to_string(),
-        "En ordre afgivet af en kunde".to_string(),
     ));
 
-    let classes = app.project().information_model().classes();
-    let class_kunde_id = classes[0].id();
-    let class_ordre_id = classes[1].id();
+    let _ = app.update(Message::CreateInformationClass);
+    let class_ordre_id = app.project().information_model().classes()[initial_count + 1].id();
+    let _ = app.update(Message::UpdateInformationClassName(
+        class_ordre_id,
+        "Ordre".to_string(),
+    ));
+
+    let _ = app.update(Message::AddClassToDiagram(class_kunde_id));
+    let _ = app.update(Message::AddClassToDiagram(class_ordre_id));
 
     let node_kunde_id = app
         .project()
@@ -2816,10 +2826,12 @@ fn test_task022_information_model_association_multiplicities() {
 
     // 3. Test oprettelsesdialogen for relationer med multipliciteter
     let _ = app.update(Message::OpenInfoRelationDialog);
-    let _ = app.update(Message::InfoRelationFromChanged(edge::ui::app::NodeOption {
-        id: node_kunde_id,
-        label: "Kunde".to_string(),
-    }));
+    let _ = app.update(Message::InfoRelationFromChanged(
+        edge::ui::app::NodeOption {
+            id: node_kunde_id,
+            label: "Kunde".to_string(),
+        },
+    ));
     let _ = app.update(Message::InfoRelationToChanged(edge::ui::app::NodeOption {
         id: node_ordre_id,
         label: "Ordre".to_string(),
@@ -2883,7 +2895,10 @@ fn test_task022_information_model_association_multiplicities() {
             edge.source_multiplicity(),
             Some(Multiplicity::zero_or_one())
         );
-        assert_eq!(edge.target_multiplicity(), Some(Multiplicity::exactly_one()));
+        assert_eq!(
+            edge.target_multiplicity(),
+            Some(Multiplicity::exactly_one())
+        );
     }
 
     // 5. Test reversering af relation (vender også multipliciteter jf. symmetri)
@@ -2947,10 +2962,11 @@ fn test_task022_information_model_association_multiplicities() {
     {
         let _view = app.view();
     }
+
+    let _ = std::fs::remove_file(&file_path);
 }
 
 #[test]
 fn test_class_diagram_edge() {
     test_task022_information_model_association_multiplicities();
 }
-

@@ -340,6 +340,38 @@ pub fn view<'a>(
         ]
         .spacing(8);
 
+        if dialog.kind != RelationKind::Generalization {
+            dialog_content = dialog_content.push(
+                row![
+                    column![
+                        text("Kildemultiplicitet:")
+                            .size(11)
+                            .color(ThemeColors::SLATE_600),
+                        pick_list(Multiplicity::PRESETS, dialog.source_multiplicity, |m| {
+                            Message::InfoRelationSourceMultiplicityChanged(Some(m))
+                        },)
+                        .placeholder("Vælg...")
+                        .padding(5)
+                        .width(Length::Fixed(180.0)),
+                    ]
+                    .spacing(4),
+                    column![
+                        text("Målmultiplicitet:")
+                            .size(11)
+                            .color(ThemeColors::SLATE_600),
+                        pick_list(Multiplicity::PRESETS, dialog.target_multiplicity, |m| {
+                            Message::InfoRelationTargetMultiplicityChanged(Some(m))
+                        },)
+                        .placeholder("Vælg...")
+                        .padding(5)
+                        .width(Length::Fixed(180.0)),
+                    ]
+                    .spacing(4),
+                ]
+                .spacing(10),
+            );
+        }
+
         if let Some(err) = &dialog.error {
             dialog_content = dialog_content.push(text(err).size(11).color(ThemeColors::ACCENT_RED));
         }
@@ -510,6 +542,60 @@ pub fn view<'a>(
                 Space::new().height(0).into()
             };
 
+            let multiplicity_selector: Element<'a, Message> =
+                if edge.kind() != RelationKind::Generalization {
+                    column![
+                        crate::ui::inspector_panel::section_header("Multipliciteter (FDA §6)"),
+                        row![
+                            column![
+                                text(format!("Kilde ({})", from_class))
+                                    .size(11)
+                                    .color(ThemeColors::SLATE_600),
+                                pick_list(
+                                    Multiplicity::PRESETS,
+                                    edge.source_multiplicity(),
+                                    move |m| Message::InfoUpdateEdgeSourceMultiplicity(
+                                        from_id,
+                                        to_id,
+                                        Some(m)
+                                    ),
+                                )
+                                .placeholder("Vælg...")
+                                .text_size(11.0)
+                                .padding([3, 6])
+                                .width(Length::FillPortion(1)),
+                            ]
+                            .spacing(2)
+                            .width(Length::FillPortion(1)),
+                            column![
+                                text(format!("Mål ({})", to_class))
+                                    .size(11)
+                                    .color(ThemeColors::SLATE_600),
+                                pick_list(
+                                    Multiplicity::PRESETS,
+                                    edge.target_multiplicity(),
+                                    move |m| Message::InfoUpdateEdgeTargetMultiplicity(
+                                        from_id,
+                                        to_id,
+                                        Some(m)
+                                    ),
+                                )
+                                .placeholder("Vælg...")
+                                .text_size(11.0)
+                                .padding([3, 6])
+                                .width(Length::FillPortion(1)),
+                            ]
+                            .spacing(2)
+                            .width(Length::FillPortion(1)),
+                        ]
+                        .spacing(8),
+                    ]
+                    .spacing(4)
+                    .into()
+                } else {
+                    Space::new().height(0).into()
+                };
+
             let label_input = column![
                 crate::ui::inspector_panel::section_header("Associationsnavn (valgfri)"),
                 text_input("f.eks. omfatter, ejer...", edge.label().unwrap_or(""))
@@ -532,6 +618,7 @@ pub fn view<'a>(
                 nodes_info,
                 kind_selector,
                 directed_selector,
+                multiplicity_selector,
                 label_input,
                 actions
             ]

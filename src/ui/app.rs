@@ -66,6 +66,8 @@ pub struct RelationDialogState {
     pub to_node: Option<NodeOption>,
     pub kind: RelationKind,
     pub label: String,
+    pub source_multiplicity: Option<Multiplicity>,
+    pub target_multiplicity: Option<Multiplicity>,
     pub error: Option<String>,
 }
 
@@ -370,11 +372,15 @@ pub enum Message {
     InfoRelationToChanged(NodeOption),
     InfoRelationKindChanged(RelationKind),
     InfoRelationLabelChanged(String),
+    InfoRelationSourceMultiplicityChanged(Option<Multiplicity>),
+    InfoRelationTargetMultiplicityChanged(Option<Multiplicity>),
     InfoCreateRelation,
     InfoEdgeSelected(Option<(NodeId, NodeId)>),
     InfoEdgeCreated(NodeId, NodeId),
     InfoUpdateEdgeKind(NodeId, NodeId, RelationKind),
     InfoUpdateEdgeLabel(NodeId, NodeId, String),
+    InfoUpdateEdgeSourceMultiplicity(NodeId, NodeId, Option<Multiplicity>),
+    InfoUpdateEdgeTargetMultiplicity(NodeId, NodeId, Option<Multiplicity>),
     InfoToggleEdgeDirected(NodeId, NodeId, bool),
     InfoReverseEdge(NodeId, NodeId),
 }
@@ -1065,6 +1071,8 @@ impl App {
                     to_node,
                     kind: RelationKind::Generalization,
                     label: String::new(),
+                    source_multiplicity: None,
+                    target_multiplicity: None,
                     error: None,
                 });
             }
@@ -1561,6 +1569,24 @@ impl App {
                     self.trigger_autosave();
                 }
             }
+            Message::InfoUpdateEdgeSourceMultiplicity(from, to, mult) => {
+                if self
+                    .project
+                    .information_graph_mut()
+                    .update_edge_source_multiplicity(from, to, mult)
+                {
+                    self.trigger_autosave();
+                }
+            }
+            Message::InfoUpdateEdgeTargetMultiplicity(from, to, mult) => {
+                if self
+                    .project
+                    .information_graph_mut()
+                    .update_edge_target_multiplicity(from, to, mult)
+                {
+                    self.trigger_autosave();
+                }
+            }
             Message::InfoToggleEdgeDirected(from, to, directed) => {
                 if self
                     .project
@@ -1632,6 +1658,8 @@ impl App {
                     to_node: None,
                     kind: RelationKind::Generalization,
                     label: String::new(),
+                    source_multiplicity: None,
+                    target_multiplicity: None,
                     error: None,
                 });
             }
@@ -1660,6 +1688,16 @@ impl App {
                     dlg.label = label;
                 }
             }
+            Message::InfoRelationSourceMultiplicityChanged(mult) => {
+                if let Some(dlg) = &mut self.info_relation_dialog {
+                    dlg.source_multiplicity = mult;
+                }
+            }
+            Message::InfoRelationTargetMultiplicityChanged(mult) => {
+                if let Some(dlg) = &mut self.info_relation_dialog {
+                    dlg.target_multiplicity = mult;
+                }
+            }
             Message::InfoCreateRelation => {
                 if let Some(dlg) = &self.info_relation_dialog {
                     match (&dlg.from_node, &dlg.to_node) {
@@ -1677,9 +1715,17 @@ impl App {
                                 } else {
                                     Some(dlg.label.trim().to_string())
                                 };
+                                let (src_mult, tgt_mult) =
+                                    if dlg.kind == RelationKind::Generalization {
+                                        (None, None)
+                                    } else {
+                                        (dlg.source_multiplicity, dlg.target_multiplicity)
+                                    };
                                 self.project
                                     .information_graph_mut()
-                                    .add_relation(from.id, to.id, dlg.kind, label);
+                                    .add_relation_with_multiplicities(
+                                        from.id, to.id, dlg.kind, label, src_mult, tgt_mult,
+                                    );
                                 self.info_relation_dialog = None;
                                 self.trigger_autosave();
                             }

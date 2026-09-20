@@ -466,6 +466,10 @@ pub struct ClassDiagramEdge {
     target_port: Option<PortSide>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     directed: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_multiplicity: Option<Multiplicity>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    target_multiplicity: Option<Multiplicity>,
 }
 
 impl ClassDiagramEdge {
@@ -482,6 +486,8 @@ impl ClassDiagramEdge {
             } else {
                 None
             },
+            source_multiplicity: None,
+            target_multiplicity: None,
         }
     }
 
@@ -505,6 +511,8 @@ impl ClassDiagramEdge {
             } else {
                 None
             },
+            source_multiplicity: None,
+            target_multiplicity: None,
         }
     }
 
@@ -525,6 +533,33 @@ impl ClassDiagramEdge {
             source_port,
             target_port,
             directed,
+            source_multiplicity: None,
+            target_multiplicity: None,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_multiplicities(
+        from: NodeId,
+        to: NodeId,
+        kind: RelationKind,
+        label: Option<String>,
+        source_port: Option<PortSide>,
+        target_port: Option<PortSide>,
+        directed: Option<bool>,
+        source_multiplicity: Option<Multiplicity>,
+        target_multiplicity: Option<Multiplicity>,
+    ) -> Self {
+        Self {
+            from,
+            to,
+            kind,
+            label,
+            source_port,
+            target_port,
+            directed,
+            source_multiplicity,
+            target_multiplicity,
         }
     }
 
@@ -582,6 +617,22 @@ impl ClassDiagramEdge {
 
     pub fn set_directed(&mut self, directed: bool) {
         self.directed = Some(directed);
+    }
+
+    pub fn source_multiplicity(&self) -> Option<Multiplicity> {
+        self.source_multiplicity
+    }
+
+    pub fn set_source_multiplicity(&mut self, mult: Option<Multiplicity>) {
+        self.source_multiplicity = mult;
+    }
+
+    pub fn target_multiplicity(&self) -> Option<Multiplicity> {
+        self.target_multiplicity
+    }
+
+    pub fn set_target_multiplicity(&mut self, mult: Option<Multiplicity>) {
+        self.target_multiplicity = mult;
     }
 }
 
@@ -676,6 +727,18 @@ impl ClassGraph {
         kind: RelationKind,
         label: Option<String>,
     ) {
+        self.add_relation_with_multiplicities(from, to, kind, label, None, None);
+    }
+
+    pub fn add_relation_with_multiplicities(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        kind: RelationKind,
+        label: Option<String>,
+        source_multiplicity: Option<Multiplicity>,
+        target_multiplicity: Option<Multiplicity>,
+    ) {
         if from != to
             && self.find_node(from).is_some()
             && self.find_node(to).is_some()
@@ -684,8 +747,10 @@ impl ClassGraph {
                 .iter()
                 .any(|e| e.from() == from && e.to() == to && e.kind() == kind)
         {
-            self.edges
-                .push(ClassDiagramEdge::new(from, to, kind, label));
+            let mut edge = ClassDiagramEdge::new(from, to, kind, label);
+            edge.set_source_multiplicity(source_multiplicity);
+            edge.set_target_multiplicity(target_multiplicity);
+            self.edges.push(edge);
         }
     }
 
@@ -745,6 +810,34 @@ impl ClassGraph {
         }
     }
 
+    pub fn update_edge_source_multiplicity(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        mult: Option<Multiplicity>,
+    ) -> bool {
+        if let Some(edge) = self.find_edge_mut(from, to) {
+            edge.set_source_multiplicity(mult);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update_edge_target_multiplicity(
+        &mut self,
+        from: NodeId,
+        to: NodeId,
+        mult: Option<Multiplicity>,
+    ) -> bool {
+        if let Some(edge) = self.find_edge_mut(from, to) {
+            edge.set_target_multiplicity(mult);
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn reverse_relation(&mut self, from: NodeId, to: NodeId) -> bool {
         if let Some(pos) = self
             .edges
@@ -756,11 +849,15 @@ impl ClassGraph {
             let old_to = edge.to;
             let old_src_port = edge.source_port;
             let old_tgt_port = edge.target_port;
+            let old_src_mult = edge.source_multiplicity;
+            let old_tgt_mult = edge.target_multiplicity;
 
             edge.from = old_to;
             edge.to = old_from;
             edge.source_port = old_tgt_port;
             edge.target_port = old_src_port;
+            edge.source_multiplicity = old_tgt_mult;
+            edge.target_multiplicity = old_src_mult;
 
             self.edges.push(edge);
             true

@@ -130,6 +130,12 @@ pub trait CanvasEdge {
     fn target_port(&self) -> Option<PortSide> {
         None
     }
+    fn source_multiplicity(&self) -> Option<String> {
+        None
+    }
+    fn target_multiplicity(&self) -> Option<String> {
+        None
+    }
     fn is_directed(&self) -> bool {
         true
     }
@@ -222,6 +228,20 @@ impl CanvasEdge for ClassDiagramEdge {
     }
     fn is_directed(&self) -> bool {
         ClassDiagramEdge::is_directed(self)
+    }
+    fn source_multiplicity(&self) -> Option<String> {
+        if self.kind() == RelationKind::Generalization {
+            None
+        } else {
+            ClassDiagramEdge::source_multiplicity(self).map(|m| m.to_display_string())
+        }
+    }
+    fn target_multiplicity(&self) -> Option<String> {
+        if self.kind() == RelationKind::Generalization {
+            None
+        } else {
+            ClassDiagramEdge::target_multiplicity(self).map(|m| m.to_display_string())
+        }
     }
 }
 
@@ -867,6 +887,73 @@ where
                             ThemeColors::SLATE_800
                         },
                         size: 11.0.into(),
+                        align_x: alignment::Horizontal::Center.into(),
+                        align_y: alignment::Vertical::Center,
+                        ..Default::default()
+                    });
+                }
+            }
+
+            // 6d. Multipliciteter ved kilde- og målporte (UML standard §6)
+            if let Some(edge) = self
+                .edges
+                .iter()
+                .find(|e| e.from() == routed.from && e.to() == routed.to && e.kind() == routed.kind)
+            {
+                if let Some(src_mult) = edge.source_multiplicity() {
+                    let p_src = routed.points[0];
+                    let pos = match routed.from_side {
+                        PortSide::Right => Point::new(p_src.x + 14.0, p_src.y - 10.0),
+                        PortSide::Left => Point::new(p_src.x - 14.0, p_src.y - 10.0),
+                        PortSide::Top => Point::new(p_src.x + 10.0, p_src.y - 12.0),
+                        PortSide::Bottom => Point::new(p_src.x + 10.0, p_src.y + 12.0),
+                    };
+                    let approx_w = src_mult.len() as f32 * 6.5 + 8.0;
+                    let pill = Path::rounded_rectangle(
+                        Point::new(pos.x - approx_w / 2.0, pos.y - 7.0),
+                        Size::new(approx_w, 14.0),
+                        3.0.into(),
+                    );
+                    frame.fill(&pill, Color::from_rgba(1.0, 1.0, 1.0, 0.88));
+                    frame.fill_text(Text {
+                        content: src_mult,
+                        position: pos,
+                        color: if is_selected_edge {
+                            ThemeColors::PRIMARY
+                        } else {
+                            ThemeColors::SLATE_700
+                        },
+                        size: 10.5.into(),
+                        align_x: alignment::Horizontal::Center.into(),
+                        align_y: alignment::Vertical::Center,
+                        ..Default::default()
+                    });
+                }
+
+                if let Some(tgt_mult) = edge.target_multiplicity() {
+                    let p_tgt = *routed.points.last().unwrap_or(&routed.points[0]);
+                    let pos = match routed.to_side {
+                        PortSide::Left => Point::new(p_tgt.x - 14.0, p_tgt.y - 10.0),
+                        PortSide::Right => Point::new(p_tgt.x + 14.0, p_tgt.y - 10.0),
+                        PortSide::Top => Point::new(p_tgt.x + 10.0, p_tgt.y - 12.0),
+                        PortSide::Bottom => Point::new(p_tgt.x + 10.0, p_tgt.y + 12.0),
+                    };
+                    let approx_w = tgt_mult.len() as f32 * 6.5 + 8.0;
+                    let pill = Path::rounded_rectangle(
+                        Point::new(pos.x - approx_w / 2.0, pos.y - 7.0),
+                        Size::new(approx_w, 14.0),
+                        3.0.into(),
+                    );
+                    frame.fill(&pill, Color::from_rgba(1.0, 1.0, 1.0, 0.88));
+                    frame.fill_text(Text {
+                        content: tgt_mult,
+                        position: pos,
+                        color: if is_selected_edge {
+                            ThemeColors::PRIMARY
+                        } else {
+                            ThemeColors::SLATE_700
+                        },
+                        size: 10.5.into(),
                         align_x: alignment::Horizontal::Center.into(),
                         align_y: alignment::Vertical::Center,
                         ..Default::default()
