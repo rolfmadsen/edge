@@ -1055,7 +1055,7 @@ fn test_task_010_information_model_classes_attributes_and_concept_traceability()
         BelongsToDomain::Yes,
     );
 
-    // 2. Opret en Informationsklasse knyttet til begrebet Person
+    // 2. Opret en Klasse knyttet til begrebet Person
     let mut person_class = InformationClass::from_concept(&c_person);
     assert_eq!(person_class.name(), "Person");
     assert_eq!(
@@ -1213,7 +1213,7 @@ fn test_information_model_ui_crud_and_concept_linking() {
     ));
     let _ = app.update(Message::UpdateInformationClassDescription(
         class_id,
-        "En informationsklasse for borgere".to_string(),
+        "En klasse for borgere".to_string(),
     ));
 
     // 5. Knyt begreb til klassen
@@ -1233,7 +1233,7 @@ fn test_information_model_ui_crud_and_concept_linking() {
     assert_eq!(class.name(), "BorgerKlasse");
     assert_eq!(
         class.description(),
-        Some("En informationsklasse for borgere")
+        Some("En klasse for borgere")
     );
     assert!(class.concept_ids().contains(&c_id));
 
@@ -1801,7 +1801,7 @@ fn test_information_model_interactive_edges_drag_to_connect_and_inspector_crud()
     let _ = app.update(Message::SelectTab(Tab::InformationModel));
     assert_eq!(app.active_tab(), Tab::InformationModel);
 
-    // 1. Opret to informationsklasser på diagrammet
+    // 1. Opret to klasser på diagrammet
     let _ = app.update(Message::CreateInformationClass);
     let class1_id = app
         .selected_info_class_id()
@@ -2598,7 +2598,7 @@ fn test_task021_attribute_to_concept_lineage_and_traceability() {
     let concept_id = concept.id();
     let _ = app.project_mut().add_concept(concept);
 
-    // 3. Opret Informationsklasse og tilføj en attribut
+    // 3. Opret Klasse og tilføj en attribut
     let mut class = InformationClass::new("FastEjendom");
     let class_id = class.id();
     let attr = Attribute::new(
@@ -3584,7 +3584,7 @@ fn test_mutation_bridge() {
         Some("Automobil")
     );
 
-    // Tilføj og fjern informationsklasse
+    // Tilføj og fjern klasse
     let _ = app.update(Message::CollabApplyMutation(Box::new(
         ModelMutation::InformationClassAdded(class.clone()),
     )));
@@ -4291,3 +4291,36 @@ fn test_task_031_fda_information_class_properties_and_rendering() {
     assert!(deserialized.is_local(), "Standard is_local skal være true");
     assert_eq!(deserialized.origin_model(), None);
 }
+
+#[test]
+fn test_task033_rebranding_application_to_kant_defaults_and_compatibility() {
+    use edge::features::model::storage::ProjectStorage;
+    use edge::ui::file_dialog::scan_local_project_files;
+    use std::path::PathBuf;
+
+    // 1. Standard filsti skal være model.kant.json
+    assert_eq!(
+        ProjectStorage::default_project_path(),
+        PathBuf::from("model.kant.json"),
+        "Standard filnavn for persistens skal være model.kant.json"
+    );
+
+    // 2. Scan skal finde både .kant.json og .edge.json for bagudkompatibilitet
+    let temp_dir = std::env::temp_dir().join(format!("kant_compat_{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    let kant_file = temp_dir.join("projekt.kant.json");
+    let edge_file = temp_dir.join("gammelt_projekt.edge.json");
+    let other_file = temp_dir.join("notat.txt");
+
+    std::fs::write(&kant_file, "{}").unwrap();
+    std::fs::write(&edge_file, "{}").unwrap();
+    std::fs::write(&other_file, "text").unwrap();
+
+    let scanned = scan_local_project_files(&temp_dir);
+    assert!(scanned.contains(&kant_file), "Skal finde .kant.json");
+    assert!(scanned.contains(&edge_file), "Skal finde ældre .edge.json for bagudkompatibilitet");
+    assert!(!scanned.contains(&other_file), "Skal ignorere irrelevante filer");
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
