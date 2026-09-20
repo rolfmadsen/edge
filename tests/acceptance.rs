@@ -4549,3 +4549,26 @@ fn test_host_rebroadcasts_snapshot_when_participant_count_rises() {
         "Uændret participant_count må ALDRIG sende snapshot"
     );
 }
+
+#[test]
+fn test_collab_channel_connect_spawns_outside_tokio_runtime() {
+    use kant::features::collab::crypto::RoomId;
+    use kant::features::collab::network::{CollabChannel, CollabNetworkEvent, ConnectionStatus};
+
+    assert!(
+        tokio::runtime::Handle::try_current().is_err(),
+        "Testen SKAL køre på en tråd UDEN aktiv Tokio runtime (ligesom Iced GUI tråden)"
+    );
+
+    let room_id = RoomId::new("test-outside-tokio");
+    let (channel, mut rx) = CollabChannel::connect("ws://127.0.0.1:9999/ws", &room_id);
+
+    // Skal modtage StatusChanged(Connecting) fra baggrundstråden
+    let event = rx.blocking_recv();
+    assert_eq!(
+        event,
+        Some(CollabNetworkEvent::StatusChanged(ConnectionStatus::Connecting)),
+        "Kanalen SKAL starte på baggrunds-runtime og udsende Connecting"
+    );
+    drop(channel);
+}

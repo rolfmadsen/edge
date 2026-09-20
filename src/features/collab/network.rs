@@ -40,6 +40,19 @@ static NEXT_SUB_ID: AtomicU64 = AtomicU64::new(1);
 static COLLAB_REGISTRY: LazyLock<std::sync::Mutex<RegistryMap>> =
     LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
 
+static COLLAB_RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| {
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .thread_name("kant-collab-worker")
+        .build()
+        .expect("Failed to initialize Tokio collaboration runtime")
+});
+
+pub fn get_collab_runtime_handle() -> tokio::runtime::Handle {
+    tokio::runtime::Handle::try_current().unwrap_or_else(|_| COLLAB_RUNTIME.handle().clone())
+}
+
 /// Henter næste netværkshændelse for et givet abonnements-ID.
 pub async fn next_registered_collab_event(sub_id: u64) -> Option<CollabNetworkEvent> {
     let receiver = {
@@ -129,8 +142,8 @@ impl CollabChannel {
         let ws_url_res = build_relay_ws_url(relay_url, room_id);
         let status_clone = Arc::clone(&status);
 
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            handle.spawn(async move {
+        let handle = get_collab_runtime_handle();
+        handle.spawn(async move {
             let ws_url = match ws_url_res {
                 Ok(url) => url.to_string(),
                 Err(err) => {
@@ -297,8 +310,7 @@ impl CollabChannel {
             let _ = event_tx.send(CollabNetworkEvent::StatusChanged(
                 ConnectionStatus::Disconnected,
             ));
-            });
-        }
+        });
 
         (
             Self {
