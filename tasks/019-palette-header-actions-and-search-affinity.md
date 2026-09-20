@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 019: Palette UX: Header-Handlinger og Direkte Søge-Nærhed"
 description: "Reorganisering af venstre palet i Begrebsmodel og Informationsmodel, så opret-knapper flyttes op i headerlinjen og søgefeltet støder direkte op til den filtrerede liste"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-20T09:55:00Z" }
 tags: [ui, ux, palette, search, layout, visual-hierarchy]
 ---
 
 # Task 019: Palette UX: Header-Handlinger og Direkte Søge-Nærhed
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🔄 ENHANCEMENT`
 **Oprettet**: `2026-09-20`
 
@@ -24,11 +24,11 @@ tags: [ui, ux, palette, search, layout, visual-hierarchy]
 4. Sikre ensartet visuelt hierarki og spacing på tværs af begge modeller.
 
 ## 📋 Acceptance Criteria
-- [ ] I Begrebsmodellens palet er `+ Nyt begreb` integreret i headeren, og søgefeltet er placeret direkte over begrebslisten.
-- [ ] I Informationsmodellens palet er `+ Ny` og `+ Fra begreb...` placeret over søgefeltet, så søgefeltet støder direkte op til klasselisten.
-- [ ] Søgning filtrerer listerne uændret, men den kognitive belastning og layout-spring er elimineret.
-- [ ] Både tastaturfokus og musenavigation fungerer gnidningsfrit.
-- [ ] 100% test pass rate på `cargo test` og clippy uden advarsler.
+- [x] I Begrebsmodellens palet er `+ Nyt begreb` integreret i headeren, og søgefeltet er placeret direkte over begrebslisten.
+- [x] I Informationsmodellens palet er `+ Ny` og `+ Fra begreb...` placeret over søgefeltet, så søgefeltet støder direkte op til klasselisten.
+- [x] Søgning filtrerer listerne uændret, men den kognitive belastning og layout-spring er elimineret.
+- [x] Både tastaturfokus og musenavigation fungerer gnidningsfrit.
+- [x] 100% test pass rate på `cargo test` og clippy uden advarsler.
 
 ## 🚫 Must NOT
 - Må IKKE fjerne funktionalitet vedrørende oprettelse af begreber eller klasser (inklusive oprettelse fra eksisterende begreb).
@@ -36,8 +36,10 @@ tags: [ui, ux, palette, search, layout, visual-hierarchy]
 
 ## 📝 Revisions
 - 2026-09-20: Oprettet som led i vertikal opsplitning.
+- 2026-09-20: Gennemført og verificeret med TDD gauntlet. Header-handlinger konsolideret og direkte søge-nærhed etableret på tværs af Begrebs- og Informationsmodel.
 
 ## 🧪 Verifikation
 - `cargo check`
 - `cargo test`
 - `cargo clippy -- -D warnings`
+
