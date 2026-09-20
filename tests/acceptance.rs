@@ -3836,7 +3836,7 @@ fn test_task028_collab_ui_modals_and_presence() {
 
     // Standard preset skal være Koyeb Cloud Frankfurt
     assert_eq!(start_modal.preset, RelayServerPreset::Koyeb);
-    assert_eq!(start_modal.current_url(), "wss://kant-relay.koyeb.app/ws");
+    assert_eq!(start_modal.current_url(), "wss://kant.koyeb.app/ws");
     let token = start_modal.ticket.to_token();
     assert!(
         token.starts_with("kant:v1:"),
@@ -4452,7 +4452,7 @@ fn test_task033_rebranding_application_to_kant_defaults_and_compatibility() {
     // 3. Kollaborering: sessionsbillet har præfiks kant:v1: og accepterer edge:v1:
     use kant::features::collab::crypto::{CollabKey, RoomId, SessionTicket};
     let ticket = SessionTicket::new(
-        "wss://kant-relay.koyeb.app/ws",
+        "wss://kant.koyeb.app/ws",
         RoomId::new("RUM-1"),
         CollabKey::generate(),
     );
@@ -4473,7 +4473,7 @@ fn test_task033_rebranding_application_to_kant_defaults_and_compatibility() {
     use kant::ui::app::RelayServerPreset;
     assert_eq!(
         RelayServerPreset::Koyeb.default_url(),
-        "wss://kant-relay.koyeb.app/ws"
+        "wss://kant.koyeb.app/ws"
     );
 }
 
@@ -4487,6 +4487,7 @@ fn test_task033_rebranding_application_to_kant_defaults_and_compatibility() {
 // Fix: set_collab_participant_count() skal kalde broadcast_snapshot() når rollen
 // er Host og deltagerantallet stiger — et lag-2 sikkerhedsnet der sender snapshot
 // direkte til relay (som nu har en aktiv WS-forbindelse) uanset timing.
+
 #[test]
 fn test_host_rebroadcasts_snapshot_when_participant_count_rises() {
     let mut app = App::new_with_path(None);
@@ -4494,7 +4495,7 @@ fn test_host_rebroadcasts_snapshot_when_participant_count_rises() {
 
     // --- Invariant 1: Gæst-rolle må ALDRIG sende snapshot ---
     // Sæt tilstand manuelt som gæst (ingen kanal = broadcast_snapshot returnerer tidligt)
-    app.update(Message::CollabNetworkEventReceived(
+    let _ = app.update(Message::CollabNetworkEventReceived(
         kant::features::collab::CollabNetworkEvent::StatusChanged(
             kant::features::collab::ConnectionStatus::Connected,
         ),

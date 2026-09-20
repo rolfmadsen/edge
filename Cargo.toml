@@ -7,7 +7,7 @@ resolver = "2"
 
 [package]
 name = "kant"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2021"
 authors = ["Rolf Madsen"]
 license = "MIT"
@@ -35,7 +35,7 @@ url = { version = "2.5", features = ["serde"] }
 thiserror = "1.0"
 libc = "0.2"
 chacha20poly1305 = "0.10"
-tokio-tungstenite = "0.26"
+tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
 tokio = { version = "1.43", features = ["rt", "sync", "time", "macros"] }
 base64 = "0.22"
 rand = "0.9"

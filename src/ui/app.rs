@@ -192,7 +192,7 @@ impl RelayServerPreset {
 
     pub fn default_url(&self) -> &'static str {
         match self {
-            Self::Koyeb => "wss://kant-relay.koyeb.app/ws",
+            Self::Koyeb => "wss://kant.koyeb.app/ws",
             Self::InternalOrg => "wss://collab.intern.org/ws",
             Self::LocalDocker => "ws://localhost:8080/ws",
             Self::Custom => "",
@@ -1339,7 +1339,7 @@ impl App {
                     );
                     self.set_collab_session(channel, ticket.key, CollabState::Host);
                     self.set_collab_connection_status(
-                        crate::features::collab::ConnectionStatus::Connected,
+                        crate::features::collab::ConnectionStatus::Connecting,
                     );
                     self.set_collab_participant_count(1);
                     self.broadcast_snapshot();
@@ -1366,7 +1366,7 @@ impl App {
                         );
                         self.set_collab_session(channel, ticket.key, CollabState::Guest);
                         self.set_collab_connection_status(
-                            crate::features::collab::ConnectionStatus::Connected,
+                            crate::features::collab::ConnectionStatus::Connecting,
                         );
                     }
                 }

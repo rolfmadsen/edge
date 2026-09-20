@@ -57,7 +57,9 @@ jobs:
             libwayland-dev \
             libxkbcommon-dev \
             libvulkan1 \
-            libasound2-dev
+            libasound2-dev \
+            libssl-dev \
+            pkg-config
 
       - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
