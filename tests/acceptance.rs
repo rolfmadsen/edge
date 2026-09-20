@@ -4789,3 +4789,76 @@ fn test_task034_collab_edge_and_diagram_sync_lifecycle() {
         "Klasse-relation skal være slettet på gæsten"
     );
 }
+
+#[test]
+fn test_task036_concept_editor_domain_toggle_and_model_ref() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::concept_editor::ConceptFormField;
+
+    let mut app = App::new_with_path(None);
+
+    // 1. Åbn editor via StartNewConcept
+    let _ = app.update(Message::StartNewConcept);
+    assert!(app.concept_editor().is_some());
+
+    // 2. Standard tilstand er lokalt begreb (BelongsToDomain::Yes)
+    let editor = app.concept_editor().unwrap();
+    assert_eq!(editor.belongs_to_domain, BelongsToDomain::Yes);
+    assert!(editor.model_uri.is_empty());
+
+    // 3. Skift til Indlånt begreb (Nej) via SetConceptDomain
+    let _ = app.update(Message::SetConceptDomain(BelongsToDomain::No));
+    let editor = app.concept_editor().unwrap();
+    assert_eq!(editor.belongs_to_domain, BelongsToDomain::No);
+
+    // 4. Udfyld felter inkl. kildemodel URI
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::PreferredTerm,
+        "Person".to_string(),
+    ));
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::Definition,
+        "Et menneske med borgerrettigheder.".to_string(),
+    ));
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::ModelUri,
+        "https://data.gov.dk/model/core/cpr".to_string(),
+    ));
+
+    // 5. Gem begreb og verificer at det gemmes som BelongsToDomain::ModelRef
+    let _ = app.update(Message::SaveConcept);
+    assert!(!app.is_editing_concept());
+    let saved_concept = app
+        .project()
+        .concepts()
+        .iter()
+        .find(|c| c.preferred_term() == "Person")
+        .unwrap();
+    assert_eq!(
+        saved_concept.belongs_to_domain(),
+        &BelongsToDomain::ModelRef("https://data.gov.dk/model/core/cpr".to_string()),
+        "Indlånt begreb med model URI skal gemmes som ModelRef"
+    );
+
+    // 6. Genåbn begrebet i editoren og verificer at kildemodel URI bevares
+    let _ = app.update(Message::EditConcept(saved_concept.id()));
+    let editor = app.concept_editor().unwrap();
+    assert_eq!(editor.belongs_to_domain, BelongsToDomain::No);
+    assert_eq!(editor.model_uri, "https://data.gov.dk/model/core/cpr");
+
+    // 7. Skift tilbage til lokalt begreb og gem -> skal blive BelongsToDomain::Yes
+    let _ = app.update(Message::SetConceptDomain(BelongsToDomain::Yes));
+    let _ = app.update(Message::SaveConcept);
+    let updated_concept = app
+        .project()
+        .concepts()
+        .iter()
+        .find(|c| c.preferred_term() == "Person")
+        .unwrap();
+    assert_eq!(
+        updated_concept.belongs_to_domain(),
+        &BelongsToDomain::Yes,
+        "Når skiftet til lokalt begreb, skal det gemmes som BelongsToDomain::Yes"
+    );
+}
+
