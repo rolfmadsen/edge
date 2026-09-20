@@ -75,21 +75,26 @@ type SideAttachment = (usize, RelationKind, bool);
 type SideAttachmentMap = HashMap<(NodeId, PortSide), Vec<SideAttachment>>;
 
 #[derive(Debug, Clone)]
-struct EdgePortAssignment {
-    edge_idx: usize,
-    from_id: NodeId,
-    to_id: NodeId,
-    kind: RelationKind,
-    from_side: PortSide,
-    to_side: PortSide,
-    from_slot_offset: f32,
-    to_slot_offset: f32,
-    channel_index: usize,
+pub struct EdgePortAssignment {
+    pub edge_idx: usize,
+    pub from_id: NodeId,
+    pub to_id: NodeId,
+    pub kind: RelationKind,
+    pub from_side: PortSide,
+    pub to_side: PortSide,
+    pub from_slot_offset: f32,
+    pub to_slot_offset: f32,
+    pub channel_index: usize,
 }
 
 pub struct EdgeRouter;
 
 impl EdgeRouter {
+    pub fn assign_ports(nodes: &[DiagramNode], edges: &[DiagramEdge]) -> Vec<EdgePortAssignment> {
+        let node_map: HashMap<NodeId, &DiagramNode> = nodes.iter().map(|n| (n.id(), n)).collect();
+        Self::compute_port_assignments(&node_map, edges)
+    }
+
     pub fn route_edges(nodes: &[DiagramNode], edges: &[DiagramEdge]) -> Vec<RoutedEdge> {
         let node_map: HashMap<NodeId, &DiagramNode> = nodes.iter().map(|n| (n.id(), n)).collect();
 

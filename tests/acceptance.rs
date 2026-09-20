@@ -1971,6 +1971,98 @@ fn test_edges_do_not_cross_unnecessarily_when_sorted_vertically() {
 }
 
 #[test]
+fn test_relation_bundling_by_type_and_direction() {
+    use kant::features::concept_model::{DiagramEdge, DiagramNode, PortSide, RelationKind};
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::edge_router::EdgeRouter;
+
+    // 1. Scenarie: Målnode modtager to generaliseringer fra bunden, og har en udgående komposition fra bunden
+    let c_person = Concept::new("Person", "Superklasse", BelongsToDomain::Yes);
+    let c_org = Concept::new("Organisation", "Subklasse A", BelongsToDomain::Yes);
+    let c_cpr = Concept::new("CprPerson", "Subklasse B", BelongsToDomain::Yes);
+    let c_comp = Concept::new("OrgPerson", "Komponent", BelongsToDomain::Yes);
+
+    let node_person = DiagramNode::new(&c_person, 300.0, 100.0);
+    let node_org = DiagramNode::new(&c_org, 100.0, 300.0);
+    let node_cpr = DiagramNode::new(&c_cpr, 300.0, 300.0);
+    let node_comp = DiagramNode::new(&c_comp, 500.0, 300.0);
+
+    let nodes = vec![
+        node_person.clone(),
+        node_org.clone(),
+        node_cpr.clone(),
+        node_comp.clone(),
+    ];
+
+    let edge_org_gen = DiagramEdge::new(node_org.id(), node_person.id(), RelationKind::Generalization);
+    let edge_cpr_gen = DiagramEdge::new(node_cpr.id(), node_person.id(), RelationKind::Generalization);
+    let edge_person_comp = DiagramEdge::new(node_person.id(), node_comp.id(), RelationKind::Composition);
+
+    let edges = vec![edge_org_gen, edge_cpr_gen, edge_person_comp];
+    let assignments = EdgeRouter::assign_ports(&nodes, &edges);
+
+    let assign_org = assignments.iter().find(|a| a.from_id == node_org.id()).unwrap();
+    let assign_cpr = assignments.iter().find(|a| a.from_id == node_cpr.id()).unwrap();
+    let assign_comp = assignments.iter().find(|a| a.from_id == node_person.id()).unwrap();
+
+    // Begge generaliseringer skal ramme Person i bunden (to_side == Bottom)
+    assert_eq!(assign_org.to_side, PortSide::Bottom);
+    assert_eq!(assign_cpr.to_side, PortSide::Bottom);
+    assert_eq!(assign_comp.from_side, PortSide::Bottom);
+
+    // BUNDLING: De to indgående generaliseringer skal dele præcist samme to_slot_offset (bundlet port)
+    assert_eq!(
+        assign_org.to_slot_offset, assign_cpr.to_slot_offset,
+        "Indgående relationer af samme type (Generalisering) skal bundles i samme port-slot"
+    );
+
+    // Den udgående komposition skal have sit eget adskilte slot
+    assert_ne!(
+        assign_org.to_slot_offset, assign_comp.from_slot_offset,
+        "Forskellige relationstyper eller retninger må ikke dele slot"
+    );
+
+    // Spatiel rækkefølge: Generaliseringerne (noder ved x=100 og x=300) skal ligge til venstre for kompositionen (node ved x=500)
+    assert!(
+        assign_org.to_slot_offset < assign_comp.from_slot_offset,
+        "Spatiel sortering skal placere generaliseringsbundtet til venstre for kompositionen"
+    );
+
+    // Routes: Generaliseringerne skal ramme samme endepunkt
+    let routes = EdgeRouter::route_edges(&nodes, &edges);
+    let route_org = routes.iter().find(|r| r.from == node_org.id()).unwrap();
+    let route_cpr = routes.iter().find(|r| r.from == node_cpr.id()).unwrap();
+    assert_eq!(
+        route_org.points.last(), route_cpr.points.last(),
+        "De to generaliseringer skal ramme samme pilehoved-forankringspunkt"
+    );
+
+    // 2. Scenarie: Udgående bundling - to udgående associationer fra samme side af en kildenode
+    let c_root = Concept::new("Root", "Kilde", BelongsToDomain::Yes);
+    let c_left = Concept::new("LeftTarget", "Mål 1", BelongsToDomain::Yes);
+    let c_right = Concept::new("RightTarget", "Mål 2", BelongsToDomain::Yes);
+
+    let node_root = DiagramNode::new(&c_root, 300.0, 100.0);
+    let node_left = DiagramNode::new(&c_left, 150.0, 300.0);
+    let node_right = DiagramNode::new(&c_right, 450.0, 300.0);
+
+    let nodes2 = vec![node_root.clone(), node_left.clone(), node_right.clone()];
+    let edge_a = DiagramEdge::new(node_root.id(), node_left.id(), RelationKind::Association);
+    let edge_b = DiagramEdge::new(node_root.id(), node_right.id(), RelationKind::Association);
+
+    let assignments2 = EdgeRouter::assign_ports(&nodes2, &[edge_a, edge_b]);
+    let assign_a = assignments2.iter().find(|a| a.to_id == node_left.id()).unwrap();
+    let assign_b = assignments2.iter().find(|a| a.to_id == node_right.id()).unwrap();
+
+    assert_eq!(assign_a.from_side, PortSide::Bottom);
+    assert_eq!(assign_b.from_side, PortSide::Bottom);
+    assert_eq!(
+        assign_a.from_slot_offset, assign_b.from_slot_offset,
+        "Udgående relationer af samme type på samme side skal bundles i samme kildeslot"
+    );
+}
+
+#[test]
 fn test_stateful_edge_port_hysteresis_and_persistence() {
     use kant::features::concept_model::{DiagramEdge, DiagramNode, PortSide, RelationKind};
     use kant::features::concepts::{BelongsToDomain, Concept};
