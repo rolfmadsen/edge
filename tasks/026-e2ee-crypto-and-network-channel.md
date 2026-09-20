@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 026: E2EE Klientside Krypto & WebSocket Netværkskanal"
 description: "Implementering af ChaCha20-Poly1305 kryptering/dekryptering i src/features/collab/crypto.rs, sessionsbillet (token) serialisering/parsing og tokio-tungstenite netværkskanal til Iced"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-20T11:55:00Z" }
 tags: [collaboration, crypto, chacha20poly1305, e2ee, websocket, tokio-tungstenite]
 ---
 
 # Task 026: E2EE Klientside Krypto & WebSocket Netværkskanal
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-20`
 
@@ -29,16 +29,16 @@ tags: [collaboration, crypto, chacha20poly1305, e2ee, websocket, tokio-tungsteni
 4. Gennemføre omfattende property-based tests med `proptest`, der beviser, at vilkårlig data kan krypteres og dekrypteres tabsløst, og at dekryptering med forkert nøgle eller manipuleret ciphertext medfører øjeblikkelig afvisning (AEAD auth-tag validering).
 
 ## 📋 Acceptance Criteria
-- [ ] `chacha20poly1305` og `tokio-tungstenite` tilføjes til `edge` dependencies.
-- [ ] `src/features/collab/crypto.rs` implementerer `CollabKey::generate()`, `encrypt(...)` og `decrypt(...)`.
-- [ ] `SessionTicket` struct kan serialiseres til/fra formatet `edge:v1:<base64-payload>` indeholdende relay URL, rum og nøgle.
-- [ ] Enhedstests beviser:
+- [x] `chacha20poly1305` og `tokio-tungstenite` tilføjes til `edge` dependencies.
+- [x] `src/features/collab/crypto.rs` implementerer `CollabKey::generate()`, `encrypt(...)` og `decrypt(...)`.
+- [x] `SessionTicket` struct kan serialiseres til/fra formatet `edge:v1:<base64-payload>` indeholdende relay URL, rum og nøgle.
+- [x] Enhedstests beviser:
   - En vilkårlig byte-sekvens krypteres og dekrypteres fejlfrit med samme nøgle.
   - Dekryptering med en anden nøgle fejler med `CryptoError::AuthenticationFailed`.
   - Manipulerede ciphertexts fejler altid (integritetsbeskyttelse).
-- [ ] `src/features/collab/network.rs` etablerer WebSocket-forbindelse til den specificerede relay-URL og det tilhørende rum.
-- [ ] Netværkskanalen understøtter automatisk reconnection med exponential backoff ved kortvarige netværksudfald.
-- [ ] `cargo test` og `cargo clippy -- -D warnings` passerer 100%.
+- [x] `src/features/collab/network.rs` etablerer WebSocket-forbindelse til den specificerede relay-URL og det tilhørende rum.
+- [x] Netværkskanalen understøtter automatisk reconnection med exponential backoff ved kortvarige netværksudfald.
+- [x] `cargo test` og `cargo clippy -- -D warnings` passerer 100%.
 
 ## 🚫 Must NOT
 - Må IKKE sende ukrypteret data over netværket (alt indhold skal passere gennem `encrypt()` før afsendelse).
