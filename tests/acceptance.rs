@@ -4935,10 +4935,18 @@ fn test_task_038_concept_list_alphabetical_sorting() {
     let c_kamel = Concept::new("Kamel", "Et ørkendyr med pukler", BelongsToDomain::Yes);
     let c_baad = Concept::new("Båd", "Et fartøj på vandet", BelongsToDomain::Yes);
 
-    app.project_mut().add_concept(c_zebra).expect("skal tilføje Zebra");
-    app.project_mut().add_concept(c_abe).expect("skal tilføje Abe");
-    app.project_mut().add_concept(c_kamel).expect("skal tilføje Kamel");
-    app.project_mut().add_concept(c_baad).expect("skal tilføje Båd");
+    app.project_mut()
+        .add_concept(c_zebra)
+        .expect("skal tilføje Zebra");
+    app.project_mut()
+        .add_concept(c_abe)
+        .expect("skal tilføje Abe");
+    app.project_mut()
+        .add_concept(c_kamel)
+        .expect("skal tilføje Kamel");
+    app.project_mut()
+        .add_concept(c_baad)
+        .expect("skal tilføje Båd");
 
     // 2. Verificer at App::filtered_concepts() returnerer begreberne alfabetisk sorteret
     let terms: Vec<&str> = app

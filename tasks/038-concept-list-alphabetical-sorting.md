@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 038: Alfabetisk Sortering af Begrebslisten og Paletten"
 description: "Automatisk alfabetisk sortering af begreber i Begrebslisten (Fane 1), model-repository og Begrebsmodellens palet (Fane 2)"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-21T19:20:00Z" }
 tags: [concepts, sorting, list, palette, ergonomics]
 ---
 
 # Task 038: Alfabetisk Sortering af Begrebslisten og Paletten
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🔄 `ENHANCEMENT`  
 **Oprettet**: `2026-09-21`  
 **Scope**: `src/features/model/mod.rs`, `src/ui/app.rs`, `src/ui/concept_model_view.rs`, `tests/acceptance.rs`
@@ -31,10 +31,10 @@ Sikre at begreber automatisk præsenteres og vedligeholdes i alfabetisk rækkef�
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Automatisk sortering i `Project`**: `Project::sort_concepts_alphabetically()` sorterer alle begreber alfabetisk efter `preferred_term` case-insensitivt. `add_concept` bevarer eller genskaber alfabetisk sortering.
-- [ ] **AC2 - Alfabetisk Begrebsliste (Fane 1)**: `app.filtered_concepts()` returnerer referencer sorteret alfabetisk. Ved oprettelse af begreb med term f.eks. "Aalborg" eller "Båd" placeres det korrekt i forhold til eksisterende begreber.
-- [ ] **AC3 - Alfabetisk Palet i Begrebsmodel (Fane 2)**: Begreberne i venstre repository-browser i `concept_model_view` er sorteret alfabetisk fra top til bund.
-- [ ] **AC4 - Bevarelse af Modelintegritet & Collab**: Sorteringen påvirker ikke UUID-identifikatorer, diagramknuder, relationer eller collab-synkronisering.
+- [x] **AC1 - Automatisk sortering i `Project`**: `Project::sort_concepts_alphabetically()` sorterer alle begreber alfabetisk efter `preferred_term` case-insensitivt. `add_concept` bevarer eller genskaber alfabetisk sortering.
+- [x] **AC2 - Alfabetisk Begrebsliste (Fane 1)**: `app.filtered_concepts()` returnerer referencer sorteret alfabetisk. Ved oprettelse af begreb med term f.eks. "Aalborg" eller "Båd" placeres det korrekt i forhold til eksisterende begreber.
+- [x] **AC3 - Alfabetisk Palet i Begrebsmodel (Fane 2)**: Begreberne i venstre repository-browser i `concept_model_view` er sorteret alfabetisk fra top til bund.
+- [x] **AC4 - Bevarelse af Modelintegritet & Collab**: Sorteringen påvirker ikke UUID-identifikatorer, diagramknuder, relationer eller collab-synkronisering.
 
 ---
 
