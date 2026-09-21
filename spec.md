@@ -19,6 +19,8 @@ tags: [specification, architecture, invariants]
    - Reaktiv og type-sikker brugerflade i Iced adskilt fra det rene domænelag.
 4. **Deterministic Verification**:
    - Multi-layer verifikations-pipeline styret af deklarativ konfiguration (`gauntlet.toml`).
+5. **Cross-Platform OS Integration**:
+   - Native fildialoger (`rfd`), indlejrede applikationsikoner (`.ico`, `.svg`) og glidende rendering uden platforms-hiccups på Windows, macOS og Linux.
 
 ## 📐 Architecture & Feature Modules
 - `src/features/model/`: Overordnet FDA modelcontainer og metadata (§06-§13).
@@ -33,6 +35,7 @@ tags: [specification, architecture, invariants]
 
 ## 🚫 Must NOT (System Invariants)
 - Må IKKE introducere skjulte runtime-afhængigheder eller udokumenterede baggrundsprocesser (Zero-Daemon).
+- Må IKKE afhænge af platforms-specifikke kommandolinjeværktøjer som `zenity` til fildialoger; platformsintegration skal ske via native cross-platform biblioteker (`rfd`).
 - Må IKKE omgå deklarative verifikationslag eller ignorere fejlede tests.
 - Må IKKE sammenblande FDA forretningsregler og validering med UI-renderingswidgets.
 - Må IKKE foretage utilsigtede remote publication kommandoer (`git push`).
