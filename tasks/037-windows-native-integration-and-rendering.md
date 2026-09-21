@@ -1,6 +1,6 @@
 # Task 037: Windows Native Integration & Rendering Optimering
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🐛 `BUG FIX`  
 **Dato**: `2026-09-21`  
 **Scope**: `src/ui/file_dialog.rs`, `src/main.rs`, `Cargo.toml`, `build.rs`, `assets/icons/`, `docs/adr/010-cross-platform-native-dialogs-and-os-packaging.md`  
@@ -19,11 +19,11 @@ Løser tre identificerede Windows-specifikke fejl og forbedrer desktop-oplevelse
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Native Fildialog (`rfd`)**: `pick_file_to_open()` og `pick_file_to_save()` i `src/ui/file_dialog.rs` anvender `rfd::FileDialog` i stedet for `zenity`. Filtre for `*.kant.json`, `*.edge.json`, `*.json` og `*` bevares.
-- [ ] **AC2 - Windows Ressource-Indlejring**: `build.rs` konfigurerer `winres` under `cfg(windows)` med `assets/icons/kant.ico`. `kant.ico` indeholder gyldige ikoner (16x16, 32x32, 48x48, 256x256).
-- [ ] **AC3 - Runtime Vinduesikon**: `src/main.rs` initialiserer `iced::application` med `iced::window::Settings` indeholdende et gyldigt `iced::window::Icon`.
-- [ ] **AC4 - Resize-Optimering**: `src/main.rs` er konfigureret med `.antialiasing(false)` for at forhindre WGPU/DX12 swapchain stalls på Windows.
-- [ ] **AC5 - Headless & Cross-Platform Invarianter**: Alle enheds- og accepttests i `cargo test --workspace` kører fejlfrit uden at forsøge at åbne grafiske vinduer eller afhænge af `zenity`.
+- [x] **AC1 - Native Fildialog (`rfd`)**: `pick_file_to_open()` og `pick_file_to_save()` i `src/ui/file_dialog.rs` anvender `rfd::FileDialog` i stedet for `zenity`. Filtre for `*.kant.json`, `*.edge.json`, `*.json` og `*` bevares.
+- [x] **AC2 - Windows Ressource-Indlejring**: `build.rs` konfigurerer `winres` under `cfg(windows)` med `assets/icons/kant.ico`. `kant.ico` indeholder gyldige ikoner (16x16, 32x32, 48x48, 256x256).
+- [x] **AC3 - Runtime Vinduesikon**: `src/main.rs` initialiserer `iced::application` med `iced::window::Settings` indeholdende et gyldigt `iced::window::Icon`.
+- [x] **AC4 - Resize-Optimering**: `src/main.rs` er konfigureret med `.antialiasing(false)` for at forhindre WGPU/DX12 swapchain stalls på Windows.
+- [x] **AC5 - Headless & Cross-Platform Invarianter**: Alle enheds- og accepttests i `cargo test --workspace` kører fejlfrit uden at forsøge at åbne grafiske vinduer eller afhænge af `zenity`.
 
 ---
 
