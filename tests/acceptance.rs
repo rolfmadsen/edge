@@ -4917,3 +4917,57 @@ fn test_task037_windows_native_integration_and_rendering() {
         "build.rs skal sætte kant.ico som ressource"
     );
 }
+
+#[test]
+fn test_task_038_concept_list_alphabetical_sorting() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::ui::app::App;
+
+    // 1. Initialiser App og tilføj begreber i ikke-alfabetisk rækkefølge
+    let mut app = App::new_with_path(None);
+    // Ryd eventuelle standardbegreber
+    while let Some(c) = app.project().concepts().first().cloned() {
+        app.project_mut().remove_concept(c.id());
+    }
+
+    let c_zebra = Concept::new("Zebra", "Et stribet dyr", BelongsToDomain::Yes);
+    let c_abe = Concept::new("Abe", "En primat", BelongsToDomain::Yes);
+    let c_kamel = Concept::new("Kamel", "Et ørkendyr med pukler", BelongsToDomain::Yes);
+    let c_baad = Concept::new("Båd", "Et fartøj på vandet", BelongsToDomain::Yes);
+
+    app.project_mut().add_concept(c_zebra).expect("skal tilføje Zebra");
+    app.project_mut().add_concept(c_abe).expect("skal tilføje Abe");
+    app.project_mut().add_concept(c_kamel).expect("skal tilføje Kamel");
+    app.project_mut().add_concept(c_baad).expect("skal tilføje Båd");
+
+    // 2. Verificer at App::filtered_concepts() returnerer begreberne alfabetisk sorteret
+    let terms: Vec<&str> = app
+        .filtered_concepts()
+        .iter()
+        .map(|c| c.preferred_term())
+        .collect();
+
+    assert_eq!(
+        terms,
+        vec!["Abe", "Båd", "Kamel", "Zebra"],
+        "filtered_concepts() skal altid returnere begreber alfabetisk sorteret"
+    );
+
+    // 3. Tilføj et nyt begreb 'Delfin' og verificer at det indsættes korrekt midt i listen
+    let c_delfin = Concept::new("Delfin", "Et havpattedyr", BelongsToDomain::Yes);
+    app.project_mut()
+        .add_concept(c_delfin)
+        .expect("skal tilføje Delfin");
+
+    let updated_terms: Vec<&str> = app
+        .filtered_concepts()
+        .iter()
+        .map(|c| c.preferred_term())
+        .collect();
+
+    assert_eq!(
+        updated_terms,
+        vec!["Abe", "Båd", "Delfin", "Kamel", "Zebra"],
+        "Nyt begreb skal automatisk fremgå på sin alfabetiske plads i Begrebslisten"
+    );
+}
