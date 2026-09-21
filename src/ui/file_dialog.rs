@@ -9,57 +9,44 @@ pub enum DialogResult {
 
 /// Åbner native filvælger til at vælge en eksisterende FDA modelprojektfil (*.kant.json / *.edge.json / *.json)
 pub fn pick_file_to_open() -> DialogResult {
-    let mut cmd = std::process::Command::new("zenity");
-    cmd.args([
-        "--file-selection",
-        "--title=Åbn FDA Modelprojekt",
-        "--file-filter=FDA Modelprojekter (*.kant.json, *.edge.json, *.json) | *.kant.json *.edge.json *.json",
-        "--file-filter=Alle filer | *",
-    ]);
+    let dialog = rfd::FileDialog::new()
+        .set_title("Åbn FDA Modelprojekt")
+        .add_filter(
+            "FDA Modelprojekter (*.kant.json, *.edge.json, *.json)",
+            &["kant.json", "edge.json", "json"],
+        )
+        .add_filter("Alle filer", &["*"]);
 
-    match cmd.output() {
-        Ok(output) => {
-            if output.status.success() {
-                let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !path_str.is_empty() {
-                    return DialogResult::Selected(PathBuf::from(path_str));
-                }
-            }
-            DialogResult::Cancelled
-        }
-        Err(_) => DialogResult::Unavailable,
+    match dialog.pick_file() {
+        Some(path) => DialogResult::Selected(path),
+        None => DialogResult::Cancelled,
     }
 }
 
 /// Åbner native filvælger til at gemme modelprojekt som ny fil
 pub fn pick_file_to_save(default_name: Option<&str>) -> DialogResult {
-    let mut cmd = std::process::Command::new("zenity");
-    let filename_arg = format!("--filename={}", default_name.unwrap_or("model.kant.json"));
-    cmd.args([
-        "--file-selection",
-        "--save",
-        "--confirm-overwrite",
-        "--title=Gem FDA Modelprojekt som...",
-        &filename_arg,
-        "--file-filter=FDA Modelprojekter (*.kant.json, *.edge.json, *.json) | *.kant.json *.edge.json *.json",
-        "--file-filter=Alle filer | *",
-    ]);
+    let mut dialog = rfd::FileDialog::new()
+        .set_title("Gem FDA Modelprojekt som...")
+        .add_filter(
+            "FDA Modelprojekter (*.kant.json, *.edge.json, *.json)",
+            &["kant.json", "edge.json", "json"],
+        )
+        .add_filter("Alle filer", &["*"]);
 
-    match cmd.output() {
-        Ok(output) => {
-            if output.status.success() {
-                let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !path_str.is_empty() {
-                    let mut path = PathBuf::from(path_str);
-                    if path.extension().is_none() {
-                        path.set_extension("kant.json");
-                    }
-                    return DialogResult::Selected(path);
-                }
+    if let Some(name) = default_name {
+        dialog = dialog.set_file_name(name);
+    } else {
+        dialog = dialog.set_file_name("model.kant.json");
+    }
+
+    match dialog.save_file() {
+        Some(mut path) => {
+            if path.extension().is_none() {
+                path.set_extension("kant.json");
             }
-            DialogResult::Cancelled
+            DialogResult::Selected(path)
         }
-        Err(_) => DialogResult::Unavailable,
+        None => DialogResult::Cancelled,
     }
 }
 

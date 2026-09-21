@@ -41,8 +41,13 @@ base64 = "0.22"
 rand = "0.9"
 futures-util = "0.3"
 bytes = "1.10"
+rfd = "0.15"
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1"
 
 [dev-dependencies]
 proptest = "1.5"
 kant-relay = { path = "crates/kant-relay" }
 axum = "0.8"
+
