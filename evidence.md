@@ -1,23 +1,22 @@
 # Verification Report
  
-**Task ID**: `029-collab-inbound-subscription-framing-and-presence`  
-**Task Title**: Task 029: Inbound Collab Subscription, Transport Framing & Relay Hardening  
+**Task ID**: `038-039-concept-sorting-and-canvas-ergonomics`  
+**Task Title**: Task 038: Alfabetisk Sortering af Begrebslisten & Task 039: Canvas Tekstafskæring og Tastaturfokuseret Oprettelse i Egenskaber  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Timestamp**: `2026-09-20T15:58:00Z`  
-**Head**: `87d7d0d`  
+**Timestamp**: `2026-09-21T19:25:00Z`  
+**Head**: `d2f589e`  
  
 ## Acceptance Criteria
  
-- [x] `FrameType` og `CollabEnvelope` er implementeret med serde og enheds-tests.
-- [x] `CollabChannel` udsender frames med eksplicit `FrameType` præfiks (`0x01` Snapshot, `0x02` Mutation, `0x03` Presence, `0x04` HostLeft).
-- [x] `edge-relay` håndhæver maks payload-størrelse (5 MB), max rum (1.000) og udsender presence opdateringer (`0x03`).
-- [x] `App::subscription` indeholder en aktiv lytter på kollaborationskanalen, som modtager snapshots, mutationer, presence og host-exit.
-- [x] Modtagne mutationer opdaterer modelsandheden i RAM uden at gen-broadcaste til netværket.
-- [x] Gæster modtager omgående opdateret deltagerantal i headeren via presence events.
-- [x] Hvis værten afbryder sessionen, modtager gæster `GuestEndedNoticeModalState` med mulighed for "Gem som kopi...".
-- [x] Automatiseret E2E accepttest beviser reel tovejs synkronisering mellem to forbundne `App` instanser (`test_task029_e2e_collab_sync_and_presence`).
-- [x] `cargo clippy --workspace -- -D warnings` og `cargo test --workspace` passerer 100% (83/83 tests).
+- [x] **AC 038.1 - Automatisk sortering i `Project`**: `Project::sort_concepts_alphabetically()` og `Project::add_concept` holder begrebssamlingen alfabetisk sorteret efter foretrukken term (case-insensitive).
+- [x] **AC 038.2 - Begrebslisten (Fane 1)**: `app.filtered_concepts()` returnerer referencer sorteret alfabetisk, så nye begreber automatisk placeres på deres rette alfabetiske plads i tabellen.
+- [x] **AC 038.3 - Begrebsmodel Venstre Palet (Fane 2)**: Venstre repository-browser viser begreberne alfabetisk ordnede fra top til bund.
+- [x] **AC 039.1 - Klassetekst overskrider ikke bredden**: Attributter og klassenavn afkortes pænt med `...` (`truncate_with_ellipsis`) inden for 220.0 px bredde minus padding (max 26 tegn pr. attribut, max 22 tegn for klassenavn).
+- [x] **AC 039.2 - Tastaturfokus ved ny klasse**: `CreateInformationClassAt` og `CreateInformationClassAtCenter` sætter automatisk tastaturfokus direkte i `"info_class_name_input"` i Egenskaber.
+- [x] **AC 039.3 - Ensrettet oprettelse på Begrebsmodel**: `CreateConceptAtCenter` og dobbeltklik på Begrebsmodellen opretter begrebet direkte på lærredet, vælger det og sætter tastaturfokus direkte i `"preferred_term_input"` i Egenskaber.
+- [x] **AC 039.4 - Bevarelse af 220px klasse-geometri**: Klassenoder bevarer deres faste bredde (220.0 px) og standard højdeberegning.
+- [x] **AC 039.5 - Multi-layer Verifikation**: `cargo test --workspace`, `cargo clippy --all-targets` og `cargo fmt --check` passerer 100% (94 tests i alt).
  
 ---
  
@@ -25,9 +24,9 @@
  
 | Check Name | Status | Exit Code | Details |
 |---|---|---|---|
-| `fmt` (`cargo fmt --check`) | `PASSED` | `0` | Formatteret i overensstemmelse med Rust standarder |
-| `lint` (`cargo clippy --workspace -- -D warnings`) | `PASSED` | `0` | 0 advarsler på tværs af hele workspace |
-| `tests` (`cargo test --workspace`) | `PASSED` | `0` | 83/83 tests passed (28 lib, 44 acceptance, 4 proptests, 7 relay integration tests) |
+| `fmt` (`cargo fmt --check`) | `PASSED` | `0` | Formatteret jf. standarder |
+| `lint` (`cargo clippy --all-targets`) | `PASSED` | `0` | 0 advarsler |
+| `tests` (`cargo test --workspace`) | `PASSED` | `0` | 94/94 tests passed (28 unit, 55 acceptance, 4 proptests, 7 relay tests) |
 | `check` (`cargo check --workspace`) | `PASSED` | `0` | Fuld workspace kompilering uden fejl |
  
 ---
