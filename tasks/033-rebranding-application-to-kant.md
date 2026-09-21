@@ -1,3 +1,12 @@
+---
+type: Task Package
+title: "Task 033: Rebranding af applikation fra Edge til Kant"
+description: "Omdøbe applikationen fra Edge til Kant på tværs af crates, binære navne, UI, filformater, desktop-ikoner og CI/CD workflows"
+status: done
+generated: { by: process:antigravity-task-init, at: "2026-09-20T19:00:00Z" }
+tags: [rebranding, kant, metadata, ui, desktop]
+---
+
 # Task 033: Rebranding af applikation fra Edge til Kant
 
 **Status**: `DONE`  

@@ -1,3 +1,12 @@
+---
+type: Task Package
+title: "Task 036: Domæne-vælger (Ja/Nej) i begrebseditor & oprydning i lærredspalet"
+description: "Segmenteret lokal/indlånt domænevælger i begrebseditoren samt oprydning og forenkling af lærredets venstre sidepanel"
+status: done
+generated: { by: process:antigravity-task-init, at: "2026-09-20T22:00:00Z" }
+tags: [palette, domain-toggle, concept, ui, ergonomics]
+---
+
 # Task 036: Domæne-vælger (Ja/Nej) i begrebseditor & oprydning i lærredspalet
 
 **Status**: `DONE`  

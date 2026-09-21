@@ -14,67 +14,7 @@
       "id": "ecee48de-e71f-436a-b906-afd4cb8dc168",
       "preferred_term": "Vejafgift",
       "definition": "Gebyr for passage",
-      "belongs_to_domain": "Yes",
-      "accepted_term": null,
-      "deprecated_term": null,
-      "example": null,
-      "comment": null,
-      "application_note": null,
-      "legal_source": null,
-      "source": null,
-      "identifier": null,
-      "derived_from": null
-    },
-    {
-      "id": "68c9341e-9d49-4ff9-b32f-f54934b246e0",
-      "preferred_term": "Vejafgift",
-      "definition": "Gebyr for passage",
-      "belongs_to_domain": "Yes",
-      "accepted_term": null,
-      "deprecated_term": null,
-      "example": null,
-      "comment": null,
-      "application_note": null,
-      "legal_source": null,
-      "source": null,
-      "identifier": null,
-      "derived_from": null
-    },
-    {
-      "id": "233f777a-e835-4d14-84cf-6c6b72753ff0",
-      "preferred_term": "Vejafgift",
-      "definition": "Gebyr for passage",
-      "belongs_to_domain": "Yes",
-      "accepted_term": null,
-      "deprecated_term": null,
-      "example": null,
-      "comment": null,
-      "application_note": null,
-      "legal_source": null,
-      "source": null,
-      "identifier": null,
-      "derived_from": null
-    },
-    {
-      "id": "7831bd0f-2504-483f-9798-c478216293f6",
-      "preferred_term": "Vejafgift",
-      "definition": "Gebyr for passage",
-      "belongs_to_domain": "Yes",
-      "accepted_term": null,
-      "deprecated_term": null,
-      "example": null,
-      "comment": null,
-      "application_note": null,
-      "legal_source": null,
-      "source": null,
-      "identifier": null,
-      "derived_from": null
-    },
-    {
-      "id": "2900a1a4-4f6b-45e7-b259-83ca40cb15a4",
-      "preferred_term": "Vejafgift",
-      "definition": "Gebyr for passage",
-      "belongs_to_domain": "Yes",
+      "belongs_to_domain": "No",
       "accepted_term": null,
       "deprecated_term": null,
       "example": null,
@@ -92,49 +32,9 @@
         "id": "ecee48de-e71f-436a-b906-afd4cb8dc168",
         "concept_id": "ecee48de-e71f-436a-b906-afd4cb8dc168",
         "label": "Vejafgift",
-        "is_local": true,
-        "x": 420.0,
-        "y": 680.0,
-        "width": 180.0,
-        "height": 80.0
-      },
-      {
-        "id": "68c9341e-9d49-4ff9-b32f-f54934b246e0",
-        "concept_id": "68c9341e-9d49-4ff9-b32f-f54934b246e0",
-        "label": "Vejafgift",
-        "is_local": true,
-        "x": 420.0,
-        "y": 680.0,
-        "width": 180.0,
-        "height": 80.0
-      },
-      {
-        "id": "233f777a-e835-4d14-84cf-6c6b72753ff0",
-        "concept_id": "233f777a-e835-4d14-84cf-6c6b72753ff0",
-        "label": "Vejafgift",
-        "is_local": true,
-        "x": 420.0,
-        "y": 680.0,
-        "width": 180.0,
-        "height": 80.0
-      },
-      {
-        "id": "7831bd0f-2504-483f-9798-c478216293f6",
-        "concept_id": "7831bd0f-2504-483f-9798-c478216293f6",
-        "label": "Vejafgift",
-        "is_local": true,
-        "x": 420.0,
-        "y": 680.0,
-        "width": 180.0,
-        "height": 80.0
-      },
-      {
-        "id": "2900a1a4-4f6b-45e7-b259-83ca40cb15a4",
-        "concept_id": "2900a1a4-4f6b-45e7-b259-83ca40cb15a4",
-        "label": "Vejafgift",
-        "is_local": true,
-        "x": 420.0,
-        "y": 680.0,
+        "is_local": false,
+        "x": 400.0,
+        "y": 400.0,
         "width": 180.0,
         "height": 80.0
       }
@@ -142,10 +42,32 @@
     "edges": []
   },
   "information_model": {
-    "classes": []
+    "classes": [
+      {
+        "id": "1d08710e-fb89-4ba9-b7bf-e64e6652e0f9",
+        "name": "Vejafgift",
+        "description": "Gebyr for passage",
+        "concept_ids": [
+          "ecee48de-e71f-436a-b906-afd4cb8dc168"
+        ],
+        "attributes": [],
+        "is_abstract": false,
+        "is_local": true,
+        "origin_model": null
+      }
+    ]
   },
   "information_graph": {
-    "nodes": [],
+    "nodes": [
+      {
+        "id": "fe1d2f04-81c1-4996-a0c7-d12dce0ecffc",
+        "class_id": "1d08710e-fb89-4ba9-b7bf-e64e6652e0f9",
+        "x": 100.0,
+        "y": 160.0,
+        "width": 220.0,
+        "height": 80.0
+      }
+    ],
     "edges": []
   }
 }

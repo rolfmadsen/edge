@@ -1,3 +1,12 @@
+---
+type: Task Package
+title: "Task 031: FDA Klasse Egenskaber (Abstrakt, Indlånt/Lokal) og Rendering"
+description: "Understøtte FDA- og UML-klasseegenskaber for abstrakte og indlånte klasser med farvekodning, inspector-kontroller og canvas-rendering"
+status: done
+generated: { by: process:antigravity-task-init, at: "2026-09-20T17:00:00Z" }
+tags: [information-model, fda, properties, rendering, uml]
+---
+
 # Task 031: FDA Klasse Egenskaber (Abstrakt, Indlånt/Lokal) og Rendering
 
 **Status**: DONE  

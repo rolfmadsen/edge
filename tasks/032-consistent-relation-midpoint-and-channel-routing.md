@@ -1,6 +1,15 @@
+---
+type: Task Package
+title: "Task 032: Konsistent Midterknæk og Parallel Kanal-Routing for Relationer"
+description: "Sikre præcist midterknæk på ortogonale relationer mellem kant-porte og parallel kanal-routing ved collinear overlap jf. ADR 005"
+status: done
+generated: { by: process:antigravity-task-init, at: "2026-09-20T18:00:00Z" }
+tags: [relation, routing, midpoint, channel, geometry]
+---
+
 # Task 032: Konsistent Midterknæk og Parallel Kanal-Routing for Relationer
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🐛 `BUG FIX` / 🔄 `ENHANCEMENT`  
 **Dato**: `2026-09-20`  
 **Scope**: `src/ui/edge_router.rs`, `tests/acceptance.rs`  

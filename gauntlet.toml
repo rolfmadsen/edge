@@ -11,6 +11,12 @@ context_file = "CONTEXT.md"
 coding_standards_file = "CODING_STANDARDS.md"
 
 [[layers]]
+name = "spec"
+command = ["xgauntlet", "check-spec"]
+optional = false
+timeout_seconds = 30.0
+
+[[layers]]
 name = "lint"
 command = ["cargo", "clippy", "--", "-D", "warnings"]
 optional = true

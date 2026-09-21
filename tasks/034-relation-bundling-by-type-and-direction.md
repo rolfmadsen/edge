@@ -1,3 +1,12 @@
+---
+type: Task Package
+title: "Task 034: Bundling af relationer efter type og retning (Port-Bus)"
+description: "Implementere port-bus bundling for relationer af samme art og retning på samme nodeside med spatial grouping jf. ADR 005 og FDA-regler"
+status: done
+generated: { by: process:antigravity-task-init, at: "2026-09-20T20:00:00Z" }
+tags: [relation, bundling, grouping, geometry, port-bus]
+---
+
 # Task 034: Bundling af relationer efter type og retning (Port-Bus)
 
 **Status**: `DONE`  

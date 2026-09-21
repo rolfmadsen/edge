@@ -1,3 +1,12 @@
+---
+type: Task Package
+title: "Task 037: Windows Native Integration & Rendering Optimering"
+description: "Cross-platform native fildialog via rfd, Windows ressource- og app-ikoner og swapchain optimering for Aero Snap"
+status: done
+generated: { by: process:antigravity-task-init, at: "2026-09-21T18:30:00Z" }
+tags: [windows, native, rfd, icons, rendering]
+---
+
 # Task 037: Windows Native Integration & Rendering Optimering
 
 **Status**: `DONE`  

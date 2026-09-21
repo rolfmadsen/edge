@@ -1,3 +1,12 @@
+---
+type: Task Package
+title: "Task 035: Synkronisering af relationer, klasser og diagram-noder i realtime kollaboration"
+description: "Synkronisering af diagram-relationer, klasser, attributter og noder over kant-relay med beskyttelse af værtens model"
+status: done
+generated: { by: process:antigravity-task-init, at: "2026-09-20T21:00:00Z" }
+tags: [collaboration, sync, edges, nodes, relay]
+---
+
 # Task 035: Synkronisering af relationer, klasser og diagram-noder i realtime kollaboration
 
 **Status**: `DONE`  

@@ -1,3 +1,12 @@
+---
+type: Task Package
+title: "Task 030: Canvas Ergonomi, Opret/Slet & Relations-geometri"
+description: "Forbedre og professionalisere lærredsinteraktionen, sletningsarbejdsgange og relationsgeometrien på tværs af Begrebsmodellen og Informationsmodellen"
+status: done
+generated: { by: process:antigravity-task-init, at: "2026-09-20T16:14:00Z" }
+tags: [canvas, ergonomics, crud, geometry]
+---
+
 # Task 030: Canvas Ergonomi, Opret/Slet & Relations-geometri
 
 **Status**: DONE  
