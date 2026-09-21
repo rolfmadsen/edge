@@ -436,7 +436,7 @@ fn test_concept_graph_lifecycle_and_persistence() {
 
     assert_eq!(node1.label(), "Køretøj");
     assert!(node1.is_local(), "Køretøj er lokalt begreb (FDA sand)");
-    assert!(!node3.is_local(), "Person er indlånt begreb (FDA blå)");
+    assert!(!node3.is_local(), "Person er fremmed begreb (FDA blå)");
 
     let n1_id = node1.id();
     let n2_id = node2.id();
@@ -4463,7 +4463,7 @@ fn test_task_031_fda_information_class_properties_and_rendering() {
 
     let _ = app.update(Message::SetInformationClassLocal(cid, false));
     let cls = app.project().information_model().get_class(cid).unwrap();
-    assert!(!cls.is_local(), "Klassen skal nu være fremmed/indlånt");
+    assert!(!cls.is_local(), "Klassen skal nu være fremmed/lånt");
 
     let _ = app.update(Message::SetInformationClassOriginModel(
         cid,
@@ -4861,3 +4861,34 @@ fn test_task036_concept_editor_domain_toggle_and_model_ref() {
         "Når skiftet til lokalt begreb, skal det gemmes som BelongsToDomain::Yes"
     );
 }
+
+#[test]
+fn test_task037_windows_native_integration_and_rendering() {
+    use kant::ui::app::load_window_icon;
+    use std::path::Path;
+
+    // 1. Verificer at kant.ico findes og er en gyldig Windows .ico fil med de korrekte magic bytes
+    let ico_path = Path::new("assets/icons/kant.ico");
+    assert!(ico_path.exists(), "assets/icons/kant.ico skal eksistere for Windows PE indlejring");
+    let ico_bytes = std::fs::read(ico_path).expect("skal kunne læse kant.ico");
+    assert!(ico_bytes.len() >= 6, "ICO fil skal have mindst 6 bytes header");
+    assert_eq!(&ico_bytes[0..4], &[0x00, 0x00, 0x01, 0x00], "ICO magic bytes skal matche [0, 0, 1, 0]");
+
+    // 2. Verificer at kant-32.rgba findes og er præcis 32*32*4 = 4096 bytes
+    let rgba_path = Path::new("assets/icons/kant-32.rgba");
+    assert!(rgba_path.exists(), "assets/icons/kant-32.rgba skal eksistere for runtime vinduesikon");
+    let rgba_bytes = std::fs::read(rgba_path).expect("skal kunne læse kant-32.rgba");
+    assert_eq!(rgba_bytes.len(), 32 * 32 * 4, "kant-32.rgba skal have præcis 4096 bytes");
+
+    // 3. Verificer at load_window_icon() returnerer et gyldigt iced::window::Icon
+    let icon = load_window_icon();
+    assert!(icon.is_some(), "load_window_icon() skal returnere Some(Icon)");
+
+    // 4. Verificer at build.rs findes og indeholder winres konfiguration for Windows
+    let build_rs = Path::new("build.rs");
+    assert!(build_rs.exists(), "build.rs skal eksistere");
+    let build_rs_content = std::fs::read_to_string(build_rs).expect("skal kunne læse build.rs");
+    assert!(build_rs_content.contains("winres"), "build.rs skal referere winres");
+    assert!(build_rs_content.contains("kant.ico"), "build.rs skal sætte kant.ico som ressource");
+}
+
