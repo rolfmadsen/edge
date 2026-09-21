@@ -4979,3 +4979,54 @@ fn test_task_038_concept_list_alphabetical_sorting() {
         "Nyt begreb skal automatisk fremgå på sin alfabetiske plads i Begrebslisten"
     );
 }
+
+#[test]
+fn test_task_039_canvas_class_text_cutoff_and_inspector_focus() {
+    use kant::features::information_model::DEFAULT_CLASS_NODE_WIDTH;
+    use kant::ui::app::{App, Message};
+    use kant::ui::diagram_canvas::truncate_with_ellipsis;
+
+    // 1. Verificer at klassens faste bredde er bevaret på 220.0 px
+    assert_eq!(
+        DEFAULT_CLASS_NODE_WIDTH, 220.0,
+        "Klassens bredde skal forblive fast på 220.0 px"
+    );
+
+    // 2. Verificer tekstafkortning med ellipsis
+    let long_attr = "+ overensstemmelseserklaeringType : OverensstemmelseserklaeringTypeValue [0..1] 🔗";
+    let truncated = truncate_with_ellipsis(long_attr, 26);
+    assert!(
+        truncated.chars().count() <= 26,
+        "Afkortet streng må ikke overstige max_chars (26)"
+    );
+    assert!(
+        truncated.ends_with("..."),
+        "Afkortet streng skal afsluttes med '...'"
+    );
+
+    let short_attr = "+ id : Integer [1]";
+    assert_eq!(
+        truncate_with_ellipsis(short_attr, 26),
+        short_attr,
+        "Korte strenge må ikke afkortes"
+    );
+
+    // 3. Verificer at oprettelse af informationsklasse vælges og gør klar til fokus
+    let mut app = App::new_with_path(None);
+    let _ = app.update(Message::CreateInformationClassAt(200.0, 300.0));
+    assert!(
+        app.selected_info_class_id().is_some(),
+        "Nyoprettet informationsklasse skal være valgt i Egenskabs-panelet"
+    );
+
+    // 4. Verificer at oprettelse af begreb på Begrebsmodel opretter direkte på canvas og åbner Egenskaber
+    let _ = app.update(Message::CreateConceptAtCenter);
+    assert!(
+        app.selected_graph_node_id().is_some(),
+        "Nyt begreb skal oprettes på canvas og være valgt"
+    );
+    assert!(
+        app.is_node_editing(),
+        "Egenskabs-panelet skal åbnes i hurtigredigering med fokus på foretrukken term"
+    );
+}

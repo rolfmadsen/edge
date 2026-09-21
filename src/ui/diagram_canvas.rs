@@ -1370,7 +1370,7 @@ pub fn render_concept_node(
     let badge_text = if node.is_local() {
         "«lokalt begreb»"
     } else {
-        "«indlånt begreb»"
+        "«fremmed begreb»"
     };
 
     frame.fill_text(Text {
@@ -1392,6 +1392,16 @@ pub fn render_concept_node(
         align_y: alignment::Vertical::Center,
         ..Default::default()
     });
+}
+
+/// Afkorter en tekststreng pænt med ellipsis `...`, hvis den overstiger max_chars
+pub fn truncate_with_ellipsis(s: &str, max_chars: usize) -> String {
+    if s.chars().count() <= max_chars {
+        s.to_string()
+    } else {
+        let prefix: String = s.chars().take(max_chars.saturating_sub(3)).collect();
+        format!("{}...", prefix)
+    }
 }
 
 /// Standard rendering af UML 3-sektions kasse
