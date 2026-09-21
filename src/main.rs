@@ -14,4 +14,3 @@ fn main() -> iced::Result {
         .antialiasing(false)
         .run()
 }
-

@@ -4960,4 +4960,3 @@ pub fn load_window_icon() -> Option<iced::window::Icon> {
     const ICON_BYTES: &[u8] = include_bytes!("../../assets/icons/kant-32.rgba");
     iced::window::icon::from_rgba(ICON_BYTES.to_vec(), 32, 32).ok()
 }
-

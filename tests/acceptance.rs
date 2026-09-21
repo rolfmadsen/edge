@@ -4869,26 +4869,51 @@ fn test_task037_windows_native_integration_and_rendering() {
 
     // 1. Verificer at kant.ico findes og er en gyldig Windows .ico fil med de korrekte magic bytes
     let ico_path = Path::new("assets/icons/kant.ico");
-    assert!(ico_path.exists(), "assets/icons/kant.ico skal eksistere for Windows PE indlejring");
+    assert!(
+        ico_path.exists(),
+        "assets/icons/kant.ico skal eksistere for Windows PE indlejring"
+    );
     let ico_bytes = std::fs::read(ico_path).expect("skal kunne læse kant.ico");
-    assert!(ico_bytes.len() >= 6, "ICO fil skal have mindst 6 bytes header");
-    assert_eq!(&ico_bytes[0..4], &[0x00, 0x00, 0x01, 0x00], "ICO magic bytes skal matche [0, 0, 1, 0]");
+    assert!(
+        ico_bytes.len() >= 6,
+        "ICO fil skal have mindst 6 bytes header"
+    );
+    assert_eq!(
+        &ico_bytes[0..4],
+        &[0x00, 0x00, 0x01, 0x00],
+        "ICO magic bytes skal matche [0, 0, 1, 0]"
+    );
 
     // 2. Verificer at kant-32.rgba findes og er præcis 32*32*4 = 4096 bytes
     let rgba_path = Path::new("assets/icons/kant-32.rgba");
-    assert!(rgba_path.exists(), "assets/icons/kant-32.rgba skal eksistere for runtime vinduesikon");
+    assert!(
+        rgba_path.exists(),
+        "assets/icons/kant-32.rgba skal eksistere for runtime vinduesikon"
+    );
     let rgba_bytes = std::fs::read(rgba_path).expect("skal kunne læse kant-32.rgba");
-    assert_eq!(rgba_bytes.len(), 32 * 32 * 4, "kant-32.rgba skal have præcis 4096 bytes");
+    assert_eq!(
+        rgba_bytes.len(),
+        32 * 32 * 4,
+        "kant-32.rgba skal have præcis 4096 bytes"
+    );
 
     // 3. Verificer at load_window_icon() returnerer et gyldigt iced::window::Icon
     let icon = load_window_icon();
-    assert!(icon.is_some(), "load_window_icon() skal returnere Some(Icon)");
+    assert!(
+        icon.is_some(),
+        "load_window_icon() skal returnere Some(Icon)"
+    );
 
     // 4. Verificer at build.rs findes og indeholder winres konfiguration for Windows
     let build_rs = Path::new("build.rs");
     assert!(build_rs.exists(), "build.rs skal eksistere");
     let build_rs_content = std::fs::read_to_string(build_rs).expect("skal kunne læse build.rs");
-    assert!(build_rs_content.contains("winres"), "build.rs skal referere winres");
-    assert!(build_rs_content.contains("kant.ico"), "build.rs skal sætte kant.ico som ressource");
+    assert!(
+        build_rs_content.contains("winres"),
+        "build.rs skal referere winres"
+    );
+    assert!(
+        build_rs_content.contains("kant.ico"),
+        "build.rs skal sætte kant.ico som ressource"
+    );
 }
-
