@@ -682,6 +682,7 @@ pub fn view<'a>(
 
             // Klassenavn & beskrivelse
             let name_input = text_input("Klassenavn...", class.name())
+                .id("info_class_name_input")
                 .style(modern_input_style)
                 .size(13.0)
                 .on_input(move |s| Message::UpdateInformationClassName(class_id, s))

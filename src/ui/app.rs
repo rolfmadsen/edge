@@ -2420,17 +2420,50 @@ impl App {
                 self.concept_model_search = query;
             }
 
-            // Lynoprettelse & Node-redigering på Canvas (Task 006 & 030)
+            // Lynoprettelse & Node-redigering på Canvas (Task 006, 030 & 039)
             Message::CanvasDoubleClicked(x, y) => {
-                self.quick_create = Some(QuickCreateState::new(x, y));
-                return operation::focus("quick_create_term_input");
+                let (nx, ny) = (x, y);
+                let concept =
+                    Concept::new("Nyt begreb", "Definition mangler", BelongsToDomain::Yes);
+                if let Ok(concept_id) = self.project.add_concept(concept.clone()) {
+                    if let Some(node) = self
+                        .project
+                        .concept_graph_mut()
+                        .find_node_by_concept_mut(concept_id)
+                    {
+                        node.set_position(nx, ny);
+                    }
+                    if let Some(node) = self
+                        .project
+                        .concept_graph()
+                        .find_node_by_concept(concept_id)
+                    {
+                        self.selected_graph_node_id = Some(node.id());
+                    }
+                    self.selected_edge = None;
+                    let mut editor = ConceptEditorState::from_concept(&concept);
+                    editor.preferred_term = String::new();
+                    self.editor_state = Some(editor);
+                    self.is_inline_graph_editing = true;
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::ConceptAdded(concept),
+                    );
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::NodeMoved {
+                            id: concept_id,
+                            x: nx,
+                            y: ny,
+                        },
+                    );
+                    self.trigger_autosave();
+                    return operation::focus("preferred_term_input");
+                }
             }
             Message::CreateConceptAtCenter => {
                 let center_world = self.canvas_viewport.to_world(Point::new(500.0, 350.0));
                 let cx = center_world.x - crate::features::concept_model::DEFAULT_NODE_WIDTH / 2.0;
                 let cy = center_world.y - crate::features::concept_model::DEFAULT_NODE_HEIGHT / 2.0;
-                self.quick_create = Some(QuickCreateState::new(cx, cy));
-                return operation::focus("quick_create_term_input");
+                return self.update(Message::CanvasDoubleClicked(cx, cy));
             }
             Message::QuickCreateTermChanged(term) => {
                 if let Some(qc) = &mut self.quick_create {
@@ -2563,6 +2596,7 @@ impl App {
                     );
                 }
                 self.trigger_autosave();
+                return operation::focus("info_class_name_input");
             }
             Message::CreateInformationClassAt(x, y) => {
                 let class = InformationClass::new("");
@@ -2599,6 +2633,7 @@ impl App {
                     );
                 }
                 self.trigger_autosave();
+                return operation::focus("info_class_name_input");
             }
             Message::CreateInformationClassAtCenter => {
                 let center_world = self.info_canvas_viewport.to_world(Point::new(500.0, 350.0));

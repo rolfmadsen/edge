@@ -1474,8 +1474,9 @@ pub fn render_uml_class_node(
         iced::Font::DEFAULT
     };
 
+    let display_class_name = truncate_with_ellipsis(class_name, 22);
     frame.fill_text(Text {
-        content: class_name.to_string(),
+        content: display_class_name,
         position: Point::new(node.x() + node.width() / 2.0, node.y() + 32.0),
         color: ThemeColors::SLATE_900,
         size: 14.0.into(),
@@ -1520,8 +1521,9 @@ pub fn render_uml_class_node(
             } else {
                 format!("+ {} : {} [{}]", attr_name, attr_type, attr_mult)
             };
+            let display_str = truncate_with_ellipsis(&line_str, 26);
             frame.fill_text(Text {
-                content: line_str,
+                content: display_str,
                 position: Point::new(node.x() + 14.0, attr_y),
                 color: ThemeColors::SLATE_800,
                 size: 12.0.into(),
