@@ -1457,7 +1457,7 @@ impl App {
 
     pub fn filtered_concepts(&self) -> Vec<&Concept> {
         let q = self.search_query.trim().to_lowercase();
-        if q.is_empty() {
+        let mut list: Vec<&Concept> = if q.is_empty() {
             self.project.concepts().iter().collect()
         } else {
             self.project
@@ -1475,7 +1475,13 @@ impl App {
                             .is_some_and(|i| i.to_lowercase().contains(&q))
                 })
                 .collect()
-        }
+        };
+        list.sort_by(|a, b| {
+            a.preferred_term()
+                .to_lowercase()
+                .cmp(&b.preferred_term().to_lowercase())
+        });
+        list
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {

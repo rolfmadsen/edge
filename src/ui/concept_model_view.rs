@@ -32,7 +32,7 @@ pub fn view<'a>(
     // ==========================================
     let concept_count = concepts.len();
     let search_filter = search_query.trim().to_lowercase();
-    let filtered_concepts: Vec<&Concept> = concepts
+    let mut filtered_concepts: Vec<&Concept> = concepts
         .iter()
         .filter(|c| {
             if search_filter.is_empty() {
@@ -43,6 +43,11 @@ pub fn view<'a>(
             }
         })
         .collect();
+    filtered_concepts.sort_by(|a, b| {
+        a.preferred_term()
+            .to_lowercase()
+            .cmp(&b.preferred_term().to_lowercase())
+    });
 
     let palette_header = column![
         row![

@@ -218,10 +218,19 @@ impl ModelProject {
         self.concepts.iter_mut().find(|c| c.id() == id)
     }
 
+    pub fn sort_concepts_alphabetically(&mut self) {
+        self.concepts.sort_by(|a, b| {
+            a.preferred_term()
+                .to_lowercase()
+                .cmp(&b.preferred_term().to_lowercase())
+        });
+    }
+
     pub fn add_concept(&mut self, concept: Concept) -> Result<Uuid, ValidationError> {
         ConceptValidator::validate(&concept)?;
         let id = concept.id();
         self.concepts.push(concept);
+        self.sort_concepts_alphabetically();
         self.sync_concept_graph();
         Ok(id)
     }
@@ -230,6 +239,7 @@ impl ModelProject {
         ConceptValidator::validate(&concept)?;
         if let Some(existing) = self.concepts.iter_mut().find(|c| c.id() == concept.id()) {
             *existing = concept;
+            self.sort_concepts_alphabetically();
             self.sync_concept_graph();
             Ok(())
         } else {
