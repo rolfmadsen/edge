@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 039: Canvas Tekstafskæring og Tastaturfokuseret Oprettelse i Egenskaber"
 description: "Tekstafkortning/cutoff med ellipsis for lange attributter på klasser samt tastaturfokuseret oprettelse af begreber og klasser direkte i Egenskaber"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-21T19:20:00Z" }
 tags: [canvas, class, text-cutoff, ellipsis, inspector, focus, ergonomics]
 ---
 
 # Task 039: Canvas Tekstafskæring og Tastaturfokuseret Oprettelse i Egenskaber
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🔄 `ENHANCEMENT`  
 **Oprettet**: `2026-09-21`  
 **Scope**: `src/ui/diagram_canvas.rs`, `src/ui/information_model_view.rs`, `src/ui/concept_model_view.rs`, `src/ui/app.rs`, `tests/acceptance.rs`
@@ -34,11 +34,11 @@ tags: [canvas, class, text-cutoff, ellipsis, inspector, focus, ergonomics]
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Klassetekst overskrider ikke bredden**: Attributter og klassenavne på informationsmodellens lærred afkortes med ellipsis `...`, hvis deres bredde overskrider nodens indvendige plads (220.0 px minus margin).
-- [ ] **AC2 - Tastaturfokus ved ny klasse**: `CreateInformationClassAtCenter` og `CreateInformationClassAt` fokuserer automatisk inputfeltet `"info_class_name_input"` i Egenskaber.
-- [ ] **AC3 - Ensrettet oprettelse på Begrebsmodel**: `CreateConceptAtCenter` og dobbeltklik på Begrebsmodellen opretter begrebet direkte på lærredet, vælger det og sætter tastaturfokus i `"preferred_term_input"` i Egenskaber.
-- [ ] **AC4 - Bevarelse af 220px klasse-geometri**: Klassenoder bevarer deres faste bredde (220.0 px) og standard højdeberegning.
-- [ ] **AC5 - Verifikation via Accepttest**: `test_task_039_canvas_text_cutoff_and_inspector_focus` beviser afskæring og fokus-adfærd.
+- [x] **AC1 - Klassetekst overskrider ikke bredden**: Attributter og klassenavne på informationsmodellens lærred afkortes med ellipsis `...`, hvis deres bredde overskrider nodens indvendige plads (220.0 px minus margin).
+- [x] **AC2 - Tastaturfokus ved ny klasse**: `CreateInformationClassAtCenter` og `CreateInformationClassAt` fokuserer automatisk inputfeltet `"info_class_name_input"` i Egenskaber.
+- [x] **AC3 - Ensrettet oprettelse på Begrebsmodel**: `CreateConceptAtCenter` og dobbeltklik på Begrebsmodellen opretter begrebet direkte på lærredet, vælger det og sætter tastaturfokus i `"preferred_term_input"` i Egenskaber.
+- [x] **AC4 - Bevarelse af 220px klasse-geometri**: Klassenoder bevarer deres faste bredde (220.0 px) og standard højdeberegning.
+- [x] **AC5 - Verifikation via Accepttest**: `test_task_039_canvas_class_text_cutoff_and_inspector_focus` beviser afskæring og fokus-adfærd.
 
 ---
 

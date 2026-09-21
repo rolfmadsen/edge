@@ -597,51 +597,46 @@ fn test_canvas_direct_concept_creation_and_node_editing() {
     let _ = app.update(Message::SelectTab(Tab::ConceptModel));
     assert_eq!(app.active_tab(), Tab::ConceptModel);
 
-    // 2. Dobbeltklik på tomt canvas (x: 450.0, y: 250.0) fanges og åbner lynoprettelse
+    // 2. Dobbeltklik på tomt canvas (x: 450.0, y: 250.0) opretter begreb og åbner Egenskaber
     let _ = app.update(Message::CanvasDoubleClicked(450.0, 250.0));
     assert!(
-        app.is_quick_create_open(),
-        "Dobbeltklik på tomt canvas skal åbne lynoprettelses-dialog"
+        app.selected_graph_node_id().is_some(),
+        "Dobbeltklik på tomt canvas skal oprette og vælge begrebsnode"
+    );
+    assert!(
+        app.is_node_editing(),
+        "Egenskabs-panelet skal åbnes i hurtigredigering"
     );
 
-    // Verificer at view() renderer modal overlay for lynoprettelse uden fejl
+    // Verificer at view() renderer uden fejl
     let _ = app.view();
 
-    // 3. Validering via ConceptValidator: Ugyldigt begreb (tom definition og term) må IKKE oprettes
-    let _ = app.update(Message::QuickCreateSubmit);
-    assert_eq!(
-        app.project().concepts().len(),
-        0,
-        "Ugyldigt begreb uden term og definition må ikke oprettes"
-    );
+    // 3. Validering via ConceptValidator: Ugyldigt begreb (tom term) afvises ved SaveConcept
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::PreferredTerm,
+        "".to_string(),
+    ));
+    let _ = app.update(Message::SaveConcept);
     assert!(
-        app.is_quick_create_open(),
-        "Lynoprettelse skal forblive åben ved valideringsfejl"
+        app.is_node_editing(),
+        "Editor forbliver åben ved valideringsfejl"
     );
 
-    // Udfyld kun term (mangler definition jf. FDA krav)
-    let _ = app.update(Message::QuickCreateTermChanged("Godsvogn".to_string()));
-    let _ = app.update(Message::QuickCreateSubmit);
-    assert_eq!(
-        app.project().concepts().len(),
-        0,
-        "Begreb uden definition skal afvises af ConceptValidator"
-    );
-    assert!(
-        app.is_quick_create_open(),
-        "Dialog forbliver åben da definition mangler"
-    );
-
-    // Udfyld gyldig FDA definition
-    let _ = app.update(Message::QuickCreateDefinitionChanged(
+    // Udfyld gyldig term og FDA definition
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::PreferredTerm,
+        "Godsvogn".to_string(),
+    ));
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::Definition,
         "Jernbanekøretøj indrettet til transport af gods.".to_string(),
     ));
-    let _ = app.update(Message::QuickCreateSubmit);
+    let _ = app.update(Message::SaveConcept);
 
-    // 4. Oprettelse lykkes: begreb tilføjes, grafnode placeres på (450, 250) og markeres straks
+    // 4. Oprettelse lykkes: begreb opdateres og editor lukkes
     assert!(
-        !app.is_quick_create_open(),
-        "Lynoprettelse dialog skal lukke efter succesfuld oprettelse"
+        !app.is_node_editing(),
+        "Editor skal lukke efter succesfuld gemning"
     );
     assert_eq!(app.project().concepts().len(), 1);
 
@@ -4324,10 +4319,10 @@ fn test_task_030_canvas_ergonomics_and_edge_geometry() {
     // AC2: CreateConceptAtCenter & CreateInformationClassAtCenter
     let _ = app.update(Message::CreateConceptAtCenter);
     assert!(
-        app.is_quick_create_open(),
-        "CreateConceptAtCenter skal åbne quick_create modal"
+        app.selected_graph_node_id().is_some() && app.is_node_editing(),
+        "CreateConceptAtCenter skal oprette begreb på canvas og åbne Egenskaber"
     );
-    let _ = app.update(Message::QuickCreateCancel);
+    let _ = app.update(Message::CancelConceptEdit);
 
     // AC6: Permanent sletning af begreb og klasse fra paletten
     // Fjern node fra diagrammet (men bevar i model repository)
@@ -4993,7 +4988,8 @@ fn test_task_039_canvas_class_text_cutoff_and_inspector_focus() {
     );
 
     // 2. Verificer tekstafkortning med ellipsis
-    let long_attr = "+ overensstemmelseserklaeringType : OverensstemmelseserklaeringTypeValue [0..1] 🔗";
+    let long_attr =
+        "+ overensstemmelseserklaeringType : OverensstemmelseserklaeringTypeValue [0..1] 🔗";
     let truncated = truncate_with_ellipsis(long_attr, 26);
     assert!(
         truncated.chars().count() <= 26,
