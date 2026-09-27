@@ -6167,12 +6167,17 @@ impl App {
         ]
         .spacing(12);
 
+        let author_hint = text("💡 user.name og user.email er forfatter-signaturen i historikken (hvem der lavede ændringen). Indtast IKKE tokens eller passwords her.")
+            .size(11)
+            .color(ThemeColors::TEXT_MUTED);
+
         let mut body = column![
             title_row,
             subtitle,
             Space::new().height(8),
             remote_field,
             author_row,
+            author_hint,
         ]
         .spacing(10);
 

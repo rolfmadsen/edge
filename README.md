@@ -210,9 +210,10 @@ Når kolleger har udgivet ændringer til det fælles repository:
 For at undgå fejlmeddelelser som *"Permission denied"* eller *"Authentication failed"*, er her de vigtigste ting at vide om rettigheder og opsætning:
 
 #### Hvad er Git Brugernavn og E-mail (`user.name` & `user.email`)?
-- **Det er ikke en adgangskode:** Det er den **forfatter-signatur**, som Git stempler dine ændringer med i modellens revisionslog.
-- **`user.name`:** Dit fulde navn (f.eks. `Mette Hansen`) eller dit foretrukne kaldenavn på GitHub/GitLab.
-- **`user.email`:** Den e-mail, der er tilknyttet din GitHub- eller organisationskonto (f.eks. `mette@organisation.dk`).
+- ⚠️ **Vigtigt: Dette er IKKE din adgangskode eller dit token!** Det er udelukkende den **forfatter-signatur**, som Git stempler dine ændringer med i historikken ("Udgivet af Fornavn Efternavn <email>").
+- **Du må ALDRIG indsætte dit Personal Access Token eller adgangskode i `user.email`** – hvis du gør det, bliver dit hemmelige token skrevet synligt ind i modellens historik, og GitHub vil automatisk spærre det af sikkerhedshensyn.
+- **`user.name`:** Dit fulde navn (f.eks. `Mette Hansen`) eller dit foretrukne kaldenavn på GitHub.
+- **`user.email`:** Din almindelige arbejdsmail tilknyttet din GitHub-konto (f.eks. `mette@organisation.dk`).
 - **Sådan tjekker du om du allerede har det sat op på din maskine:**
   Kør i en terminal:
   ```bash
@@ -221,34 +222,35 @@ For at undgå fejlmeddelelser som *"Permission denied"* eller *"Authentication f
   ```
   Hvis de allerede returnerer dit navn og e-mail, arver Kant disse automatisk. Du kan altid tilpasse dem specifikt for modellen i dialogen **`Git-forbindelse & Fjernlager`**.
 
-#### Hvordan godkender man adgang til et privat repository (Autentifikation)?
-Kant benytter systemets standard Git-installation. Hvis organisationens model ligger i et privat repository, skal Git have adgang via én af to standardmetoder:
+---
 
-1. **SSH-nøgle (Anbefalet – nemt og uden kodeord i hverdagen):**
+#### Hvordan godkender man adgang til et privat repository (Autentifikation)?
+Kant benytter systemets standard Git-installation. Hvis organisationens model ligger i et privat repository, skal Git have adgang via én af følgende metoder:
+
+1. **HTTPS med Fine-grained Personal Access Token (Anbefalet Enterprise-standard):**
+   - Benyt URL-formatet: `https://github.com/organisation/model-arkiv.git`.
+   - **Hvor skal mit token bruges?** Tokenet er din **adgangskode (password)**, *ikke* din e-mail.
+     - På Windows og macOS åbner systemets *Git Credential Manager* automatisk et browser-vindue første gang og husker dit login sikkert via Single Sign-On (SSO).
+     - På Linux, eller hvis du arbejder i et miljø uden Credential Manager, kan du enten:
+       a) Indsætte tokenet som adgangskode, når Git spørger efter password.
+       b) Indlejre tokenet direkte i URL'en: `https://<DIT_TOKEN>@github.com/organisation/model-arkiv.git`.
+   - **Sikkerhed: Sådan opretter du et Fine-grained Token med Least Privilege:**
+     - Gå til GitHub: **Settings** → **Developer Settings** → **Personal Access Tokens** → **Fine-grained tokens** → **Generate new token**.
+     - **Resource owner:** Vælg den organisation, der ejer model-arkivet.
+     - **Repository access:** Vælg **Only select repositories** og vælg udelukkende dit model-repository (f.eks. `model-arkiv`). Dette sikrer, at tokenet *aldrig* kan tilgå organisationens øvrige kildekode.
+     - **Permissions (Repository permissions):**
+       - Sæt **Contents** til **`Access: Read and write`** (tillader klon, hentning og udgivelse af modelændringer).
+       - *(Metadata: Read-only tilføjes automatisk af GitHub)*.
+     - **Fordel ved HTTPS i Enterprise:** Port 443 er altid åben i alle virksomheds-firewalls, proxies og VPN-forbindelser.
+
+2. **SSH-nøgle (Alternativ for tekniske udviklere):**
    - Benyt URL-formatet: `git@github.com:organisation/model-arkiv.git`.
-   - Hvis du allerede har en SSH-nøgle på din computer (`~/.ssh/id_ed25519.pub`), skal den blot være tilføjet under din profil på GitHub/GitLab (**Settings** → **SSH and GPG keys**).
-   - Har du ikke en nøgle, genereres den lynhurtigt i en terminal med:
+   - Hvis du allerede har en SSH-nøgle på din computer (`~/.ssh/id_ed25519.pub`), skal den tilføjes under din profil på GitHub/GitLab (**Settings** → **SSH and GPG keys**).
+   - Har du ikke en nøgle, genereres den med:
      ```bash
      ssh-keygen -t ed25519 -C "din-email@organisation.dk"
      ```
-   - Med SSH skal du aldrig indtaste passwords eller tokens ved synkronisering.
-
-2. **HTTPS med Personal Access Token (PAT) eller Git Credential Manager:**
-   - Benyt URL-formatet: `https://github.com/organisation/model-arkiv.git`.
-   - På Windows og macOS åbner systemets *Git Credential Manager* automatisk et browser-vindue første gang og husker dit login sikkert.
-   - Hvis du bruger Linux eller promptes for adgangskode i terminalen, accepterer GitHub **ikke** dit almindelige kodeord, men kræver et **Personal Access Token (PAT)**.
-
-   **Sikkerheds-anbefaling: Brug et Fine-grained Personal Access Token (Least Privilege):**
-   GitHub anbefaler *Fine-grained tokens*, fordi du kan begrænse adgangen til udelukkende det specifikke model-repository:
-   - Gå til GitHub: **Settings** → **Developer Settings** → **Personal Access Tokens** → **Fine-grained tokens** → **Generate new token**.
-   - **Resource owner:** Vælg den organisation eller bruger, der ejer repositoryet.
-   - **Repository access:** Vælg **Only select repositories** og vælg dit model-repository (f.eks. `model-arkiv`).
-   - **Permissions (Repository permissions):**
-     - Sæt **Contents** til **`Access: Read and write`** (giver tilladelse til at klone, hente og udgive modelændringer).
-     - *(Metadata: Read-only tilføjes automatisk af GitHub)*.
-   - **Fordel:** Hvis tokenet nogensinde skulle blive kompromitteret, giver det *nul adgang* til dine andre repositories, organisationens kode eller følsomme data.
-   - *(Alternativt kan et ældre **Tokens (classic)** med `repo`-afkrydsning også benyttes, men fine-grained tokens giver den stærkeste sikkerhed).*
-   - Indsæt det genererede token som adgangskode, når Git efterspørger password.
+   - *Bemærk:* Nogle virksomheds-firewalls og offentlige VPNs blokerer port 22 (SSH). Hvis du oplever timeouts med SSH på arbejdsnetværket, skift til HTTPS.
 
 #### Repository-tilladelser (Permissions)
 - For at kunne **klone og hente opdateringer** (`Pull`) skal du mindst have **Læseadgang (Read)** til repositoryet.
