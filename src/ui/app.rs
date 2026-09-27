@@ -1988,8 +1988,15 @@ impl App {
                                     }
                                 }
 
-                                // 3. Skub ændringer til remote jf. coArchi
-                                let _ = GitService::push_model(&dir, "origin");
+                                match GitService::push_model(&dir, "origin") {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        eprintln!("Git push fejl: {}", e);
+                                        let mut failed_modal = modal;
+                                        failed_modal.error = Some(format!("{}", e));
+                                        self.publish_modal = Some(failed_modal);
+                                    }
+                                }
                             }
 
                             if let Ok(st) = GitService::get_sync_status(&dir) {
@@ -5909,6 +5916,35 @@ impl App {
         if let Some(msg_col) = maybe_message_field {
             dialog_content = dialog_content.push(msg_col);
             dialog_content = dialog_content.push(Space::new().height(12));
+        }
+
+        if let Some(err) = &modal.error {
+            let err_box = container(
+                column![
+                    text("⚠️ Fejl ved overførsel til fjernlager:")
+                        .size(12)
+                        .color(iced::Color::from_rgb(0.85, 0.2, 0.2)),
+                    text(err)
+                        .size(11)
+                        .color(iced::Color::from_rgb(0.7, 0.1, 0.1)),
+                ]
+                .spacing(2),
+            )
+            .style(|_| container::Style {
+                background: Some(iced::Background::Color(iced::Color::from_rgb(
+                    1.0, 0.94, 0.94,
+                ))),
+                border: iced::Border {
+                    color: iced::Color::from_rgb(0.9, 0.4, 0.4),
+                    width: 1.0,
+                    radius: 6.0.into(),
+                },
+                ..Default::default()
+            })
+            .padding(10)
+            .width(Length::Fill);
+            dialog_content = dialog_content.push(err_box);
+            dialog_content = dialog_content.push(Space::new().height(8));
         }
 
         dialog_content = dialog_content.push(footer_buttons).spacing(8).width(480);

@@ -653,7 +653,13 @@ impl GitService {
             return clean_url;
         }
         if let Some(stripped) = clean_url.strip_prefix("https://") {
-            format!("https://{}@{}", trimmed_token, stripped)
+            if trimmed_token.contains(':') {
+                format!("https://{}@{}", trimmed_token, stripped)
+            } else if stripped.contains("github.com") {
+                format!("https://x-access-token:{}@{}", trimmed_token, stripped)
+            } else {
+                format!("https://oauth2:{}@{}", trimmed_token, stripped)
+            }
         } else {
             clean_url
         }
