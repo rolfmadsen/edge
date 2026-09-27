@@ -2,7 +2,7 @@ use crate::features::git::events::{ChangeAction, DomainChangeEvent, DomainEventM
 use crate::features::model::storage::ProjectStorage;
 use crate::features::model::ModelProject;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 use uuid::Uuid;
 
@@ -652,7 +652,7 @@ impl GitService {
             return None;
         }
         let without_git = trimmed.strip_suffix(".git").unwrap_or(trimmed);
-        let segment = without_git.rsplit(|c| c == '/' || c == ':').next()?;
+        let segment = without_git.rsplit(['/', ':']).next()?;
         let clean_name = segment.trim();
         if clean_name.is_empty() {
             None
@@ -671,14 +671,12 @@ impl GitService {
             return false;
         }
         if let Ok(home) = std::env::var("HOME") {
-            if !home.is_empty() && (dir == Path::new(&home) || canonical == PathBuf::from(&home)) {
+            if !home.is_empty() && (dir == Path::new(&home) || canonical == Path::new(&home)) {
                 return false;
             }
         }
         if let Ok(profile) = std::env::var("USERPROFILE") {
-            if !profile.is_empty()
-                && (dir == Path::new(&profile) || canonical == PathBuf::from(&profile))
-            {
+            if !profile.is_empty() && (dir == Path::new(&profile) || canonical == Path::new(&profile)) {
                 return false;
             }
         }

@@ -995,15 +995,7 @@ impl App {
             None => None,
         };
 
-        if let Some(dir) = candidate {
-            if GitService::is_safe_model_repo_dir(&dir) {
-                Some(dir)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
+        candidate.filter(|dir| GitService::is_safe_model_repo_dir(dir))
     }
 
     pub fn save_status(&self) -> &SaveStatus {
