@@ -4,6 +4,7 @@ use crate::features::information_model::{ClassGraph, InformationClass, Informati
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+pub mod decomposed;
 pub mod storage;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

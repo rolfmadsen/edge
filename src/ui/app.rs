@@ -660,7 +660,7 @@ impl App {
     pub fn new_with_path(path: Option<PathBuf>) -> Self {
         if let Some(p) = &path {
             if p.exists() {
-                if let Ok(mut proj) = ProjectStorage::load_from_file(p) {
+                if let Ok(mut proj) = ProjectStorage::load(p) {
                     proj.sync_concept_graph();
                     proj.sync_information_graph();
                     return Self {
@@ -1441,7 +1441,7 @@ impl App {
             return;
         }
         if let Some(path) = &self.current_file_path {
-            match ProjectStorage::save_to_file(&self.project, path) {
+            match ProjectStorage::save(&self.project, path) {
                 Ok(()) => {
                     self.save_status = SaveStatus::Saved {
                         path: path.display().to_string(),
@@ -1898,7 +1898,7 @@ impl App {
                 }
                 self.file_dialog_mode = None;
             }
-            Message::OpenProjectFile(path) => match ProjectStorage::load_from_file(&path) {
+            Message::OpenProjectFile(path) => match ProjectStorage::load(&path) {
                 Ok(mut proj) => {
                     proj.sync_concept_graph();
                     proj.sync_information_graph();

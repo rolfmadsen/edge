@@ -65,4 +65,43 @@ impl ProjectStorage {
 
         Ok(project)
     }
+
+    /// Gemmer et FDA modelprojekt i det dekomponerede `.kant/` format.
+    pub fn save_to_directory(project: &ModelProject, root_path: &Path) -> Result<(), StorageError> {
+        crate::features::model::decomposed::save_decomposed(project, root_path)
+    }
+
+    /// Indlæser et FDA modelprojekt fra et dekomponeret `.kant/` katalog.
+    pub fn load_from_directory(root_path: &Path) -> Result<ModelProject, StorageError> {
+        crate::features::model::decomposed::load_decomposed(root_path)
+    }
+
+    /// Automatisk format-detekterende indlæsning (støtter .kant.json fil, .kant mappe eller rodmappe).
+    pub fn load(path: &Path) -> Result<ModelProject, StorageError> {
+        if path.is_dir() {
+            if path.file_name().and_then(|n| n.to_str()) == Some(".kant")
+                || path.join(".kant").is_dir()
+            {
+                Self::load_from_directory(path)
+            } else {
+                let default_file = path.join(Self::default_project_path());
+                if default_file.is_file() {
+                    Self::load_from_file(&default_file)
+                } else {
+                    Self::load_from_directory(path)
+                }
+            }
+        } else {
+            Self::load_from_file(path)
+        }
+    }
+
+    /// Automatisk format-detekterende skrivning.
+    pub fn save(project: &ModelProject, path: &Path) -> Result<(), StorageError> {
+        if path.is_dir() || path.file_name().and_then(|n| n.to_str()) == Some(".kant") {
+            Self::save_to_directory(project, path)
+        } else {
+            Self::save_to_file(project, path)
+        }
+    }
 }

@@ -5186,4 +5186,3 @@ fn test_task_044_decomposed_storage_and_deterministic_serialization() {
     // Oprydning
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
-
