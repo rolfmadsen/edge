@@ -1,0 +1,15 @@
+{
+  "diagram_type": "ClassDiagram",
+  "id": "00000000-0000-0000-0000-000000000002",
+  "name": "Informationsmodel",
+  "nodes": [
+    {
+      "class_id": "1d08710e-fb89-4ba9-b7bf-e64e6652e0f9",
+      "height": 80.0,
+      "id": "fe1d2f04-81c1-4996-a0c7-d12dce0ecffc",
+      "width": 220.0,
+      "x": 100.0,
+      "y": 160.0
+    }
+  ]
+}
