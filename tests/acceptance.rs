@@ -5774,7 +5774,11 @@ fn test_task_049_git_connection_remote_configuration_and_clone_ui() {
     // 4. Test håndtering af relativ filsti uden mappe (f.eks. standarden "model.kant.json")
     let mut rel_app = EdgeApp::new();
     rel_app.set_active_file_path(Some(std::path::PathBuf::from("model.kant.json")));
-    assert_eq!(rel_app.repo_dir(), None, "Relativ fil uden dedikeret mappe må ikke returnere '.'");
+    assert_eq!(
+        rel_app.repo_dir(),
+        None,
+        "Relativ fil uden dedikeret mappe må ikke returnere '.'"
+    );
     let _ = rel_app.update(Message::OpenGitConnectionModal);
     assert!(rel_app.git_connection_modal().is_some());
 
@@ -5929,7 +5933,9 @@ fn test_task_051_model_isolation_and_git_provider_agnosticism() {
 
     // 1. Repo name parsing fra URL
     assert_eq!(
-        GitService::parse_repo_name("https://github.com/rolfmadsen/kant_begrebs_og_informationsmodeller.git"),
+        GitService::parse_repo_name(
+            "https://github.com/rolfmadsen/kant_begrebs_og_informationsmodeller.git"
+        ),
         Some("kant_begrebs_og_informationsmodeller".to_string())
     );
     assert_eq!(
@@ -5946,7 +5952,10 @@ fn test_task_051_model_isolation_and_git_provider_agnosticism() {
         "https://gitlab.com/org/fda-model.git",
         "glpat-token123",
     );
-    assert_eq!(gitlab_url, "https://oauth2:glpat-token123@gitlab.com/org/fda-model.git");
+    assert_eq!(
+        gitlab_url,
+        "https://oauth2:glpat-token123@gitlab.com/org/fda-model.git"
+    );
 
     let gitea_url = GitService::build_authenticated_url(
         "https://gitea.internal/org/fda-model.git",
@@ -5958,11 +5967,12 @@ fn test_task_051_model_isolation_and_git_provider_agnosticism() {
         gitea_url
     );
 
-    let github_url = GitService::build_authenticated_url(
-        "https://github.com/org/fda-model.git",
-        "ghp_token456",
+    let github_url =
+        GitService::build_authenticated_url("https://github.com/org/fda-model.git", "ghp_token456");
+    assert_eq!(
+        github_url,
+        "https://x-access-token:ghp_token456@github.com/org/fda-model.git"
     );
-    assert_eq!(github_url, "https://x-access-token:ghp_token456@github.com/org/fda-model.git");
 
     // 3. Sikkerhedsguardrail: Isoleret modelkatalog
     // Roden af vores edge repo indeholder Cargo.toml og må ALDRIG betragtes som en sikker modelmappe
@@ -5971,7 +5981,8 @@ fn test_task_051_model_isolation_and_git_provider_agnosticism() {
         "Aktuel software-kildekodemappe med Cargo.toml må IKKE tillades som model-repo"
     );
 
-    let temp_root = std::env::temp_dir().join(format!("kant_test_051_iso_{}", uuid::Uuid::new_v4()));
+    let temp_root =
+        std::env::temp_dir().join(format!("kant_test_051_iso_{}", uuid::Uuid::new_v4()));
     let model_dir = temp_root.join("dedicated_model_project");
     std::fs::create_dir_all(&model_dir).unwrap();
     assert!(
@@ -6010,40 +6021,53 @@ fn test_task_051_model_isolation_and_git_provider_agnosticism() {
     // 5. Kloning af tomt repository udleder automatisk projektnavn og initialiserer rent projekt
     let remote_dir = temp_root.join("remote_bare_repo.git");
     let _ = std::process::Command::new("git")
-        .args([
-            "init",
-            "--bare",
-            "-b",
-            "main",
-            remote_dir.to_str().unwrap(),
-        ])
+        .args(["init", "--bare", "-b", "main", remote_dir.to_str().unwrap()])
         .output();
 
     let nested_parent = temp_root.join("new_models_folder");
-    assert!(!nested_parent.exists(), "Forældremappe må ikke eksistere forud for testen");
+    assert!(
+        !nested_parent.exists(),
+        "Forældremappe må ikke eksistere forud for testen"
+    );
     let clone_dest = nested_parent.join("cloned_fda_vejafgift");
     let remote_url = format!("file://{}", remote_dir.display());
 
     let _ = app.update(Message::OpenGitCloneModal);
-    let _ = app.update(Message::UpdateGitCloneUrl("https://gitlab.com/org/fda-vejafgift.git".into()));
-    let _ = app.update(Message::UpdateGitCloneToken("glpat-secret-token-123".into()));
-    assert_eq!(app.git_clone_modal().unwrap().token, "glpat-secret-token-123");
+    let _ = app.update(Message::UpdateGitCloneUrl(
+        "https://gitlab.com/org/fda-vejafgift.git".into(),
+    ));
+    let _ = app.update(Message::UpdateGitCloneToken(
+        "glpat-secret-token-123".into(),
+    ));
+    assert_eq!(
+        app.git_clone_modal().unwrap().token,
+        "glpat-secret-token-123"
+    );
 
     // Simulér valg af destinationsmappe via folder-dialog
     let _ = app.update(Message::GitCloneTargetDirSelected(
         kant::ui::file_dialog::DialogResult::Selected(clone_dest.clone()),
     ));
-    assert_eq!(app.git_clone_modal().unwrap().target_dir, clone_dest.display().to_string());
+    assert_eq!(
+        app.git_clone_modal().unwrap().target_dir,
+        clone_dest.display().to_string()
+    );
 
     // Verificer at ændring i URL ikke overskriver brugerens valgte mappe
     let _ = app.update(Message::UpdateGitCloneUrl(remote_url));
-    assert_eq!(app.git_clone_modal().unwrap().target_dir, clone_dest.display().to_string());
+    assert_eq!(
+        app.git_clone_modal().unwrap().target_dir,
+        clone_dest.display().to_string()
+    );
 
     // Udfør klon - skal automatisk oprette nested_parent og lykkes
     let _ = app.update(Message::ExecuteGitClone);
 
     // Verificer at projektet er indlæst, forældremappen oprettet og modalen lukket
-    assert!(nested_parent.exists(), "Forældremappen skal være oprettet automatisk");
+    assert!(
+        nested_parent.exists(),
+        "Forældremappen skal være oprettet automatisk"
+    );
     assert_eq!(app.repo_dir(), Some(clone_dest.clone()));
     assert!(app.git_clone_modal().is_none());
 
@@ -6066,7 +6090,11 @@ fn test_task_052_recent_models_and_decomposed_path_resolution() {
     // 1. Opret og gem et dekomponeret modelprojekt
     let mut proj = ModelProject::default();
     proj.metadata_mut().set_name("FDA Sundhedsmodel");
-    let concept = Concept::new("Patient", "En person modtager behandling", BelongsToDomain::Yes);
+    let concept = Concept::new(
+        "Patient",
+        "En person modtager behandling",
+        BelongsToDomain::Yes,
+    );
     proj.add_concept(concept).unwrap();
     ProjectStorage::save_to_directory(&proj, &model_dir).expect("skal gemme dekomponeret model");
 
@@ -6075,7 +6103,10 @@ fn test_task_052_recent_models_and_decomposed_path_resolution() {
 
     // 2. Test effective_model_path normalisering
     let eff1 = ProjectStorage::effective_model_path(&metadata_file);
-    assert_eq!(eff1, model_dir, "metadata.json skal normaliseres til model-roden");
+    assert_eq!(
+        eff1, model_dir,
+        "metadata.json skal normaliseres til model-roden"
+    );
 
     let eff2 = ProjectStorage::effective_model_path(&model_dir.join(".kant"));
     assert_eq!(eff2, model_dir.join(".kant"), "mappesti forbliver intakt");
@@ -6083,9 +6114,15 @@ fn test_task_052_recent_models_and_decomposed_path_resolution() {
     // 3. Test at ProjectStorage::load indlæser den fulde model selvom stien er .kant/metadata.json
     let loaded_from_metadata_file = ProjectStorage::load(&metadata_file)
         .expect("load fra metadata.json skal automatisk detektere .kant/ og hente hele modellen");
-    assert_eq!(loaded_from_metadata_file.metadata().name(), "FDA Sundhedsmodel");
+    assert_eq!(
+        loaded_from_metadata_file.metadata().name(),
+        "FDA Sundhedsmodel"
+    );
     assert_eq!(loaded_from_metadata_file.concepts().len(), 1);
-    assert_eq!(loaded_from_metadata_file.concepts()[0].preferred_term(), "Patient");
+    assert_eq!(
+        loaded_from_metadata_file.concepts()[0].preferred_term(),
+        "Patient"
+    );
 
     // 4. Test RecentStore normalisering og tracking
     let mut store = RecentStore::default();

@@ -2041,9 +2041,8 @@ impl App {
                         Some(d) => d,
                         None => {
                             let mut failed_modal = modal;
-                            failed_modal.error = Some(
-                                "Modellen er ikke gemt i en dedikeret modelmappe".into(),
-                            );
+                            failed_modal.error =
+                                Some("Modellen er ikke gemt i en dedikeret modelmappe".into());
                             self.publish_modal = Some(failed_modal);
                             return Task::none();
                         }
@@ -2308,17 +2307,20 @@ impl App {
             Message::GitTargetDirSelected(result) => {
                 if let Some(m) = &mut self.git_connection_modal {
                     if let crate::ui::file_dialog::DialogResult::Selected(path) = result {
-                        let final_path = if let Some(repo_name) = GitService::parse_repo_name(&m.remote_url) {
-                            let is_non_empty_dir = path.is_dir()
-                                && path.read_dir().map_or(false, |mut i| i.next().is_some());
-                            if is_non_empty_dir && path.file_name().and_then(|n| n.to_str()) != Some(&repo_name) {
-                                path.join(repo_name)
+                        let final_path =
+                            if let Some(repo_name) = GitService::parse_repo_name(&m.remote_url) {
+                                let is_non_empty_dir = path.is_dir()
+                                    && path.read_dir().is_ok_and(|mut i| i.next().is_some());
+                                if is_non_empty_dir
+                                    && path.file_name().and_then(|n| n.to_str()) != Some(&repo_name)
+                                {
+                                    path.join(repo_name)
+                                } else {
+                                    path
+                                }
                             } else {
                                 path
-                            }
-                        } else {
-                            path
-                        };
+                            };
                         m.target_dir = final_path.display().to_string();
                         m.custom_target_dir = true;
                         m.error_message = None;
@@ -2383,7 +2385,8 @@ impl App {
                     }
 
                     // Tjek om mappen er et eksisterende git-repo
-                    let is_inside_repo = GitService::run_git(&dir, &["rev-parse", "--is-inside-work-tree"]).is_ok();
+                    let is_inside_repo =
+                        GitService::run_git(&dir, &["rev-parse", "--is-inside-work-tree"]).is_ok();
 
                     if !is_inside_repo {
                         if !url.is_empty() {
@@ -2393,7 +2396,8 @@ impl App {
                                 url.clone()
                             };
 
-                            let is_empty_dir = !dir.exists() || dir.read_dir().map_or(true, |mut i| i.next().is_none());
+                            let is_empty_dir = !dir.exists()
+                                || dir.read_dir().map_or(true, |mut i| i.next().is_none());
                             if is_empty_dir {
                                 match GitService::clone_repository(&auth_url, &dir) {
                                     Ok(_) => {
@@ -2401,15 +2405,20 @@ impl App {
                                             Ok(p) => p,
                                             Err(_) => {
                                                 let mut fresh = ModelProject::default();
-                                                if let Some(repo_name) = GitService::parse_repo_name(&url) {
+                                                if let Some(repo_name) =
+                                                    GitService::parse_repo_name(&url)
+                                                {
                                                     fresh.metadata_mut().set_name(repo_name);
                                                 }
-                                                let _ = ProjectStorage::save_to_directory(&fresh, &dir);
+                                                let _ =
+                                                    ProjectStorage::save_to_directory(&fresh, &dir);
                                                 fresh
                                             }
                                         };
                                         if let Some(repo_name) = GitService::parse_repo_name(&url) {
-                                            if project.metadata().name() == "Nyt FDA Modelprojekt" || project.metadata().name().trim().is_empty() {
+                                            if project.metadata().name() == "Nyt FDA Modelprojekt"
+                                                || project.metadata().name().trim().is_empty()
+                                            {
                                                 project.metadata_mut().set_name(repo_name);
                                             }
                                         }
@@ -2418,14 +2427,16 @@ impl App {
                                         self.project = project;
                                     }
                                     Err(e) => {
-                                        state.error_message = Some(format!("Kloning fejlede: {}", e));
+                                        state.error_message =
+                                            Some(format!("Kloning fejlede: {}", e));
                                         self.git_connection_modal = Some(state);
                                         return Task::none();
                                     }
                                 }
                             } else {
                                 if let Err(e) = GitService::init_repository(&dir) {
-                                    state.error_message = Some(format!("Kunne ikke initialisere Git: {}", e));
+                                    state.error_message =
+                                        Some(format!("Kunne ikke initialisere Git: {}", e));
                                     self.git_connection_modal = Some(state);
                                     return Task::none();
                                 }
@@ -2433,7 +2444,8 @@ impl App {
                             }
                         } else {
                             if let Err(e) = GitService::init_repository(&dir) {
-                                state.error_message = Some(format!("Kunne ikke initialisere Git: {}", e));
+                                state.error_message =
+                                    Some(format!("Kunne ikke initialisere Git: {}", e));
                                 self.git_connection_modal = Some(state);
                                 return Task::none();
                             }
@@ -2446,7 +2458,8 @@ impl App {
                     if !url.is_empty() {
                         let final_url = GitService::build_authenticated_url(&url, &token);
                         if let Err(e) = GitService::set_remote_url(&dir, &final_url) {
-                            state.error_message = Some(format!("Kunne ikke gemme remote URL: {}", e));
+                            state.error_message =
+                                Some(format!("Kunne ikke gemme remote URL: {}", e));
                             self.git_connection_modal = Some(state);
                             return Task::none();
                         }
@@ -2454,7 +2467,8 @@ impl App {
 
                     if !name.is_empty() || !email.is_empty() {
                         if let Err(e) = GitService::set_user_identity(&dir, &name, &email) {
-                            state.error_message = Some(format!("Kunne ikke gemme forfatteridentitet: {}", e));
+                            state.error_message =
+                                Some(format!("Kunne ikke gemme forfatteridentitet: {}", e));
                             self.git_connection_modal = Some(state);
                             return Task::none();
                         }
@@ -2537,17 +2551,20 @@ impl App {
             Message::GitCloneTargetDirSelected(result) => {
                 if let Some(m) = &mut self.git_clone_modal {
                     if let crate::ui::file_dialog::DialogResult::Selected(path) = result {
-                        let final_path = if let Some(repo_name) = GitService::parse_repo_name(&m.remote_url) {
-                            let is_non_empty_dir = path.is_dir()
-                                && path.read_dir().map_or(false, |mut i| i.next().is_some());
-                            if is_non_empty_dir && path.file_name().and_then(|n| n.to_str()) != Some(&repo_name) {
-                                path.join(repo_name)
+                        let final_path =
+                            if let Some(repo_name) = GitService::parse_repo_name(&m.remote_url) {
+                                let is_non_empty_dir = path.is_dir()
+                                    && path.read_dir().is_ok_and(|mut i| i.next().is_some());
+                                if is_non_empty_dir
+                                    && path.file_name().and_then(|n| n.to_str()) != Some(&repo_name)
+                                {
+                                    path.join(repo_name)
+                                } else {
+                                    path
+                                }
                             } else {
                                 path
-                            }
-                        } else {
-                            path
-                        };
+                            };
                         m.target_dir = final_path.display().to_string();
                         m.custom_target_dir = true;
                         m.error_message = None;
@@ -2578,7 +2595,8 @@ impl App {
                                         if let Some(repo_name) = GitService::parse_repo_name(&url) {
                                             fresh.metadata_mut().set_name(repo_name);
                                         }
-                                        let _ = ProjectStorage::save_to_directory(&fresh, &target_path);
+                                        let _ =
+                                            ProjectStorage::save_to_directory(&fresh, &target_path);
                                         fresh
                                     }
                                 };
@@ -2819,12 +2837,11 @@ impl App {
                     Message::OpenProjectFolderCompleted,
                 );
             }
-            Message::OpenProjectFolderCompleted(res) => match res {
-                crate::ui::file_dialog::DialogResult::Selected(path) => {
+            Message::OpenProjectFolderCompleted(res) => {
+                if let crate::ui::file_dialog::DialogResult::Selected(path) = res {
                     return self.update(Message::OpenProjectFile(path));
                 }
-                _ => {}
-            },
+            }
             Message::OpenRecentProject(path) => {
                 self.active_menu = None;
                 return self.update(Message::OpenProjectFile(path));
@@ -2920,8 +2937,11 @@ impl App {
                         }
                     }
                     Err(err) => {
-                        self.save_status =
-                            SaveStatus::Error(format!("Kunne ikke åbne {}: {}", path.display(), err));
+                        self.save_status = SaveStatus::Error(format!(
+                            "Kunne ikke åbne {}: {}",
+                            path.display(),
+                            err
+                        ));
                     }
                 }
             }
@@ -5732,44 +5752,45 @@ impl App {
 
             let (left_offset, menu_body) = match menu_type {
                 MenuType::File => {
-                    let recent_item = |icon: &'static str, title: String, path_str: String, msg: Message| {
-                        button(
-                            row![
-                                text(icon).size(14),
-                                Space::new().width(8),
-                                column![
-                                    text(title).size(12).color(ThemeColors::SLATE_800),
-                                    text(path_str).size(9).color(ThemeColors::TEXT_MUTED),
+                    let recent_item =
+                        |icon: &'static str, title: String, path_str: String, msg: Message| {
+                            button(
+                                row![
+                                    text(icon).size(14),
+                                    Space::new().width(8),
+                                    column![
+                                        text(title).size(12).color(ThemeColors::SLATE_800),
+                                        text(path_str).size(9).color(ThemeColors::TEXT_MUTED),
+                                    ]
+                                    .spacing(1),
                                 ]
-                                .spacing(1),
-                            ]
-                            .align_y(Alignment::Center),
-                        )
-                        .style(|_theme, status| {
-                            let background = match status {
-                                button::Status::Hovered => {
-                                    Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT))
-                                }
-                                button::Status::Pressed => {
-                                    Some(iced::Background::Color(ThemeColors::SURFACE_BORDER))
-                                }
-                                _ => None,
-                            };
-                            button::Style {
-                                background,
-                                text_color: ThemeColors::SLATE_800,
-                                border: iced::Border {
-                                    radius: 6.0.into(),
+                                .align_y(Alignment::Center),
+                            )
+                            .style(|_theme, status| {
+                                let background = match status {
+                                    button::Status::Hovered => {
+                                        Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT))
+                                    }
+                                    button::Status::Pressed => {
+                                        Some(iced::Background::Color(ThemeColors::SURFACE_BORDER))
+                                    }
+                                    _ => None,
+                                };
+                                button::Style {
+                                    background,
+                                    text_color: ThemeColors::SLATE_800,
+                                    border: iced::Border {
+                                        radius: 6.0.into(),
+                                        ..Default::default()
+                                    },
+                                    shadow: iced::Shadow::default(),
                                     ..Default::default()
-                                },
-                                shadow: iced::Shadow::default(),
-                                ..Default::default()
-                            }
-                        })
-                        .on_press(msg)
-                        .width(Length::Fill)
-                        .padding([4, 8])
-                    };
+                                }
+                            })
+                            .on_press(msg)
+                            .width(Length::Fill)
+                            .padding([4, 8])
+                        };
 
                     let mut file_col = column![
                         text("PROJEKT & FILER")
@@ -5845,7 +5866,8 @@ impl App {
                             .color(ThemeColors::TEXT_MUTED),
                     );
                     file_col = file_col.push(Space::new().height(2));
-                    file_col = file_col.push(menu_item("📥", "Hent ændringer (Pull)", Message::PullModel));
+                    file_col =
+                        file_col.push(menu_item("📥", "Hent ændringer (Pull)", Message::PullModel));
                     file_col = file_col.push(menu_item(
                         "🚀",
                         "Commit og send ændringer (pull, add & push)...",
@@ -6309,11 +6331,14 @@ impl App {
                     text("Versionsnote / Commit-besked")
                         .size(12)
                         .color(ThemeColors::SLATE_700),
-                    text_input("Beskriv ændringerne i modellen (fx Tilføjet Virksomhed og CVR)...", &modal.message)
-                        .style(modern_input_style)
-                        .on_input(Message::UpdatePublishMessage)
-                        .padding(8)
-                        .width(Length::Fill),
+                    text_input(
+                        "Beskriv ændringerne i modellen (fx Tilføjet Virksomhed og CVR)...",
+                        &modal.message
+                    )
+                    .style(modern_input_style)
+                    .on_input(Message::UpdatePublishMessage)
+                    .padding(8)
+                    .width(Length::Fill),
                 ]
                 .spacing(4),
             )
@@ -6888,7 +6913,9 @@ impl App {
         );
         let is_empty_target = modal.target_dir.is_empty()
             || !std::path::Path::new(&modal.target_dir).exists()
-            || std::path::Path::new(&modal.target_dir).read_dir().map_or(true, |mut i| i.next().is_none());
+            || std::path::Path::new(&modal.target_dir)
+                .read_dir()
+                .map_or(true, |mut i| i.next().is_none());
         let save_label = if is_empty_target && !modal.remote_url.is_empty() {
             "Hent & Forbind model"
         } else {

@@ -80,14 +80,23 @@ impl GitService {
             use std::os::windows::process::CommandExt;
             test_cmd.creation_flags(0x08000000);
         }
-        if test_cmd.arg("--version").output().map(|o| o.status.success()).unwrap_or(false) {
+        if test_cmd
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+        {
             return "git".into();
         }
 
         // 2. Fallbacks for macOS GUI-apps (hvor PATH ofte ikke arves fra .zshrc/.bash_profile i Finder)
         #[cfg(target_os = "macos")]
         {
-            for candidate in &["/usr/bin/git", "/opt/homebrew/bin/git", "/usr/local/bin/git"] {
+            for candidate in &[
+                "/usr/bin/git",
+                "/opt/homebrew/bin/git",
+                "/usr/local/bin/git",
+            ] {
                 let path = Path::new(candidate);
                 if path.exists() {
                     return path.as_os_str().to_os_string();
@@ -757,7 +766,9 @@ impl GitService {
             }
         }
         if let Ok(profile) = std::env::var("USERPROFILE") {
-            if !profile.is_empty() && (dir == Path::new(&profile) || canonical == Path::new(&profile)) {
+            if !profile.is_empty()
+                && (dir == Path::new(&profile) || canonical == Path::new(&profile))
+            {
                 return false;
             }
         }

@@ -18,7 +18,9 @@ impl RecentStore {
         {
             if let Ok(app_data) = std::env::var("APPDATA") {
                 if !app_data.is_empty() {
-                    return PathBuf::from(app_data).join("kant").join("recent_models.json");
+                    return PathBuf::from(app_data)
+                        .join("kant")
+                        .join("recent_models.json");
                 }
             }
         }
@@ -63,7 +65,7 @@ impl RecentStore {
             fs::create_dir_all(parent)?;
         }
         let json = serde_json::to_string_pretty(self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
         fs::write(path, json.as_bytes())?;
         Ok(())
     }
