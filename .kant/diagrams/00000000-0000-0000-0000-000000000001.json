@@ -4,14 +4,14 @@
   "name": "Begrebsmodel",
   "nodes": [
     {
-      "concept_id": "ecee48de-e71f-436a-b906-afd4cb8dc168",
+      "concept_id": "60524b8a-ed56-4b09-a73e-c451be9837af",
       "height": 80.0,
-      "id": "ecee48de-e71f-436a-b906-afd4cb8dc168",
-      "is_local": false,
-      "label": "Vejafgift",
+      "id": "60524b8a-ed56-4b09-a73e-c451be9837af",
+      "is_local": true,
+      "label": "repository",
       "width": 180.0,
-      "x": 400.0,
-      "y": 400.0
+      "x": 360.0,
+      "y": 60.0
     }
   ]
 }

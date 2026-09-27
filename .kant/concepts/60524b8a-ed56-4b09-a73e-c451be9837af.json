@@ -1,15 +1,15 @@
 {
   "accepted_term": null,
   "application_note": null,
-  "belongs_to_domain": "No",
+  "belongs_to_domain": "Yes",
   "comment": null,
-  "definition": "Gebyr for passage",
+  "definition": "et repo benyttes til versionering af tekstfiler",
   "deprecated_term": null,
   "derived_from": null,
   "example": null,
-  "id": "ecee48de-e71f-436a-b906-afd4cb8dc168",
+  "id": "60524b8a-ed56-4b09-a73e-c451be9837af",
   "identifier": null,
   "legal_source": null,
-  "preferred_term": "Vejafgift",
+  "preferred_term": "repository",
   "source": null
 }

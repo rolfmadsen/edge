@@ -1,0 +1,12 @@
+{
+  "attributes": [],
+  "concept_ids": [
+    "60524b8a-ed56-4b09-a73e-c451be9837af"
+  ],
+  "description": "et repo benyttes til versionering af tekstfiler",
+  "id": "14a6fd3f-3ff8-4340-88e7-207eba1d517a",
+  "is_abstract": false,
+  "is_local": true,
+  "name": "repository",
+  "origin_model": null
+}
