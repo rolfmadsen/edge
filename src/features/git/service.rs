@@ -340,15 +340,17 @@ impl GitService {
 
             let changes = Self::parse_commit_diff(repo_path, &oid, &diff_tree)?;
 
-            commits.push(GitCommitInfo {
-                oid,
-                short_oid,
-                author_name,
-                author_email,
-                timestamp,
-                message,
-                changes,
-            });
+            if !changes.is_empty() {
+                commits.push(GitCommitInfo {
+                    oid,
+                    short_oid,
+                    author_name,
+                    author_email,
+                    timestamp,
+                    message,
+                    changes,
+                });
+            }
         }
 
         Ok(commits)

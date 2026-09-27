@@ -21,8 +21,8 @@ use crate::ui::theme::{
 use iced::event::{self, Event};
 use iced::keyboard::{self, key::Named, Key};
 use iced::widget::{
-    button, checkbox, column, container, mouse_area, operation, pick_list, row, stack, text,
-    text_input, tooltip, Space,
+    button, checkbox, column, container, mouse_area, operation, pick_list, row, scrollable, stack,
+    text, text_input, tooltip, Space,
 };
 use iced::{Alignment, Element, Length, Point, Subscription, Task};
 use serde::{Deserialize, Serialize};
@@ -5809,14 +5809,49 @@ impl App {
             .size(12)
             .color(ThemeColors::TEXT_MUTED);
 
-        let mut commits_list = column![].spacing(10);
-        if modal.commits.is_empty() {
-            commits_list = commits_list.push(
-                text("Der er ingen versioner fundet for dette element endnu.")
+        let content_element: Element<'a, Message> = if modal.commits.is_empty() {
+            let empty_card = container(
+                column![
+                    text(if modal.target_element_id.is_some() {
+                        "ℹ️ Ingen versioner fundet for dette element endnu"
+                    } else {
+                        "ℹ️ Ingen udgivne versioner i historikken endnu"
+                    })
+                    .size(13)
+                    .color(ThemeColors::SLATE_900),
+                    Space::new().height(6),
+                    text(if modal.target_element_id.is_some() {
+                        "Dette element er endnu ikke blevet udgivet som en del af en officiel modelversion."
+                    } else {
+                        "Modellens tidslinje sporer udgivne versioner af begreber, informationsklasser og relationer.\n\nDine nuværende ændringer er gemt lokalt som kladde (se status-knappen 'Lokale ændringer' øverst). For at gemme din første version i historikken, skal du udgive modellen."
+                    })
                     .size(12)
-                    .color(ThemeColors::SLATE_500),
-            );
+                    .color(ThemeColors::SLATE_600),
+                    Space::new().height(12),
+                    button(text("🚀 Udgiv modelændringer nu...").size(12))
+                        .style(primary_button_style)
+                        .on_press(Message::OpenPublishModal)
+                        .padding([6, 14]),
+                ]
+                .spacing(4),
+            )
+            .style(|_| container::Style {
+                background: Some(iced::Background::Color(iced::Color::from_rgb(
+                    0.96, 0.97, 0.99,
+                ))),
+                border: iced::Border {
+                    color: ThemeColors::SURFACE_BORDER,
+                    width: 1.0,
+                    radius: 8.0.into(),
+                },
+                ..Default::default()
+            })
+            .padding(14)
+            .width(Length::Fill);
+
+            empty_card.into()
         } else {
+            let mut commits_list = column![].spacing(10);
             for commit in &modal.commits {
                 let commit_header = row![
                     text(&commit.message).size(13).color(ThemeColors::SLATE_900),
@@ -5875,9 +5910,11 @@ impl App {
 
                 commits_list = commits_list.push(commit_card);
             }
-        }
 
-        let scroll_content = container(commits_list).width(Length::Fill).max_height(400);
+            scrollable(commits_list)
+                .height(Length::Fixed(360.0))
+                .into()
+        };
 
         let footer = row![
             Space::new().width(Length::Fill),
@@ -5891,7 +5928,7 @@ impl App {
             title_row,
             subtitle,
             Space::new().height(8),
-            scroll_content,
+            content_element,
             Space::new().height(12),
             footer,
         ]
