@@ -205,6 +205,48 @@ Når kolleger har udgivet ændringer til det fælles repository:
 
 ---
 
+### 3. 🔐 Adgangskontrol, Rettigheder & Git-Identitet
+
+For at undgå fejlmeddelelser som *"Permission denied"* eller *"Authentication failed"*, er her de vigtigste ting at vide om rettigheder og opsætning:
+
+#### Hvad er Git Brugernavn og E-mail (`user.name` & `user.email`)?
+- **Det er ikke en adgangskode:** Det er den **forfatter-signatur**, som Git stempler dine ændringer med i modellens revisionslog.
+- **`user.name`:** Dit fulde navn (f.eks. `Mette Hansen`) eller dit foretrukne kaldenavn på GitHub/GitLab.
+- **`user.email`:** Den e-mail, der er tilknyttet din GitHub- eller organisationskonto (f.eks. `mette@organisation.dk`).
+- **Sådan tjekker du om du allerede har det sat op på din maskine:**
+  Kør i en terminal:
+  ```bash
+  git config --global user.name
+  git config --global user.email
+  ```
+  Hvis de allerede returnerer dit navn og e-mail, arver Kant disse automatisk. Du kan altid tilpasse dem specifikt for modellen i dialogen **`Git-forbindelse & Fjernlager`**.
+
+#### Hvordan godkender man adgang til et privat repository (Autentifikation)?
+Kant benytter systemets standard Git-installation. Hvis organisationens model ligger i et privat repository, skal Git have adgang via én af to standardmetoder:
+
+1. **SSH-nøgle (Anbefalet – nemt og uden kodeord i hverdagen):**
+   - Benyt URL-formatet: `git@github.com:organisation/model-arkiv.git`.
+   - Hvis du allerede har en SSH-nøgle på din computer (`~/.ssh/id_ed25519.pub`), skal den blot være tilføjet under din profil på GitHub/GitLab (**Settings** → **SSH and GPG keys**).
+   - Har du ikke en nøgle, genereres den lynhurtigt i en terminal med:
+     ```bash
+     ssh-keygen -t ed25519 -C "din-email@organisation.dk"
+     ```
+   - Med SSH skal du aldrig indtaste passwords eller tokens ved synkronisering.
+
+2. **HTTPS med Personal Access Token (PAT) eller Git Credential Manager:**
+   - Benyt URL-formatet: `https://github.com/organisation/model-arkiv.git`.
+   - På Windows og macOS åbner systemets *Git Credential Manager* automatisk et browser-vindue første gang og husker dit login sikkert.
+   - Hvis du bruger Linux eller bliver bedt om en adgangskode i en terminal-prompt, accepterer GitHub **ikke** dit almindelige kodeord, men kræver et **Personal Access Token (PAT)**:
+     - Gå til GitHub: **Settings** → **Developer Settings** → **Personal Access Tokens (Tokens classic)**.
+     - Opret et token med afkrydsning i **`repo`** (fuld adgang til repositories).
+     - Indtast dette token som adgangskode, når Git efterspørger password.
+
+#### Repository-tilladelser (Permissions)
+- For at kunne **klone og hente opdateringer** (`Pull`) skal du mindst have **Læseadgang (Read)** til repositoryet.
+- For at kunne **udgive modelændringer** (`Push / Publish`) skal du have **Skriveadgang (Write)** som Collaborator eller medlem af organisationens modellerings-team på GitHub/GitLab.
+
+---
+
 ## 📄 Licens
 
 Dette projekt er licenseret under de vilkår, der fremgår af [LICENSE](LICENSE).
