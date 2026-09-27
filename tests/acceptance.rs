@@ -5781,3 +5781,110 @@ fn test_task_049_git_connection_remote_configuration_and_clone_ui() {
     // 5. Oprydning
     let _ = std::fs::remove_dir_all(&temp_root);
 }
+
+#[test]
+fn test_task_050_coarchi_publish_sync_workflow_and_token_authentication() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::git::service::GitService;
+    use kant::ui::app::{EdgeApp, Message};
+    use uuid::Uuid;
+
+    if !GitService::is_git_installed() {
+        eprintln!("Skipping test: git binary not found");
+        return;
+    }
+
+    let temp_root = std::env::temp_dir().join(format!("kant_test_050_{}", Uuid::new_v4()));
+    let remote_bare_dir = temp_root.join("remote.git");
+    let local_dir = temp_root.join("local_model");
+    let _ = std::fs::create_dir_all(&local_dir);
+
+    // 1. Opret et bare git repository som vores 'remote origin'
+    let _ = std::process::Command::new("git")
+        .args(["init", "--bare", remote_bare_dir.to_str().unwrap()])
+        .output();
+
+    // 2. Initialiser lokalt repository og sæt remote til bare repo
+    assert!(GitService::init_repository(&local_dir).is_ok());
+    GitService::set_remote_url(&local_dir, remote_bare_dir.to_str().unwrap()).unwrap();
+    GitService::set_user_identity(&local_dir, "Test Modeller", "modeller@kant.local").unwrap();
+
+    // 3. Opret en model og udgiv lokalt med publish_model
+    let mut project = kant::features::model::ModelProject::default();
+    project.metadata_mut().set_name("coArchi Model");
+    let c = Concept::new("Vejafgift", "Gebyr for passage", BelongsToDomain::Yes);
+    project.add_concept(c).unwrap();
+
+    let commit_oid = GitService::publish_model(&local_dir, &project, "Første modeludgivelse").unwrap();
+    assert!(!commit_oid.is_empty());
+
+    // 4. Test direkte push_model fra GitService til remote
+    GitService::push_model(&local_dir, "origin").expect("push_model skal skubbe commits til remote");
+
+    // Bekræft at remote har modtaget committet
+    let remote_head = std::process::Command::new("git")
+        .args(["--git-dir", remote_bare_dir.to_str().unwrap(), "rev-parse", "HEAD"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap();
+    assert_eq!(remote_head, commit_oid);
+
+    // 5. Test UI Token håndtering i GitConnectionModal
+    let mut app = EdgeApp::new();
+    app.set_active_file_path(Some(local_dir.clone()));
+
+    let _ = app.update(Message::OpenGitConnectionModal);
+    assert!(app.git_connection_modal().is_some());
+
+    // Indtast URL og token
+    let _ = app.update(Message::UpdateGitRemoteUrl("https://github.com/organisation/fda-model.git".into()));
+    let _ = app.update(Message::UpdateGitToken("ghp_secret_token_12345".into()));
+
+    let modal = app.git_connection_modal().unwrap();
+    assert_eq!(modal.remote_url, "https://github.com/organisation/fda-model.git");
+    assert_eq!(modal.token, "ghp_secret_token_12345");
+
+    // Gem forbindelsen: Token skal indlejres sikkert i remote URL
+    let _ = app.update(Message::SaveGitConnection);
+    assert!(app.git_connection_modal().is_none());
+
+    let saved_remote = GitService::get_remote_url(&local_dir).unwrap().unwrap();
+    assert!(
+        saved_remote.contains("ghp_secret_token_12345@github.com"),
+        "Gemt remote skal indeholde token til autentifikation: {}",
+        saved_remote
+    );
+
+    // Når modal genåbnes, skal URL vises ren UDEN synligt token i URL-feltet, men i token-feltet
+    let _ = app.update(Message::OpenGitConnectionModal);
+    let modal_reopened = app.git_connection_modal().unwrap();
+    assert_eq!(
+        modal_reopened.remote_url,
+        "https://github.com/organisation/fda-model.git",
+        "URL felt skal være renset for token"
+    );
+    assert_eq!(
+        modal_reopened.token,
+        "ghp_secret_token_12345",
+        "Token felt skal indeholde det udtrukne token"
+    );
+    let _ = app.update(Message::CloseGitConnectionModal);
+
+    // 6. Test coArchi udgivelseskæde i UI (OpenPublishModal -> ConfirmPublish -> Auto-Pull & Push)
+    // Sæt remoten tilbage til vores bare repo
+    GitService::set_remote_url(&local_dir, remote_bare_dir.to_str().unwrap()).unwrap();
+
+    let _ = app.update(Message::OpenPublishModal);
+    assert!(app.publish_modal().is_some());
+
+    // Udfør udgivelse
+    let _ = app.update(Message::ConfirmPublish);
+    assert!(app.publish_modal().is_none(), "Publish modal skal lukke efter udgivelse");
+
+    // Status skal være Synced
+    assert_eq!(app.git_status_badge_text(), "Synkroniseret");
+
+    // Oprydning
+    let _ = std::fs::remove_dir_all(&temp_root);
+}
+
