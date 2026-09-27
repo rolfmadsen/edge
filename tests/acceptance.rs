@@ -5903,6 +5903,20 @@ fn test_task_050_coarchi_publish_sync_workflow_and_token_authentication() {
     // Status skal være Synced
     assert_eq!(app.git_status_badge_text(), "Synkroniseret");
 
+    // 7. Test reaktiv status pill ved tilføjelse/ændring af model-elementer
+    let concept = kant::features::concepts::Concept::new(
+        "Reaktiv Begreb",
+        "En test af status pill",
+        kant::features::concepts::BelongsToDomain::Yes,
+    );
+    app.project_mut().add_concept(concept).unwrap();
+    app.trigger_autosave();
+    assert_eq!(
+        app.git_status_badge_text(),
+        "Lokale ændringer • Commit og send",
+        "Status pill skal prompte skifte til 'Lokale ændringer • Commit og send' når elementer tilføjes"
+    );
+
     // Oprydning
     let _ = std::fs::remove_dir_all(&temp_root);
 }

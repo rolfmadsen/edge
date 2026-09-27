@@ -813,7 +813,7 @@ impl App {
     pub fn new_with_path(path: Option<PathBuf>) -> Self {
         let repo_dir = match &path {
             Some(p) => {
-                let candidate = if p.is_dir() {
+                let mut candidate = if p.is_dir() {
                     p.clone()
                 } else {
                     match p.parent() {
@@ -821,6 +821,11 @@ impl App {
                         _ => PathBuf::new(),
                     }
                 };
+                if candidate.file_name().and_then(|n| n.to_str()) == Some(".kant") {
+                    if let Some(parent) = candidate.parent() {
+                        candidate = parent.to_path_buf();
+                    }
+                }
                 if GitService::is_safe_model_repo_dir(&candidate) {
                     Some(candidate)
                 } else {
@@ -1011,13 +1016,20 @@ impl App {
     pub fn repo_dir(&self) -> Option<PathBuf> {
         let candidate = match &self.current_file_path {
             Some(p) => {
-                if p.is_dir() {
-                    Some(p.clone())
+                let mut dir = if p.is_dir() {
+                    p.clone()
                 } else {
-                    p.parent()
-                        .filter(|parent| !parent.as_os_str().is_empty())
-                        .map(|parent| parent.to_path_buf())
+                    match p.parent() {
+                        Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
+                        _ => PathBuf::new(),
+                    }
+                };
+                if dir.file_name().and_then(|n| n.to_str()) == Some(".kant") {
+                    if let Some(parent) = dir.parent() {
+                        dir = parent.to_path_buf();
+                    }
                 }
+                Some(dir)
             }
             None => None,
         };
@@ -1707,6 +1719,13 @@ impl App {
                         path: path.display().to_string(),
                         timestamp: current_timestamp(),
                     };
+                    if let Some(dir) = self.repo_dir() {
+                        if !matches!(self.git_sync_status, RepoSyncStatus::PendingChanges) {
+                            if let Ok(st) = GitService::get_sync_status(&dir) {
+                                self.git_sync_status = st;
+                            }
+                        }
+                    }
                 }
                 Err(err) => {
                     self.save_status = SaveStatus::Error(err.to_string());
@@ -2835,6 +2854,13 @@ impl App {
                     self.is_inline_graph_editing = false;
                     if !self.project.concepts().is_empty() {
                         self.active_tab = Tab::ConceptList;
+                    }
+                    if let Some(dir) = self.repo_dir() {
+                        if let Ok(st) = GitService::get_sync_status(&dir) {
+                            self.git_sync_status = st;
+                        }
+                    } else {
+                        self.git_sync_status = RepoSyncStatus::Uninitialized;
                     }
                 }
                 Err(err) => {
@@ -6016,7 +6042,7 @@ impl App {
         .align_y(Alignment::Center);
 
         let click_msg = if is_uninit {
-            Message::InitGitRepository
+            Message::OpenGitConnectionModal
         } else {
             Message::OpenPublishModal
         };
