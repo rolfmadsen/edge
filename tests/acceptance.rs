@@ -5801,7 +5801,13 @@ fn test_task_050_coarchi_publish_sync_workflow_and_token_authentication() {
 
     // 1. Opret et bare git repository som vores 'remote origin'
     let _ = std::process::Command::new("git")
-        .args(["init", "--bare", remote_bare_dir.to_str().unwrap()])
+        .args([
+            "init",
+            "--bare",
+            "-b",
+            "main",
+            remote_bare_dir.to_str().unwrap(),
+        ])
         .output();
 
     // 2. Initialiser lokalt repository og sæt remote til bare repo
@@ -5815,15 +5821,22 @@ fn test_task_050_coarchi_publish_sync_workflow_and_token_authentication() {
     let c = Concept::new("Vejafgift", "Gebyr for passage", BelongsToDomain::Yes);
     project.add_concept(c).unwrap();
 
-    let commit_oid = GitService::publish_model(&local_dir, &project, "Første modeludgivelse").unwrap();
+    let commit_oid =
+        GitService::publish_model(&local_dir, &project, "Første modeludgivelse").unwrap();
     assert!(!commit_oid.is_empty());
 
     // 4. Test direkte push_model fra GitService til remote
-    GitService::push_model(&local_dir, "origin").expect("push_model skal skubbe commits til remote");
+    GitService::push_model(&local_dir, "origin")
+        .expect("push_model skal skubbe commits til remote");
 
     // Bekræft at remote har modtaget committet
     let remote_head = std::process::Command::new("git")
-        .args(["--git-dir", remote_bare_dir.to_str().unwrap(), "rev-parse", "HEAD"])
+        .args([
+            "--git-dir",
+            remote_bare_dir.to_str().unwrap(),
+            "rev-parse",
+            "refs/heads/main",
+        ])
         .output()
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .unwrap();
@@ -5837,11 +5850,16 @@ fn test_task_050_coarchi_publish_sync_workflow_and_token_authentication() {
     assert!(app.git_connection_modal().is_some());
 
     // Indtast URL og token
-    let _ = app.update(Message::UpdateGitRemoteUrl("https://github.com/organisation/fda-model.git".into()));
+    let _ = app.update(Message::UpdateGitRemoteUrl(
+        "https://github.com/organisation/fda-model.git".into(),
+    ));
     let _ = app.update(Message::UpdateGitToken("ghp_secret_token_12345".into()));
 
     let modal = app.git_connection_modal().unwrap();
-    assert_eq!(modal.remote_url, "https://github.com/organisation/fda-model.git");
+    assert_eq!(
+        modal.remote_url,
+        "https://github.com/organisation/fda-model.git"
+    );
     assert_eq!(modal.token, "ghp_secret_token_12345");
 
     // Gem forbindelsen: Token skal indlejres sikkert i remote URL
@@ -5859,13 +5877,11 @@ fn test_task_050_coarchi_publish_sync_workflow_and_token_authentication() {
     let _ = app.update(Message::OpenGitConnectionModal);
     let modal_reopened = app.git_connection_modal().unwrap();
     assert_eq!(
-        modal_reopened.remote_url,
-        "https://github.com/organisation/fda-model.git",
+        modal_reopened.remote_url, "https://github.com/organisation/fda-model.git",
         "URL felt skal være renset for token"
     );
     assert_eq!(
-        modal_reopened.token,
-        "ghp_secret_token_12345",
+        modal_reopened.token, "ghp_secret_token_12345",
         "Token felt skal indeholde det udtrukne token"
     );
     let _ = app.update(Message::CloseGitConnectionModal);
@@ -5879,7 +5895,10 @@ fn test_task_050_coarchi_publish_sync_workflow_and_token_authentication() {
 
     // Udfør udgivelse
     let _ = app.update(Message::ConfirmPublish);
-    assert!(app.publish_modal().is_none(), "Publish modal skal lukke efter udgivelse");
+    assert!(
+        app.publish_modal().is_none(),
+        "Publish modal skal lukke efter udgivelse"
+    );
 
     // Status skal være Synced
     assert_eq!(app.git_status_badge_text(), "Synkroniseret");
@@ -5887,4 +5906,3 @@ fn test_task_050_coarchi_publish_sync_workflow_and_token_authentication() {
     // Oprydning
     let _ = std::fs::remove_dir_all(&temp_root);
 }
-

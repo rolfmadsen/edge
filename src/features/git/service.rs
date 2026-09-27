@@ -140,7 +140,8 @@ impl GitService {
 
         let has_head = Self::run_git(effective_path, &["rev-parse", "--verify", "HEAD"]).is_ok();
         if !has_head {
-            let status_out = Self::run_git(effective_path, &["status", "--porcelain", "-uall", ".kant"])?;
+            let status_out =
+                Self::run_git(effective_path, &["status", "--porcelain", "-uall", ".kant"])?;
             if status_out.trim().is_empty() {
                 return Ok(RepoSyncStatus::UnpublishedCommits(0));
             } else {
@@ -148,7 +149,8 @@ impl GitService {
             }
         }
 
-        let status_out = Self::run_git(effective_path, &["status", "--porcelain", "-uall", ".kant"])?;
+        let status_out =
+            Self::run_git(effective_path, &["status", "--porcelain", "-uall", ".kant"])?;
         if !status_out.trim().is_empty() {
             return Ok(RepoSyncStatus::PendingChanges);
         }
@@ -158,7 +160,14 @@ impl GitService {
             Ok(_) => {
                 let rev_list = Self::run_git(
                     effective_path,
-                    &["rev-list", "--left-right", "--count", "HEAD...@{u}", "--", ".kant"],
+                    &[
+                        "rev-list",
+                        "--left-right",
+                        "--count",
+                        "HEAD...@{u}",
+                        "--",
+                        ".kant",
+                    ],
                 )?;
                 let counts: Vec<&str> = rev_list.split_whitespace().collect();
                 let local = counts
@@ -181,7 +190,10 @@ impl GitService {
                 }
             }
             Err(_) => {
-                let count_out = Self::run_git(effective_path, &["rev-list", "--count", "HEAD", "--", ".kant"])?;
+                let count_out = Self::run_git(
+                    effective_path,
+                    &["rev-list", "--count", "HEAD", "--", ".kant"],
+                )?;
                 let count = count_out.trim().parse::<usize>().unwrap_or(0);
                 Ok(RepoSyncStatus::UnpublishedCommits(count))
             }
@@ -562,6 +574,77 @@ impl GitService {
         Ok(PullResult::Merged {
             conflicts: merge_result.conflicts,
         })
+    }
+
+    /// Skubber modellens lokale commits til remote repository.
+    pub fn push_model(repo_path: &Path, remote: &str) -> Result<(), GitError> {
+        Self::check_git_installed()?;
+        let current_branch = Self::run_git(repo_path, &["rev-parse", "--abbrev-ref", "HEAD"])
+            .unwrap_or_else(|_| "main".to_string())
+            .trim()
+            .to_string();
+        let branch = if current_branch.is_empty() || current_branch == "HEAD" {
+            "main"
+        } else {
+            &current_branch
+        };
+
+        let res = Self::run_git_with_env(
+            repo_path,
+            &["push", "-u", remote, branch],
+            &[("GIT_TERMINAL_PROMPT", "0")],
+        );
+
+        match res {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                let err_str = e.to_string();
+                if err_str.contains("could not read Username")
+                    || err_str.contains("Authentication failed")
+                    || err_str.contains("Invalid username or password")
+                    || err_str.contains("Permission denied")
+                {
+                    Err(GitError::CommandFailed {
+                        cmd: "push".to_string(),
+                        message: "Autentifikation påkrævet eller afvist. Indtast dit Personal Access Token i Git-forbindelse for at få skriveadgang.".to_string(),
+                    })
+                } else {
+                    Err(e)
+                }
+            }
+        }
+    }
+
+    /// Udtrækker eventuelt indlejret token fra en HTTPS URL og returnerer den rensede URL og tokenet.
+    pub fn parse_remote_url(raw_url: &str) -> (String, Option<String>) {
+        if let Some(stripped) = raw_url.strip_prefix("https://") {
+            if let Some(at_idx) = stripped.find('@') {
+                let auth_part = &stripped[..at_idx];
+                let host_and_path = &stripped[at_idx + 1..];
+                let token = if let Some(colon_idx) = auth_part.find(':') {
+                    &auth_part[colon_idx + 1..]
+                } else {
+                    auth_part
+                };
+                let clean_url = format!("https://{}", host_and_path);
+                return (clean_url, Some(token.to_string()));
+            }
+        }
+        (raw_url.to_string(), None)
+    }
+
+    /// Sammensætter en URL med token hvis specificeret.
+    pub fn build_authenticated_url(url: &str, token: &str) -> String {
+        let (clean_url, _) = Self::parse_remote_url(url);
+        let trimmed_token = token.trim();
+        if trimmed_token.is_empty() {
+            return clean_url;
+        }
+        if let Some(stripped) = clean_url.strip_prefix("https://") {
+            format!("https://{}@{}", trimmed_token, stripped)
+        } else {
+            clean_url
+        }
     }
 
     /// Henter remote URL for origin, hvis konfigureret.

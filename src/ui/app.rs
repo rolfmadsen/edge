@@ -1,7 +1,7 @@
 use crate::features::concept_model::{NodeId, RelationKind};
 use crate::features::concepts::{BelongsToDomain, Concept, ConceptValidator, ValidationError};
 use crate::features::git::{
-    ChangeAction, DomainChangeEvent, DomainEventMapper, GitService, RepoSyncStatus,
+    ChangeAction, DomainChangeEvent, DomainEventMapper, GitService, PullResult, RepoSyncStatus,
 };
 use crate::features::information_model::{
     Attribute, InformationClass, Multiplicity, PrimitiveType,
@@ -94,6 +94,7 @@ impl ConflictResolverModalState {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GitConnectionModalState {
     pub remote_url: String,
+    pub token: String,
     pub author_name: String,
     pub author_email: String,
     pub error_message: Option<String>,
@@ -577,10 +578,11 @@ pub enum Message {
     },
     ApplyResolvedConflicts,
 
-    // Git Forbindelse & Kloning (Task 049)
+    // Git Forbindelse & Kloning (Task 049 & 050)
     OpenGitConnectionModal,
     CloseGitConnectionModal,
     UpdateGitRemoteUrl(String),
+    UpdateGitToken(String),
     UpdateGitAuthorName(String),
     UpdateGitAuthorEmail(String),
     SaveGitConnection,
@@ -796,7 +798,8 @@ impl App {
             }
             None => PathBuf::from("."),
         };
-        let git_sync_status = GitService::get_sync_status(&repo_dir).unwrap_or(RepoSyncStatus::Uninitialized);
+        let git_sync_status =
+            GitService::get_sync_status(&repo_dir).unwrap_or(RepoSyncStatus::Uninitialized);
 
         if let Some(p) = &path {
             if p.exists() {
@@ -1892,7 +1895,9 @@ impl App {
                 let _ = ProjectStorage::save_to_directory(&self.project, &dir);
 
                 let mut preview_events = Vec::new();
-                if let Ok(status_out) = GitService::run_git(&dir, &["status", "--porcelain", "-uall", ".kant"]) {
+                if let Ok(status_out) =
+                    GitService::run_git(&dir, &["status", "--porcelain", "-uall", ".kant"])
+                {
                     for line in status_out.lines() {
                         let line = line.trim();
                         if line.is_empty() {
@@ -1908,11 +1913,10 @@ impl App {
                             ChangeAction::Modified
                         };
                         let content = match action {
-                            ChangeAction::Deleted => GitService::run_git(
-                                &dir,
-                                &["show", &format!("HEAD:{}", file_path)],
-                            )
-                            .ok(),
+                            ChangeAction::Deleted => {
+                                GitService::run_git(&dir, &["show", &format!("HEAD:{}", file_path)])
+                                    .ok()
+                            }
                             _ => std::fs::read_to_string(dir.join(file_path)).ok(),
                         };
                         if let Some(ev) = DomainEventMapper::map_file_change(
@@ -1944,9 +1948,47 @@ impl App {
             Message::ConfirmPublish => {
                 if let Some(modal) = self.publish_modal.take() {
                     let dir = self.repo_dir();
-                    let _ = GitService::publish_model(&dir, &self.project, &modal.message);
-                    if let Ok(st) = GitService::get_sync_status(&dir) {
-                        self.git_sync_status = st;
+                    // 1. Gem og commit model lokalt jf. coArchi
+                    match GitService::publish_model(&dir, &self.project, &modal.message) {
+                        Ok(_) => {
+                            // 2. Hvis remote er konfigureret, kør auto-pull før push
+                            if let Ok(Some(_)) = GitService::get_remote_url(&dir) {
+                                match GitService::pull_model(&dir, "origin", "main") {
+                                    Ok(PullResult::Merged { conflicts })
+                                        if !conflicts.is_empty() =>
+                                    {
+                                        // Modstridende ændringer fundet: Åbn visuel konfliktløser!
+                                        if let Ok(p) = ProjectStorage::load(&dir) {
+                                            self.project = p;
+                                        }
+                                        self.conflict_resolver_modal =
+                                            Some(ConflictResolverModalState::new(conflicts));
+                                        if let Ok(st) = GitService::get_sync_status(&dir) {
+                                            self.git_sync_status = st;
+                                        }
+                                        return Task::none();
+                                    }
+                                    Ok(_) => {
+                                        if let Ok(p) = ProjectStorage::load(&dir) {
+                                            self.project = p;
+                                        }
+                                    }
+                                    Err(_) => {
+                                        // Hvis remote fx er tom eller branch ikke findes endnu, fortsætter vi til push
+                                    }
+                                }
+
+                                // 3. Skub ændringer til remote jf. coArchi
+                                let _ = GitService::push_model(&dir, "origin");
+                            }
+
+                            if let Ok(st) = GitService::get_sync_status(&dir) {
+                                self.git_sync_status = st;
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Udgivelse af model fejlede: {}", e);
+                        }
                     }
                 }
             }
@@ -1959,9 +2001,22 @@ impl App {
             }
             Message::PullModel => {
                 let dir = self.repo_dir();
-                let _ = GitService::pull_model(&dir, "origin", "main");
-                if let Ok(p) = ProjectStorage::load(&dir) {
-                    self.project = p;
+                match GitService::pull_model(&dir, "origin", "main") {
+                    Ok(PullResult::Merged { conflicts }) if !conflicts.is_empty() => {
+                        if let Ok(p) = ProjectStorage::load(&dir) {
+                            self.project = p;
+                        }
+                        self.conflict_resolver_modal =
+                            Some(ConflictResolverModalState::new(conflicts));
+                    }
+                    Ok(_) => {
+                        if let Ok(p) = ProjectStorage::load(&dir) {
+                            self.project = p;
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Fejl ved hentning af seneste model: {}", e);
+                    }
                 }
                 if let Ok(st) = GitService::get_sync_status(&dir) {
                     self.git_sync_status = st;
@@ -2048,6 +2103,16 @@ impl App {
                         }
                     }
                     self.save_status = SaveStatus::Unsaved;
+                    let dir = self.repo_dir();
+                    let _ = GitService::publish_model(
+                        &dir,
+                        &self.project,
+                        "Løst modelfletningskonflikter",
+                    );
+                    let _ = GitService::push_model(&dir, "origin");
+                    if let Ok(st) = GitService::get_sync_status(&dir) {
+                        self.git_sync_status = st;
+                    }
                 }
             }
 
@@ -2055,16 +2120,18 @@ impl App {
                 self.active_menu = None;
                 let dir = self.repo_dir();
 
-                let url = GitService::get_remote_url(&dir)
+                let raw_url = GitService::get_remote_url(&dir)
                     .ok()
                     .flatten()
                     .unwrap_or_default();
+                let (url, token) = GitService::parse_remote_url(&raw_url);
                 let (name, email) = GitService::get_user_identity(&dir)
                     .ok()
                     .unwrap_or((None, None));
 
                 self.git_connection_modal = Some(GitConnectionModalState {
                     remote_url: url,
+                    token: token.unwrap_or_default(),
                     author_name: name.unwrap_or_default(),
                     author_email: email.unwrap_or_default(),
                     error_message: None,
@@ -2078,6 +2145,13 @@ impl App {
             Message::UpdateGitRemoteUrl(url) => {
                 if let Some(m) = &mut self.git_connection_modal {
                     m.remote_url = url;
+                    m.error_message = None;
+                }
+            }
+
+            Message::UpdateGitToken(token) => {
+                if let Some(m) = &mut self.git_connection_modal {
+                    m.token = token;
                     m.error_message = None;
                 }
             }
@@ -2100,10 +2174,12 @@ impl App {
                 if let Some(mut state) = self.git_connection_modal.take() {
                     let dir = self.repo_dir();
 
-                    let is_inside_repo = GitService::run_git(&dir, &["rev-parse", "--is-inside-work-tree"]).is_ok();
+                    let is_inside_repo =
+                        GitService::run_git(&dir, &["rev-parse", "--is-inside-work-tree"]).is_ok();
                     if !is_inside_repo {
                         if let Err(e) = GitService::init_repository(&dir) {
-                            state.error_message = Some(format!("Kunne ikke initialisere Git-lager: {}", e));
+                            state.error_message =
+                                Some(format!("Kunne ikke initialisere Git-lager: {}", e));
                             self.git_connection_modal = Some(state);
                             return Task::none();
                         }
@@ -2111,8 +2187,10 @@ impl App {
 
                     let url = state.remote_url.trim();
                     if !url.is_empty() {
-                        if let Err(e) = GitService::set_remote_url(&dir, url) {
-                            state.error_message = Some(format!("Kunne ikke gemme remote URL: {}", e));
+                        let final_url = GitService::build_authenticated_url(url, &state.token);
+                        if let Err(e) = GitService::set_remote_url(&dir, &final_url) {
+                            state.error_message =
+                                Some(format!("Kunne ikke gemme remote URL: {}", e));
                             self.git_connection_modal = Some(state);
                             return Task::none();
                         }
@@ -2122,7 +2200,8 @@ impl App {
                     let email = state.author_email.trim();
                     if !name.is_empty() || !email.is_empty() {
                         if let Err(e) = GitService::set_user_identity(&dir, name, email) {
-                            state.error_message = Some(format!("Kunne ikke gemme forfatteridentitet: {}", e));
+                            state.error_message =
+                                Some(format!("Kunne ikke gemme forfatteridentitet: {}", e));
                             self.git_connection_modal = Some(state);
                             return Task::none();
                         }
@@ -2138,6 +2217,7 @@ impl App {
                 let _ = self.update(Message::RefreshGitStatus);
                 if let Some(m) = &mut self.git_connection_modal {
                     m.remote_url.clear();
+                    m.token.clear();
                 }
             }
 
@@ -5745,9 +5825,6 @@ impl App {
         .spacing(4);
 
         let footer_buttons = row![
-            button(text("Hent seneste"))
-                .style(secondary_button_style)
-                .on_press(Message::PullModel),
             Space::new().width(Length::Fill),
             button(text("Annuller"))
                 .style(secondary_button_style)
@@ -5911,9 +5988,7 @@ impl App {
                 commits_list = commits_list.push(commit_card);
             }
 
-            scrollable(commits_list)
-                .height(Length::Fixed(360.0))
-                .into()
+            scrollable(commits_list).height(Length::Fixed(360.0)).into()
         };
 
         let footer = row![
@@ -6138,6 +6213,21 @@ impl App {
         ]
         .spacing(4);
 
+        let token_field = column![
+            text("Personal Access Token (valgfrit ved private HTTPS-arkiver)")
+                .size(12)
+                .color(ThemeColors::SLATE_700),
+            text_input(
+                "Indtast GitHub / GitLab token (f.eks. ghp_xxxxxxxxxxxx)",
+                &modal.token
+            )
+            .secure(true)
+            .style(modern_input_style)
+            .on_input(Message::UpdateGitToken)
+            .padding([8, 12]),
+        ]
+        .spacing(4);
+
         let author_row = row![
             column![
                 text("Git Brugernavn (user.name)")
@@ -6164,7 +6254,7 @@ impl App {
         ]
         .spacing(12);
 
-        let author_hint = text("💡 user.name og user.email er forfatter-signaturen i historikken (hvem der lavede ændringen). Indtast IKKE tokens eller passwords her.")
+        let author_hint = text("💡 user.name og user.email er forfatter-signaturen i historikken. Tokenet gemmes sikkert til HTTPS-godkendelse (push/pull).")
             .size(11)
             .color(ThemeColors::TEXT_MUTED);
 
@@ -6173,6 +6263,7 @@ impl App {
             subtitle,
             Space::new().height(8),
             remote_field,
+            token_field,
             author_row,
             author_hint,
         ]
