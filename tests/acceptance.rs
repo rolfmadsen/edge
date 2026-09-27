@@ -5208,7 +5208,7 @@ fn test_task_045_semantic_three_way_model_merge() {
     );
     let mut base = ModelProject::new(base_meta);
 
-    let mut c1 = Concept::new("Køretøj", "Et transportmiddel", BelongsToDomain::Yes);
+    let c1 = Concept::new("Køretøj", "Et transportmiddel", BelongsToDomain::Yes);
     let c1_id = base.add_concept(c1.clone()).unwrap();
 
     let c2 = Concept::new("Vejafgift", "Gebyr for vej", BelongsToDomain::Yes);
@@ -5216,11 +5216,7 @@ fn test_task_045_semantic_three_way_model_merge() {
 
     let mut cls1 = InformationClass::new("Køretøj");
     cls1.add_concept_id(c1_id);
-    let attr1 = Attribute::new(
-        "id",
-        PrimitiveType::Integer,
-        Multiplicity::exactly_one(),
-    );
+    let attr1 = Attribute::new("id", PrimitiveType::Integer, Multiplicity::exactly_one());
     let attr1_id = attr1.id();
     cls1.add_attribute(attr1);
     let cls1_id = base.information_model_mut().add_class(cls1);
@@ -5238,7 +5234,11 @@ fn test_task_045_semantic_three_way_model_merge() {
     ours.update_concept(c2_ours).unwrap();
 
     // Tilføjer c3 lokalt
-    let c3 = Concept::new("Færdselsregel", "Regel for adfærd i trafikken", BelongsToDomain::Yes);
+    let c3 = Concept::new(
+        "Færdselsregel",
+        "Regel for adfærd i trafikken",
+        BelongsToDomain::Yes,
+    );
     let c3_id = ours.add_concept(c3).unwrap();
 
     // Tilføjer attribute 2 til cls1 lokalt
@@ -5339,6 +5339,8 @@ fn test_task_045_semantic_three_way_model_merge() {
 
     // 9. Valider idempotens: merge(base, ours, ours) skal have 0 konflikter
     let self_merge = merge_models(&base, &ours, &ours);
-    assert!(self_merge.conflicts.is_empty(), "Merge af identiske grene skal have 0 konflikter");
+    assert!(
+        self_merge.conflicts.is_empty(),
+        "Merge af identiske grene skal have 0 konflikter"
+    );
 }
-

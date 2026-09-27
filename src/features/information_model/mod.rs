@@ -233,8 +233,12 @@ pub struct InformationClass {
 
 impl InformationClass {
     pub fn new(name: impl Into<String>) -> Self {
+        Self::new_with_id(Uuid::new_v4(), name)
+    }
+
+    pub fn new_with_id(id: Uuid, name: impl Into<String>) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id,
             name: name.into(),
             description: None,
             concept_ids: Vec::new(),
