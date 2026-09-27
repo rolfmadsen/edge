@@ -824,3 +824,94 @@ fn merge_diagram_nodes(
     }
     *merged.information_graph_mut().nodes_mut() = merged_class_nodes;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::features::concept_model::RelationKind;
+    use crate::features::concepts::BelongsToDomain;
+    use crate::features::model::ModelStatus;
+
+    #[test]
+    fn test_delete_vs_edit_preserves_modified_entity_with_warning() {
+        let meta = ModelMetadata::new(
+            "Test",
+            "Desc",
+            "uri",
+            "Org",
+            "Domain",
+            "1.0",
+            ModelStatus::Draft,
+        );
+        let mut base = ModelProject::new(meta);
+
+        let c1 = Concept::new("Begreb1", "Def1", BelongsToDomain::Yes);
+        let c1_id = base.add_concept(c1).unwrap();
+
+        // Ours sletter c1
+        let mut ours = base.clone();
+        ours.remove_concept(c1_id);
+
+        // Theirs ændrer c1
+        let mut theirs = base.clone();
+        let mut c1_mod = theirs.get_concept(c1_id).unwrap().clone();
+        c1_mod.set_definition("Opdateret def på server");
+        theirs.update_concept(c1_mod).unwrap();
+
+        let outcome = merge_models(&base, &ours, &theirs);
+
+        // Begreb 1 skal være bevaret
+        assert!(outcome.merged_project.get_concept(c1_id).is_some());
+        assert_eq!(
+            outcome
+                .merged_project
+                .get_concept(c1_id)
+                .unwrap()
+                .definition(),
+            "Opdateret def på server"
+        );
+        assert!(
+            !outcome.warnings.is_empty(),
+            "Der skal være udstedt en advarsel om bevarelsen"
+        );
+    }
+
+    #[test]
+    fn test_dangling_edges_filtered_when_node_deleted() {
+        let meta = ModelMetadata::new(
+            "Test",
+            "Desc",
+            "uri",
+            "Org",
+            "Domain",
+            "1.0",
+            ModelStatus::Draft,
+        );
+        let mut base = ModelProject::new(meta);
+
+        let c1 = Concept::new("Begreb1", "Def1", BelongsToDomain::Yes);
+        let c1_id = base.add_concept(c1).unwrap();
+        let c2 = Concept::new("Begreb2", "Def2", BelongsToDomain::Yes);
+        let c2_id = base.add_concept(c2).unwrap();
+
+        base.concept_graph_mut()
+            .add_relation(c1_id, c2_id, RelationKind::Generalization);
+        assert_eq!(base.concept_graph().edges().len(), 1);
+
+        // Både ours og theirs sletter c2 (uændret i begge)
+        let mut ours = base.clone();
+        ours.remove_concept(c2_id);
+        let mut theirs = base.clone();
+        theirs.remove_concept(c2_id);
+
+        let outcome = merge_models(&base, &ours, &theirs);
+
+        // C2 er væk, og kanten c1 -> c2 må IKKE efterlades forældreløs
+        assert!(outcome.merged_project.get_concept(c2_id).is_none());
+        assert_eq!(
+            outcome.merged_project.concept_graph().edges().len(),
+            0,
+            "Forældreløs kant skal være bortfiltreret"
+        );
+    }
+}
