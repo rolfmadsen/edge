@@ -5579,7 +5579,10 @@ fn test_task_048_model_graph_timeline_element_history_and_conflict_resolver() {
         2,
         "Historik skal indeholde 2 commits"
     );
-    assert_eq!(history.commits[0].message, "Version 2: Opdateret definition");
+    assert_eq!(
+        history.commits[0].message,
+        "Version 2: Opdateret definition"
+    );
     assert_eq!(history.commits[1].message, "Version 1: Oprettet Køretøj");
     let _ = app.update(Message::CloseModelHistoryModal);
     assert!(app.history_modal().is_none());
@@ -5646,4 +5649,3 @@ fn test_task_048_model_graph_timeline_element_history_and_conflict_resolver() {
     // 7. Oprydning
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
-

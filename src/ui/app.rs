@@ -48,6 +48,49 @@ impl PublishModalState {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConflictChoice {
+    Ours,
+    Theirs,
+}
+
+#[derive(Debug, Clone)]
+pub struct ModelHistoryModalState {
+    pub target_element_id: Option<Uuid>,
+    pub commits: Vec<crate::features::git::GitCommitInfo>,
+}
+
+impl ModelHistoryModalState {
+    pub fn new(
+        target_element_id: Option<Uuid>,
+        commits: Vec<crate::features::git::GitCommitInfo>,
+    ) -> Self {
+        Self {
+            target_element_id,
+            commits,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ConflictResolverModalState {
+    pub conflicts: Vec<crate::features::model::merge::ModelConflict>,
+    pub resolved_choices: std::collections::HashMap<usize, ConflictChoice>,
+}
+
+impl ConflictResolverModalState {
+    pub fn new(conflicts: Vec<crate::features::model::merge::ModelConflict>) -> Self {
+        let mut resolved_choices = std::collections::HashMap::new();
+        for (i, _) in conflicts.iter().enumerate() {
+            resolved_choices.insert(i, ConflictChoice::Ours);
+        }
+        Self {
+            conflicts,
+            resolved_choices,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeOption {
     pub id: NodeId,
@@ -504,6 +547,18 @@ pub enum Message {
     InitGitRepository,
     PullModel,
 
+    // Modelhistorik, Element-historik & Konfliktløsning (Task 048)
+    OpenModelHistoryModal,
+    OpenElementHistoryModal(Uuid),
+    CloseModelHistoryModal,
+    OpenConflictResolverModal(Vec<crate::features::model::merge::ModelConflict>),
+    CloseConflictResolverModal,
+    ResolveConflict {
+        index: usize,
+        choice: ConflictChoice,
+    },
+    ApplyResolvedConflicts,
+
     // Statusbar / Eksterne links (Task 018)
     OpenModelRules,
 
@@ -676,6 +731,8 @@ pub struct App {
     collab_last_seen_seq: u64,
     git_sync_status: RepoSyncStatus,
     publish_modal: Option<PublishModalState>,
+    history_modal: Option<ModelHistoryModalState>,
+    conflict_resolver_modal: Option<ConflictResolverModalState>,
 }
 
 impl Default for App {
@@ -752,6 +809,8 @@ impl App {
                         collab_last_seen_seq: 0,
                         git_sync_status: git_sync_status.clone(),
                         publish_modal: None,
+                        history_modal: None,
+                        conflict_resolver_modal: None,
                     };
                 }
             }
@@ -806,6 +865,8 @@ impl App {
             collab_last_seen_seq: 0,
             git_sync_status,
             publish_modal: None,
+            history_modal: None,
+            conflict_resolver_modal: None,
         }
     }
 
@@ -815,6 +876,14 @@ impl App {
 
     pub fn publish_modal(&self) -> Option<&PublishModalState> {
         self.publish_modal.as_ref()
+    }
+
+    pub fn history_modal(&self) -> Option<&ModelHistoryModalState> {
+        self.history_modal.as_ref()
+    }
+
+    pub fn conflict_resolver_modal(&self) -> Option<&ConflictResolverModalState> {
+        self.conflict_resolver_modal.as_ref()
     }
 
     pub fn git_status_badge_text(&self) -> String {
@@ -1855,6 +1924,101 @@ impl App {
                     if let Ok(st) = GitService::get_sync_status(dir) {
                         self.git_sync_status = st;
                     }
+                }
+            }
+            Message::OpenModelHistoryModal => {
+                if let Some(path) = &self.current_file_path {
+                    let dir = if path.is_dir() {
+                        path.as_path()
+                    } else {
+                        path.parent().unwrap_or(std::path::Path::new("."))
+                    };
+                    let commits = GitService::get_commit_history(dir, 50).unwrap_or_default();
+                    self.history_modal = Some(ModelHistoryModalState::new(None, commits));
+                }
+            }
+            Message::OpenElementHistoryModal(id) => {
+                if let Some(path) = &self.current_file_path {
+                    let dir = if path.is_dir() {
+                        path.as_path()
+                    } else {
+                        path.parent().unwrap_or(std::path::Path::new("."))
+                    };
+                    let commits = GitService::get_element_history(dir, id).unwrap_or_default();
+                    self.history_modal = Some(ModelHistoryModalState::new(Some(id), commits));
+                }
+            }
+            Message::CloseModelHistoryModal => {
+                self.history_modal = None;
+            }
+            Message::OpenConflictResolverModal(conflicts) => {
+                self.conflict_resolver_modal = Some(ConflictResolverModalState::new(conflicts));
+            }
+            Message::CloseConflictResolverModal => {
+                self.conflict_resolver_modal = None;
+            }
+            Message::ResolveConflict { index, choice } => {
+                if let Some(modal) = &mut self.conflict_resolver_modal {
+                    modal.resolved_choices.insert(index, choice);
+                }
+            }
+            Message::ApplyResolvedConflicts => {
+                if let Some(modal) = self.conflict_resolver_modal.take() {
+                    for (idx, conflict) in modal.conflicts.iter().enumerate() {
+                        let choice = modal
+                            .resolved_choices
+                            .get(&idx)
+                            .copied()
+                            .unwrap_or(ConflictChoice::Ours);
+                        let winning_value = match choice {
+                            ConflictChoice::Ours => &conflict.our_value,
+                            ConflictChoice::Theirs => &conflict.their_value,
+                        };
+                        match conflict.entity_kind {
+                            crate::features::model::merge::ConflictEntityKind::Metadata => {
+                                let meta = self.project.metadata_mut();
+                                match conflict.field_name.as_str() {
+                                    "name" => meta.set_name(winning_value),
+                                    "description" => meta.set_description(winning_value),
+                                    "uri" => meta.set_uri(winning_value),
+                                    "responsible_org" => meta.set_responsible_org(winning_value),
+                                    _ => {}
+                                }
+                            }
+                            crate::features::model::merge::ConflictEntityKind::Concept(id) => {
+                                if let Some(mut concept) = self.project.get_concept(id).cloned() {
+                                    match conflict.field_name.as_str() {
+                                        "preferred_term" => {
+                                            concept.set_preferred_term(winning_value)
+                                        }
+                                        "definition" => concept.set_definition(winning_value),
+                                        _ => {}
+                                    }
+                                    let _ = self.project.update_concept(concept);
+                                }
+                            }
+                            crate::features::model::merge::ConflictEntityKind::Class(id) => {
+                                if let Some(class) =
+                                    self.project.information_model_mut().get_class_mut(id)
+                                {
+                                    match conflict.field_name.as_str() {
+                                        "name" => class.set_name(winning_value),
+                                        "description" => {
+                                            let desc = if winning_value.is_empty() {
+                                                None
+                                            } else {
+                                                Some(winning_value.clone())
+                                            };
+                                            class.set_description(desc);
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    self.save_status = SaveStatus::Unsaved;
                 }
             }
 
@@ -3975,6 +4139,16 @@ impl App {
             .as_ref()
             .map(|modal| self.view_publish_modal(modal));
 
+        let maybe_history_modal: Option<Element<Message>> = self
+            .history_modal
+            .as_ref()
+            .map(|modal| self.view_history_modal(modal));
+
+        let maybe_conflict_resolver_modal: Option<Element<Message>> = self
+            .conflict_resolver_modal
+            .as_ref()
+            .map(|modal| self.view_conflict_resolver_modal(modal));
+
         let maybe_metadata_modal: Option<Element<Message>> =
             self.metadata_modal.as_ref().map(|meta_state| {
                 let title_row = row![
@@ -5181,7 +5355,11 @@ impl App {
             .height(Length::Fill)
             .into();
 
-        if let Some(modal) = maybe_publish_modal {
+        if let Some(modal) = maybe_conflict_resolver_modal {
+            stack![base_layout, modal].into()
+        } else if let Some(modal) = maybe_history_modal {
+            stack![base_layout, modal].into()
+        } else if let Some(modal) = maybe_publish_modal {
             stack![base_layout, modal].into()
         } else if let Some(modal) = maybe_metadata_modal {
             stack![base_layout, modal].into()
@@ -5375,6 +5553,285 @@ impl App {
         ]
         .spacing(8)
         .width(480);
+
+        let dialog_card = container(dialog_content)
+            .style(modal_card_style)
+            .padding(20);
+
+        container(dialog_card)
+            .style(modal_backdrop_style)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .into()
+    }
+
+    fn view_history_modal<'a>(&self, modal: &'a ModelHistoryModalState) -> Element<'a, Message> {
+        let title_text = if modal.target_element_id.is_some() {
+            "🕒 Revisionshistorik for element"
+        } else {
+            "📜 Modelhistorik (Tidslinje)"
+        };
+
+        let title_row = row![
+            text(title_text).size(17).color(ThemeColors::SLATE_900),
+            Space::new().width(Length::Fill),
+            button(text("✕").size(13))
+                .style(secondary_button_style)
+                .on_press(Message::CloseModelHistoryModal)
+                .padding([3, 7]),
+        ]
+        .align_y(Alignment::Center);
+
+        let subtitle = text("Gennemse historiske versioner og domænehændelser over tid.")
+            .size(12)
+            .color(ThemeColors::TEXT_MUTED);
+
+        let mut commits_list = column![].spacing(10);
+        if modal.commits.is_empty() {
+            commits_list = commits_list.push(
+                text("Der er ingen versioner fundet for dette element endnu.")
+                    .size(12)
+                    .color(ThemeColors::SLATE_500),
+            );
+        } else {
+            for commit in &modal.commits {
+                let commit_header = row![
+                    text(&commit.message).size(13).color(ThemeColors::SLATE_900),
+                    Space::new().width(Length::Fill),
+                    text(&commit.author_name)
+                        .size(11)
+                        .color(ThemeColors::SLATE_500),
+                    Space::new().width(6),
+                    text(&commit.short_oid)
+                        .size(10)
+                        .color(ThemeColors::SLATE_400),
+                ]
+                .align_y(Alignment::Center);
+
+                let mut events_col = column![].spacing(3);
+                for ev in &commit.changes {
+                    let (badge, color) = match ev.action {
+                        ChangeAction::Added => {
+                            ("🟢 Oprettet", iced::Color::from_rgb(0.06, 0.72, 0.44))
+                        }
+                        ChangeAction::Modified => {
+                            ("🟡 Opdateret", iced::Color::from_rgb(0.92, 0.60, 0.05))
+                        }
+                        ChangeAction::Deleted => {
+                            ("🔴 Fjernet", iced::Color::from_rgb(0.92, 0.25, 0.25))
+                        }
+                    };
+                    events_col = events_col.push(
+                        row![
+                            text(badge).size(10).color(color),
+                            Space::new().width(4),
+                            text(format!("{}: {}", ev.entity_type, ev.entity_name))
+                                .size(11)
+                                .color(ThemeColors::SLATE_700),
+                        ]
+                        .align_y(Alignment::Center),
+                    );
+                }
+
+                let commit_card = container(
+                    column![commit_header, Space::new().height(4), events_col].spacing(4),
+                )
+                .style(|_| container::Style {
+                    background: Some(iced::Background::Color(iced::Color::from_rgb(
+                        0.98, 0.98, 0.99,
+                    ))),
+                    border: iced::Border {
+                        color: ThemeColors::SURFACE_BORDER,
+                        width: 1.0,
+                        radius: 8.0.into(),
+                    },
+                    ..Default::default()
+                })
+                .padding(10)
+                .width(Length::Fill);
+
+                commits_list = commits_list.push(commit_card);
+            }
+        }
+
+        let scroll_content = container(commits_list).width(Length::Fill).max_height(400);
+
+        let footer = row![
+            Space::new().width(Length::Fill),
+            button(text("Luk"))
+                .style(secondary_button_style)
+                .on_press(Message::CloseModelHistoryModal),
+        ]
+        .align_y(Alignment::Center);
+
+        let dialog_content = column![
+            title_row,
+            subtitle,
+            Space::new().height(8),
+            scroll_content,
+            Space::new().height(12),
+            footer,
+        ]
+        .spacing(8)
+        .width(520);
+
+        let dialog_card = container(dialog_content)
+            .style(modal_card_style)
+            .padding(20);
+
+        container(dialog_card)
+            .style(modal_backdrop_style)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .into()
+    }
+
+    fn view_conflict_resolver_modal<'a>(
+        &self,
+        modal: &'a ConflictResolverModalState,
+    ) -> Element<'a, Message> {
+        let title_row = row![
+            text("⚠️ Modstridende Ændringer (Konflikthåndtering)")
+                .size(17)
+                .color(ThemeColors::SLATE_900),
+            Space::new().width(Length::Fill),
+            button(text("✕").size(13))
+                .style(secondary_button_style)
+                .on_press(Message::CloseConflictResolverModal)
+                .padding([3, 7]),
+        ]
+        .align_y(Alignment::Center);
+
+        let subtitle =
+            text("Der er opstået modstridende feltændringer. Vælg hvilken version der skal gælde:")
+                .size(12)
+                .color(ThemeColors::TEXT_MUTED);
+
+        let mut conflicts_list = column![].spacing(12);
+        for (idx, conflict) in modal.conflicts.iter().enumerate() {
+            let choice = modal
+                .resolved_choices
+                .get(&idx)
+                .copied()
+                .unwrap_or(ConflictChoice::Ours);
+
+            let header = text(format!(
+                "Felt: {} i element '{}'",
+                conflict.field_name, conflict.entity_name
+            ))
+            .size(13)
+            .color(ThemeColors::SLATE_900);
+
+            let base_info = text(format!("Oprindelig værdi: \"{}\"", conflict.base_value))
+                .size(11)
+                .color(ThemeColors::SLATE_500);
+
+            let ours_selected = choice == ConflictChoice::Ours;
+            let theirs_selected = choice == ConflictChoice::Theirs;
+
+            let ours_btn = button(
+                row![
+                    text(if ours_selected { "● " } else { "○ " })
+                        .size(11)
+                        .color(if ours_selected {
+                            ThemeColors::PRIMARY
+                        } else {
+                            ThemeColors::SLATE_400
+                        }),
+                    text(format!("Lokal version: \"{}\"", conflict.our_value)).size(11),
+                ]
+                .align_y(Alignment::Center),
+            )
+            .on_press(Message::ResolveConflict {
+                index: idx,
+                choice: ConflictChoice::Ours,
+            })
+            .style(if ours_selected {
+                primary_button_style
+            } else {
+                secondary_button_style
+            })
+            .padding([6, 12])
+            .width(Length::Fill);
+
+            let theirs_btn = button(
+                row![
+                    text(if theirs_selected { "● " } else { "○ " })
+                        .size(11)
+                        .color(if theirs_selected {
+                            ThemeColors::PRIMARY
+                        } else {
+                            ThemeColors::SLATE_400
+                        }),
+                    text(format!("Server version: \"{}\"", conflict.their_value)).size(11),
+                ]
+                .align_y(Alignment::Center),
+            )
+            .on_press(Message::ResolveConflict {
+                index: idx,
+                choice: ConflictChoice::Theirs,
+            })
+            .style(if theirs_selected {
+                primary_button_style
+            } else {
+                secondary_button_style
+            })
+            .padding([6, 12])
+            .width(Length::Fill);
+
+            let card = container(
+                column![
+                    header,
+                    base_info,
+                    Space::new().height(4),
+                    ours_btn,
+                    theirs_btn
+                ]
+                .spacing(4),
+            )
+            .style(|_| container::Style {
+                background: Some(iced::Background::Color(iced::Color::from_rgb(
+                    0.98, 0.98, 0.99,
+                ))),
+                border: iced::Border {
+                    color: ThemeColors::SURFACE_BORDER,
+                    width: 1.0,
+                    radius: 8.0.into(),
+                },
+                ..Default::default()
+            })
+            .padding(10)
+            .width(Length::Fill);
+
+            conflicts_list = conflicts_list.push(card);
+        }
+
+        let footer = row![
+            Space::new().width(Length::Fill),
+            button(text("Annuller"))
+                .style(secondary_button_style)
+                .on_press(Message::CloseConflictResolverModal),
+            Space::new().width(8),
+            button(text("Anvend valgte versioner"))
+                .style(primary_button_style)
+                .on_press(Message::ApplyResolvedConflicts),
+        ]
+        .align_y(Alignment::Center);
+
+        let dialog_content = column![
+            title_row,
+            subtitle,
+            Space::new().height(8),
+            container(conflicts_list).max_height(400),
+            Space::new().height(12),
+            footer,
+        ]
+        .spacing(8)
+        .width(540);
 
         let dialog_card = container(dialog_content)
             .style(modal_card_style)
