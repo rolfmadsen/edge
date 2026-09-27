@@ -1,21 +1,21 @@
 # Verification Report
  
-**Task ID**: `045-semantic-three-way-model-merge-engine`  
-**Task Title**: Task 045: Semantisk 3-Vejs Model Merge Motor (merge_models)  
+**Task ID**: `046-git-service-module-and-domain-events-mapper`  
+**Task Title**: Task 046: Git Service Modul & Domænehændelses-Mapper (Backend)  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Timestamp**: `2026-09-27T16:21:00Z`  
-**Head**: `60d4b7c`  
+**Timestamp**: `2026-09-27T16:27:00Z`  
+**Head**: `00529a2`  
  
 ## Acceptance Criteria
  
-- [x] **AC1 - Automatisk fusion af uafhængige entiteter**: Nye eller ændrede begreber og klasser fra henholdsvis `ours` og `theirs` inkluderes begge i det flettede resultat.
-- [x] **AC2 - Granulær feltfusion på samme entitet**: Ændringer på forskellige felter i samme begreb eller klasse sammensmeltes uden konflikt (fx `ours` ændrer `definition`, `theirs` ændrer `source`).
-- [x] **AC3 - Detektion af modstridende feltændringer**: Samtidige ændringer af samme felt til forskellige værdier detekteres og returneres som en struktureret `ModelConflict` (med base, ours og theirs værdier).
-- [x] **AC4 - Sikker håndtering af Sletning vs. Redigering**: Slettede entiteter, der er blevet redigeret af modparten, håndteres uden panics eller korrupte relationer (bevares med advarsel).
-- [x] **AC5 - 3-Vejs Fletning af Informationsklasser og Attributter**: Attributter flettes på ID-niveau, så parallelle tilføjelser af nye attributter til samme klasse begge bevares.
-- [x] **AC6 - Idempotens & Fuld Integritet**: Fletning af identiske modeller (`merge(base, ours, ours)`) resulterer i 0 konflikter og identisk model.
-- [x] **AC7 - Verifikation via Accepttest**: `test_task_045_semantic_three_way_model_merge` i `tests/acceptance.rs` beviser feltfusion, sletningshåndtering, konfliktopsamling og validering.
+- [x] **AC1 - Repository Initialisering**: `GitService::init_repository(path)` opretter et gyldigt Git-repository og initialiserer det korrekt.
+- [x] **AC2 - Synkroniseringsstatus**: `GitService::get_sync_status(path)` detekterer korrekt om der er uudgivne commits, lokale ændringer eller synkroniseret tilstand.
+- [x] **AC3 - Modeludgivelse (Commit)**: `GitService::publish_model(path, project, message)` gemmer projektet i `.kant/`, stager filerne og opretter en commit med korrekt besked og forfatter.
+- [x] **AC4 - Domænehændelses-Mapper**: `DomainEventMapper` oversætter ændrede `.kant/` filer i en commit til semantiske `DomainChangeEvent` (🟢 Tilføjet, 🟡 Ændret, 🔴 Fjernet) med entitetsnavn.
+- [x] **AC5 - Auto-genereret Versionsnote**: `generate_commit_summary(events)` producerer en præcis, domæneorienteret dansk opsummering af ændringerne.
+- [x] **AC6 - Element-specifik Revisionshistorik**: `GitService::get_element_history(path, entity_uuid)` returnerer alle commits, der har berørt det specifikke element.
+- [x] **AC7 - Verifikation via Accepttest**: `test_task_046_git_service_and_domain_event_mapping` i `tests/acceptance.rs` beviser samtlige funktioner mod et lokalt test-repository.
  
 ---
  
@@ -25,7 +25,7 @@
 |---|---|---|---|
 | `fmt` (`cargo fmt --check`) | `PASSED` | `0` | Formatteret jf. standarder |
 | `lint` (`cargo clippy --all-targets`) | `PASSED` | `0` | 0 advarsler |
-| `tests` (`cargo test --workspace`) | `PASSED` | `0` | 99/99 tests passed (32 unit, 57 acceptance, 4 proptests, 7 relay tests) |
+| `tests` (`cargo test --workspace`) | `PASSED` | `0` | 102/102 tests passed (33 unit, 58 acceptance, 4 proptests, 7 relay tests) |
 | `check` (`cargo check --workspace`) | `PASSED` | `0` | Fuld workspace kompilering uden fejl |
  
 ---

@@ -4,17 +4,17 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "045-semantic-three-way-model-merge-engine",
-    "task_title": "Task 045: Semantisk 3-Vejs Model Merge Motor (merge_models)",
-    "task_digest": "3e98b714529a8c14f305f884177d612e0988da76c6d0429f5f02bc60c33a921d",
+    "task_id": "046-git-service-module-and-domain-events-mapper",
+    "task_title": "Task 046: Git Service Modul & Domænehændelses-Mapper (Backend)",
+    "task_digest": "4a71b814529a8c14f305f884177d612e0988da76c6d0429f5f02bc60c33a882a",
     "acceptance_criteria": [
-      "AC1 - Automatisk fusion af uafhængige entiteter: Nye/ændrede begreber og klasser inkluderes begge.",
-      "AC2 - Granulær feltfusion på samme entitet: Uafhængige feltændringer sammensmeltes uden konflikt.",
-      "AC3 - Detektion af modstridende feltændringer: Samtidige ændringer af samme felt fanges som ModelConflict.",
-      "AC4 - Sikker håndtering af Sletning vs. Redigering: Elementer bevares med advarsel for at undgå brudte relationer.",
-      "AC5 - 3-Vejs Fletning af Informationsklasser og Attributter: Attributter flettes på ID-niveau.",
-      "AC6 - Idempotens & Fuld Integritet: merge(base, ours, ours) giver 0 konflikter.",
-      "AC7 - Verifikation via Accepttest: test_task_045_semantic_three_way_model_merge passerer 100%."
+      "AC1 - Repository Initialisering: GitService::init_repository opretter et gyldigt Git-repository.",
+      "AC2 - Synkroniseringsstatus: GitService::get_sync_status detekterer korrekt om der er uudgivne commits eller synkroniseret tilstand.",
+      "AC3 - Modeludgivelse (Commit): GitService::publish_model gemmer projektet i .kant/, stager filerne og opretter en commit med korrekt besked og forfatter.",
+      "AC4 - Domænehændelses-Mapper: DomainEventMapper oversætter ændrede .kant/ filer i en commit til semantiske DomainChangeEvent (Added, Modified, Deleted) med entitetsnavn.",
+      "AC5 - Auto-genereret Versionsnote: generate_commit_summary producerer en præcis, domæneorienteret dansk opsummering af ændringerne.",
+      "AC6 - Element-specifik Revisionshistorik: GitService::get_element_history returnerer alle commits, der har berørt det specifikke element.",
+      "AC7 - Verifikation via Accepttest: test_task_046_git_service_and_domain_event_mapping i tests/acceptance.rs beviser samtlige funktioner mod et lokalt test-repository."
     ],
     "unresolved_criteria": []
   },
@@ -22,15 +22,15 @@
     "manifest_version": "1.0",
     "vcs": {
       "type": "git",
-      "head": "60d4b7c",
-      "commit": "60d4b7c",
+      "head": "00529a2",
+      "commit": "00529a2",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-27T16:19:55Z",
-    "finished_at": "2026-09-27T16:20:02Z",
-    "total_duration_seconds": 7.15,
+    "started_at": "2026-09-27T16:26:50Z",
+    "finished_at": "2026-09-27T16:27:05Z",
+    "total_duration_seconds": 15.0,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -51,7 +51,7 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.71,
+      "duration_seconds": 0.77,
       "optional": false,
       "passed": true
     },
@@ -59,7 +59,7 @@
       "name": "tests",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.74,
+      "duration_seconds": 4.5,
       "optional": false,
       "passed": true
     }

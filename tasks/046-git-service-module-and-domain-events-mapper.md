@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 046: Git Service Modul & Domænehændelses-Mapper (Backend)"
 description: "Ikke-blokerende Git backend service med understøttelse af init, status, commit, pull med semantisk merge og oversættelse af commits til forretningsorienterede modelhændelser"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-27T16:22:00Z" }
 tags: [git, backend, domain-events, changelog, audit, history, workflows]
 ---
 
 # Task 046: Git Service Modul & Domænehændelses-Mapper (Backend)
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🚀 `NEW FEATURE`  
 **Oprettet**: `2026-09-27`  
 **Scope**: `src/features/git/mod.rs`, `src/features/git/service.rs`, `src/features/git/events.rs`, `src/features/mod.rs`, `tests/acceptance.rs`
@@ -39,13 +39,13 @@ Implementere en selvstændig, ikke-blokerende Git backend-service (`src/features
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Repository Initialisering**: `GitService::init_repository(path)` opretter et gyldigt Git-repository og foretager en initial commit af `.kant/` strukturen.
-- [ ] **AC2 - Synkroniseringsstatus**: `GitService::get_sync_status(path)` detekterer korrekt om der er uudgivne commits eller synkroniseret tilstand.
-- [ ] **AC3 - Modeludgivelse (Commit)**: `GitService::publish_model(path, project, message)` gemmer projektet i `.kant/`, stager filerne og opretter en commit med korrekt besked og forfatter.
-- [ ] **AC4 - Domænehændelses-Mapper**: `DomainEventMapper` oversætter ændrede `.kant/` filer i en commit til semantiske `DomainChangeEvent` (🟢 Tilføjet, 🟡 Ændret, 🔴 Fjernet) med entitetsnavn.
-- [ ] **AC5 - Auto-genereret Versionsnote**: `generate_commit_summary(events)` producerer en præcis, domæneorienteret dansk opsummering af ændringerne.
-- [ ] **AC6 - Element-specifik Revisionshistorik**: `GitService::get_element_history(path, entity_uuid)` returnerer alle commits, der har berørt det specifikke element.
-- [ ] **AC7 - Verifikation via Accepttest**: `test_task_046_git_service_and_domain_event_mapping` i `tests/acceptance.rs` beviser samtlige funktioner mod et lokalt test-repository.
+- [x] **AC1 - Repository Initialisering**: `GitService::init_repository(path)` opretter et gyldigt Git-repository og foretager en initial commit af `.kant/` strukturen.
+- [x] **AC2 - Synkroniseringsstatus**: `GitService::get_sync_status(path)` detekterer korrekt om der er uudgivne commits eller synkroniseret tilstand.
+- [x] **AC3 - Modeludgivelse (Commit)**: `GitService::publish_model(path, project, message)` gemmer projektet i `.kant/`, stager filerne og opretter en commit med korrekt besked og forfatter.
+- [x] **AC4 - Domænehændelses-Mapper**: `DomainEventMapper` oversætter ændrede `.kant/` filer i en commit til semantiske `DomainChangeEvent` (🟢 Tilføjet, 🟡 Ændret, 🔴 Fjernet) med entitetsnavn.
+- [x] **AC5 - Auto-genereret Versionsnote**: `generate_commit_summary(events)` producerer en præcis, domæneorienteret dansk opsummering af ændringerne.
+- [x] **AC6 - Element-specifik Revisionshistorik**: `GitService::get_element_history(path, entity_uuid)` returnerer alle commits, der har berørt det specifikke element.
+- [x] **AC7 - Verifikation via Accepttest**: `test_task_046_git_service_and_domain_event_mapping` i `tests/acceptance.rs` beviser samtlige funktioner mod et lokalt test-repository.
 
 ---
 
