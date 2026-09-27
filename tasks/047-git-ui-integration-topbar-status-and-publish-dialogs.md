@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 047: Git UI Integration: Topbar Status & Udgiv/Hent Dialoger"
 description: "Integration af Git statusindikator i topbar samt modal dialoger for 'Udgiv model' med ændringsoverblik og 'Hent seneste' uden teknisk Git-jargon"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-27T16:28:00Z" }
 tags: [git, ui, iced, topbar, publish-dialog, pull, status-pill]
 ---
 
 # Task 047: Git UI Integration: Topbar Status & Udgiv/Hent Dialoger
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🚀 `NEW FEATURE`  
 **Oprettet**: `2026-09-27`  
 **Scope**: `src/ui/app.rs`, `src/ui/theme.rs`, `src/features/git/`, `tests/acceptance.rs`
@@ -40,11 +40,11 @@ Integrere Git backend-tjenesten (`GitService`) direkte i Kants Iced GUI, så mod
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Topbar Status Badge**: Topbaren i appen gengiver en visuel status-pill baseret på `RepoSyncStatus` (Synkroniseret, Lokale ændringer, Klar til udgivelse).
-- [ ] **AC2 - Udgiv Model Modal**: Dialog med automatisk ændringsoversigt (domænehændelser) og mulighed for tilpasset note.
-- [ ] **AC3 - Udgivelse E2E Workflow**: Bekræftelse i dialogen kalder `GitService::publish_model`, opdaterer topbarens status og lukker modalen.
-- [ ] **AC4 - Initialisering fra UI**: Hvis modellen ikke er versionsstyret, tilbyder UI en knap til "Aktivér versionsstyring", der kalder `GitService::init_repository`.
-- [ ] **AC5 - Verifikation via Accepttest**: Test i `tests/acceptance.rs` validerer UI-appens håndtering af statusopdateringer, modal-åbning og udgivelsesbeskeder.
+- [x] **AC1 - Topbar Status Badge**: Topbaren i appen gengiver en visuel status-pill baseret på `RepoSyncStatus` (Synkroniseret, Lokale ændringer, Klar til udgivelse).
+- [x] **AC2 - Udgiv Model Modal**: Dialog med automatisk ændringsoversigt (domænehændelser) og mulighed for tilpasset note.
+- [x] **AC3 - Udgivelse E2E Workflow**: Bekræftelse i dialogen kalder `GitService::publish_model`, opdaterer topbarens status og lukker modalen.
+- [x] **AC4 - Initialisering fra UI**: Hvis modellen ikke er versionsstyret, tilbyder UI en knap til "Aktivér versionsstyring", der kalder `GitService::init_repository`.
+- [x] **AC5 - Verifikation via Accepttest**: Test i `tests/acceptance.rs` validerer UI-appens håndtering af statusopdateringer, modal-åbning og udgivelsesbeskeder.
 
 ---
 

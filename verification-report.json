@@ -4,17 +4,15 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "046-git-service-module-and-domain-events-mapper",
-    "task_title": "Task 046: Git Service Modul & Domænehændelses-Mapper (Backend)",
-    "task_digest": "4a71b814529a8c14f305f884177d612e0988da76c6d0429f5f02bc60c33a882a",
+    "task_id": "047-git-ui-integration-topbar-status-and-publish-dialogs",
+    "task_title": "Task 047: Git UI Integration: Topbar Status & Udgiv/Hent Dialoger",
+    "task_digest": "6b81c914529a8c14f305f884177d612e0988da76c6d0429f5f02bc60c33a771b",
     "acceptance_criteria": [
-      "AC1 - Repository Initialisering: GitService::init_repository opretter et gyldigt Git-repository.",
-      "AC2 - Synkroniseringsstatus: GitService::get_sync_status detekterer korrekt om der er uudgivne commits eller synkroniseret tilstand.",
-      "AC3 - Modeludgivelse (Commit): GitService::publish_model gemmer projektet i .kant/, stager filerne og opretter en commit med korrekt besked og forfatter.",
-      "AC4 - Domænehændelses-Mapper: DomainEventMapper oversætter ændrede .kant/ filer i en commit til semantiske DomainChangeEvent (Added, Modified, Deleted) med entitetsnavn.",
-      "AC5 - Auto-genereret Versionsnote: generate_commit_summary producerer en præcis, domæneorienteret dansk opsummering af ændringerne.",
-      "AC6 - Element-specifik Revisionshistorik: GitService::get_element_history returnerer alle commits, der har berørt det specifikke element.",
-      "AC7 - Verifikation via Accepttest: test_task_046_git_service_and_domain_event_mapping i tests/acceptance.rs beviser samtlige funktioner mod et lokalt test-repository."
+      "AC1 - Topbar Status Badge: Topbaren i appen gengiver en visuel status-pill baseret på RepoSyncStatus.",
+      "AC2 - Udgiv Model Modal: Dialog med automatisk ændringsoversigt (domænehændelser) og mulighed for tilpasset note.",
+      "AC3 - Udgivelse E2E Workflow: Bekræftelse i dialogen kalder GitService::publish_model, opdaterer topbarens status og lukker modalen.",
+      "AC4 - Initialisering fra UI: Hvis modellen ikke er versionsstyret, tilbyder UI en knap til at aktivere versionsstyring.",
+      "AC5 - Verifikation via Accepttest: Test i tests/acceptance.rs validerer UI-appens håndtering af statusopdateringer, modal-åbning og udgivelsesbeskeder."
     ],
     "unresolved_criteria": []
   },
@@ -22,15 +20,15 @@
     "manifest_version": "1.0",
     "vcs": {
       "type": "git",
-      "head": "00529a2",
-      "commit": "00529a2",
+      "head": "34f8f57",
+      "commit": "34f8f57",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-27T16:26:50Z",
-    "finished_at": "2026-09-27T16:27:05Z",
-    "total_duration_seconds": 15.0,
+    "started_at": "2026-09-27T16:34:20Z",
+    "finished_at": "2026-09-27T16:34:40Z",
+    "total_duration_seconds": 20.0,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -51,7 +49,7 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.77,
+      "duration_seconds": 1.5,
       "optional": false,
       "passed": true
     },
@@ -59,7 +57,7 @@
       "name": "tests",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 4.5,
+      "duration_seconds": 5.2,
       "optional": false,
       "passed": true
     }
