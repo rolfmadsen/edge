@@ -236,10 +236,19 @@ Kant benytter systemets standard Git-installation. Hvis organisationens model li
 2. **HTTPS med Personal Access Token (PAT) eller Git Credential Manager:**
    - Benyt URL-formatet: `https://github.com/organisation/model-arkiv.git`.
    - På Windows og macOS åbner systemets *Git Credential Manager* automatisk et browser-vindue første gang og husker dit login sikkert.
-   - Hvis du bruger Linux eller bliver bedt om en adgangskode i en terminal-prompt, accepterer GitHub **ikke** dit almindelige kodeord, men kræver et **Personal Access Token (PAT)**:
-     - Gå til GitHub: **Settings** → **Developer Settings** → **Personal Access Tokens (Tokens classic)**.
-     - Opret et token med afkrydsning i **`repo`** (fuld adgang til repositories).
-     - Indtast dette token som adgangskode, når Git efterspørger password.
+   - Hvis du bruger Linux eller promptes for adgangskode i terminalen, accepterer GitHub **ikke** dit almindelige kodeord, men kræver et **Personal Access Token (PAT)**.
+
+   **Sikkerheds-anbefaling: Brug et Fine-grained Personal Access Token (Least Privilege):**
+   GitHub anbefaler *Fine-grained tokens*, fordi du kan begrænse adgangen til udelukkende det specifikke model-repository:
+   - Gå til GitHub: **Settings** → **Developer Settings** → **Personal Access Tokens** → **Fine-grained tokens** → **Generate new token**.
+   - **Resource owner:** Vælg den organisation eller bruger, der ejer repositoryet.
+   - **Repository access:** Vælg **Only select repositories** og vælg dit model-repository (f.eks. `model-arkiv`).
+   - **Permissions (Repository permissions):**
+     - Sæt **Contents** til **`Access: Read and write`** (giver tilladelse til at klone, hente og udgive modelændringer).
+     - *(Metadata: Read-only tilføjes automatisk af GitHub)*.
+   - **Fordel:** Hvis tokenet nogensinde skulle blive kompromitteret, giver det *nul adgang* til dine andre repositories, organisationens kode eller følsomme data.
+   - *(Alternativt kan et ældre **Tokens (classic)** med `repo`-afkrydsning også benyttes, men fine-grained tokens giver den stærkeste sikkerhed).*
+   - Indsæt det genererede token som adgangskode, når Git efterspørger password.
 
 #### Repository-tilladelser (Permissions)
 - For at kunne **klone og hente opdateringer** (`Pull`) skal du mindst have **Læseadgang (Read)** til repositoryet.
