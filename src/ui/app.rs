@@ -1948,8 +1948,18 @@ impl App {
             Message::ConfirmPublish => {
                 if let Some(modal) = self.publish_modal.take() {
                     let dir = self.repo_dir();
-                    // 1. Gem og commit model lokalt jf. coArchi
-                    match GitService::publish_model(&dir, &self.project, &modal.message) {
+                    let has_pending =
+                        GitService::run_git(&dir, &["status", "--porcelain", "-uall", ".kant"])
+                            .map(|s| !s.trim().is_empty())
+                            .unwrap_or(false);
+
+                    let commit_result = if has_pending {
+                        GitService::publish_model(&dir, &self.project, &modal.message)
+                    } else {
+                        Ok("clean".to_string())
+                    };
+
+                    match commit_result {
                         Ok(_) => {
                             // 2. Hvis remote er konfigureret, kør auto-pull før push
                             if let Ok(Some(_)) = GitService::get_remote_url(&dir) {
@@ -5763,17 +5773,44 @@ impl App {
         ]
         .align_y(Alignment::Center);
 
-        let subtitle = text("Gem og udgiv dine modelændringer til det delte repository.")
-            .size(12)
-            .color(ThemeColors::TEXT_MUTED);
+        let unpushed_count = match self.git_sync_status {
+            RepoSyncStatus::UnpublishedCommits(n) => n,
+            _ => 0,
+        };
+
+        let is_clean_with_unpushed = modal.preview_events.is_empty() && unpushed_count > 0;
+        let is_completely_synced = modal.preview_events.is_empty() && unpushed_count == 0;
+
+        let subtitle_text = if is_clean_with_unpushed {
+            format!(
+                "Du har {} modelændring{} udgivet lokalt, som mangler at blive overført til det fælles fjernlager.",
+                unpushed_count,
+                if unpushed_count == 1 { "" } else { "er" }
+            )
+        } else {
+            "Gem og udgiv dine modelændringer til det delte repository.".to_string()
+        };
+        let subtitle = text(subtitle_text).size(12).color(ThemeColors::TEXT_MUTED);
 
         let mut changes_list = column![].spacing(6);
         if modal.preview_events.is_empty() {
-            changes_list = changes_list.push(
-                text("Der er ingen udestående ændringer i modellen.")
+            if is_clean_with_unpushed {
+                changes_list = changes_list.push(
+                    text(format!(
+                        "✓ Alle lokale ændringer er allerede committet. Klik 'Send til fjernlager' for at synkronisere {} version{} med serveren.",
+                        unpushed_count,
+                        if unpushed_count == 1 { "" } else { "er" }
+                    ))
                     .size(12)
-                    .color(ThemeColors::SLATE_500),
-            );
+                    .color(ThemeColors::SLATE_700),
+                );
+            } else {
+                changes_list = changes_list.push(
+                    text("Der er ingen udestående ændringer i modellen.")
+                        .size(12)
+                        .color(ThemeColors::SLATE_500),
+                );
+            }
         } else {
             for event in &modal.preview_events {
                 let (badge, color) = match event.action {
@@ -5812,31 +5849,53 @@ impl App {
             .padding(10)
             .width(Length::Fill);
 
-        let message_field = column![
-            text("Versionsnote / Besked til kolleger")
-                .size(12)
-                .color(ThemeColors::SLATE_700),
-            text_input("Beskriv ændringerne i modellen...", &modal.message)
-                .style(modern_input_style)
-                .on_input(Message::UpdatePublishMessage)
-                .padding(8)
-                .width(Length::Fill),
-        ]
-        .spacing(4);
+        let maybe_message_field = if is_clean_with_unpushed || is_completely_synced {
+            None
+        } else {
+            Some(
+                column![
+                    text("Versionsnote / Besked til kolleger")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                    text_input("Beskriv ændringerne i modellen...", &modal.message)
+                        .style(modern_input_style)
+                        .on_input(Message::UpdatePublishMessage)
+                        .padding(8)
+                        .width(Length::Fill),
+                ]
+                .spacing(4),
+            )
+        };
 
-        let footer_buttons = row![
-            Space::new().width(Length::Fill),
-            button(text("Annuller"))
-                .style(secondary_button_style)
-                .on_press(Message::ClosePublishModal),
-            Space::new().width(8),
-            button(text("Udgiv model"))
-                .style(primary_button_style)
-                .on_press(Message::ConfirmPublish),
-        ]
-        .align_y(Alignment::Center);
+        let primary_button_label = if is_clean_with_unpushed {
+            "Send til fjernlager"
+        } else {
+            "Udgiv model"
+        };
 
-        let dialog_content = column![
+        let footer_buttons = if is_completely_synced {
+            row![
+                Space::new().width(Length::Fill),
+                button(text("Luk"))
+                    .style(primary_button_style)
+                    .on_press(Message::ClosePublishModal),
+            ]
+            .align_y(Alignment::Center)
+        } else {
+            row![
+                Space::new().width(Length::Fill),
+                button(text("Annuller"))
+                    .style(secondary_button_style)
+                    .on_press(Message::ClosePublishModal),
+                Space::new().width(8),
+                button(text(primary_button_label))
+                    .style(primary_button_style)
+                    .on_press(Message::ConfirmPublish),
+            ]
+            .align_y(Alignment::Center)
+        };
+
+        let mut dialog_content = column![
             title_row,
             subtitle,
             Space::new().height(8),
@@ -5845,12 +5904,14 @@ impl App {
                 .color(ThemeColors::SLATE_700),
             changes_box,
             Space::new().height(8),
-            message_field,
-            Space::new().height(12),
-            footer_buttons,
-        ]
-        .spacing(8)
-        .width(480);
+        ];
+
+        if let Some(msg_col) = maybe_message_field {
+            dialog_content = dialog_content.push(msg_col);
+            dialog_content = dialog_content.push(Space::new().height(12));
+        }
+
+        dialog_content = dialog_content.push(footer_buttons).spacing(8).width(480);
 
         let dialog_card = container(dialog_content)
             .style(modal_card_style)
