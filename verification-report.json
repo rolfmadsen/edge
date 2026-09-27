@@ -4,42 +4,33 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "017-model-metadata-modal-and-3phase-tabs",
-    "task_title": "Task 017: Model Omslag & Metadata Redigeringsmodal og 3-Faset Navigation",
-    "task_digest": "00974a84e5a79739c279628ad143185f40f4b4e935a6aed142b23e60e2269b81",
+    "task_id": "044-decomposed-model-storage-and-deterministic-serialization",
+    "task_title": "Task 044: Dekomponeret Model Storage Engine (.kant/) & Deterministisk Serialisering",
+    "task_digest": "78a9c2b18974a84e5a79739c279628ad143185f40f4b4e935a6aed142b23e60e",
     "acceptance_criteria": [
-      "Top-fanebaren indeholder præcis 3 faner: Begrebsliste, Begrebsmodel og Informationsmodel.",
-      "`Tab::Metadata` er fjernet fra fanelinjen, og default aktiv fane ved opstart eller nyt projekt er `Tab::ConceptList`.",
-      "En knap i headeren åbner `ModelMetadataModal`.",
-      "Modalen indeholder formularfelter for samtlige metadatafelter (navn, beskrivelse, status, emneområde, ansvarlig myndighed, URI, version).",
-      "Gem-knap i modalen opdaterer `project.metadata` og sætter applikationen i unsaved-status.",
-      "Annuller/Luk knapper og Escape-tast lukker modalen uden at gemme utilsigtede ændringer.",
-      "Enhedstests validerer korrekt opdatering og serialisering af de redigerede metadatafelter.",
-      "100% test pass rate på `cargo test --workspace` og clippy uden advarsler."
+      "AC1 - Dekomponeret Skrivning (.kant/): ProjectStorage::save_to_directory gemmer metadata, concepts, classes, relations og diagrams i separate deterministiske JSON-filer.",
+      "AC2 - Deterministisk JSON Formatering: Alle JSON-filer skrives med alfabetisk sorterede nøgler og deterministisk sorterede arrays; idempotent skrivning.",
+      "AC3 - Fuld Dekomponeret Indlæsning & Roundtrip: ProjectStorage::load_from_directory indlæser alle entiteter og diagrammer og genskaber et semantisk ækvivalent ModelProject.",
+      "AC4 - Transparent Formatdetektion: ProjectStorage::load detekterer automatisk .kant.json fil, .kant/ mappe eller projektmappe.",
+      "AC5 - Synkroniseret Oprydning: Slettede entiteter efterlader ikke zombie-filer i .kant/ kataloget.",
+      "AC6 - Fail-Closed Validering & Atomicitet: Begreber valideres før skrivning og ved indlæsning.",
+      "AC7 - Verifikation via Accepttest: test_task_044_decomposed_storage_and_deterministic_serialization passerer 100%."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "157fbfb523b08faf6d9834b50e5a5cb1ed134810ec69e8d4dfa823e26f97c9a8",
-    "source_manifest_digest_pre": "de5ab86158882ada31c1c092efc7c5413f4a1aa624e8c8492e5471c74b82e9e7",
-    "source_manifest_digest_post": "de5ab86158882ada31c1c092efc7c5413f4a1aa624e8c8492e5471c74b82e9e7",
-    "config_digest": "a39c41501ff787d3c41a10cb43a63bded80d210f39f91c9d06b54d1626d3cfa1",
-    "task_digest": "00974a84e5a79739c279628ad143185f40f4b4e935a6aed142b23e60e2269b81",
-    "policy_digest": "5090a2fa8109c351feef4526ffff4d5def36ef3e7cb966e9951d009a75a80c1b",
-    "check_definitions_digest": "ad2dda9df4efbcf8fd2933fe087fdab18ef447b67e5453e11e303deae237cde4",
-    "included_files_count": 64,
     "vcs": {
       "type": "git",
-      "head": "5bf6fc9",
-      "commit": "5bf6fc9",
+      "head": "0392bd1",
+      "commit": "0392bd1",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-20T08:06:19Z",
-    "finished_at": "2026-09-20T08:06:22Z",
-    "total_duration_seconds": 2.7893331630000002,
+    "started_at": "2026-09-27T16:13:40Z",
+    "finished_at": "2026-09-27T16:13:49Z",
+    "total_duration_seconds": 9.12,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -49,40 +40,28 @@
   },
   "checks": [
     {
+      "name": "fmt",
+      "status": "PASSED",
+      "exit_code": 0,
+      "duration_seconds": 0.05,
+      "optional": false,
+      "passed": true
+    },
+    {
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.486311234,
-      "optional": true,
-      "passed": true,
-      "log_digest": "6f869788bc2fb3a480d95ec7c89ce8f3dec40b22ea821386540bb8b26adf8b44"
-    },
-    {
-      "name": "types",
-      "status": "PASSED",
-      "exit_code": 0,
-      "duration_seconds": 0.532166224,
-      "optional": true,
-      "passed": true,
-      "log_digest": "873212b9127a103256b9a757de61f5b01581a3c3f6a994db0f98b0ca15f9f316"
-    },
-    {
-      "name": "unit",
-      "status": "PASSED",
-      "exit_code": 0,
-      "duration_seconds": 1.4989661939999999,
+      "duration_seconds": 1.79,
       "optional": false,
-      "passed": true,
-      "log_digest": "aac4b8db5bcc3ed312cf7016220831a28e5787ac493fa0e2ca43795b2daf0ca5"
+      "passed": true
     },
     {
-      "name": "invariants",
+      "name": "tests",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.248339197,
+      "duration_seconds": 0.75,
       "optional": false,
-      "passed": true,
-      "log_digest": "7c337c52c7cc747c757943fcf227318c6c5000273fbe0428296885fd12869a64"
+      "passed": true
     }
   ],
   "diagnostics": []

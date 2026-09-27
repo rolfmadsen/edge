@@ -450,6 +450,9 @@ mod tests {
         let u3 = deterministic_uuid("test_key_2");
 
         assert_eq!(u1, u2, "Samme nøgle skal producere identisk UUID");
-        assert_ne!(u1, u3, "Forskellige nøgler skal producere forskellige UUIDs");
+        assert_ne!(
+            u1, u3,
+            "Forskellige nøgler skal producere forskellige UUIDs"
+        );
     }
 }

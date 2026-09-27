@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 044: Dekomponeret Model Storage Engine (.kant/) & Deterministisk Serialisering"
 description: "Dekomponering af FDA modelprojekter i fast mappestruktur (.kant/) med deterministisk JSON-sortering for eliminering af Git-mergekonflikter og fuld bagudkompatibilitet"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-27T16:10:00Z" }
 tags: [storage, decomposed-format, json, determinism, persistence, git, serialization]
 ---
 
 # Task 044: Dekomponeret Model Storage Engine (.kant/) & Deterministisk Serialisering
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🚀 `NEW FEATURE`  
 **Oprettet**: `2026-09-27`  
 **Scope**: `src/features/model/storage.rs`, `src/features/model/decomposed.rs`, `src/features/model/mod.rs`, `tests/acceptance.rs`
@@ -42,13 +42,13 @@ Gøre det muligt for Kant at gemme og indlæse et FDA modelprojekt i et dekompon
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Dekomponeret Skrivning (.kant/)**: `ProjectStorage::save_to_directory(project, root_path)` gemmer projektet i `.kant/` med undermapperne `concepts/`, `classes/`, `relations/` og `diagrams/` samt `metadata.json`.
-- [ ] **AC2 - Deterministisk JSON Formatering**: Alle JSON-filer skrives med alfabetisk sorterede nøgler og deterministisk sorterede arrays. Idempotente gen-skrivninger producerer identiske filer bit-for-bit.
-- [ ] **AC3 - Fuld Dekomponeret Indlæsning & Roundtrip**: `ProjectStorage::load_from_directory(root_path)` indlæser alle entiteter og diagrammer og genskaber et komplet og semantisk ækvivalent `ModelProject`.
-- [ ] **AC4 - Transparent Formatdetektion**: `ProjectStorage::load(path)` kan automatisk detektere om stien peger på en `.kant.json` fil, en `.kant/` mappe eller en projektmappe indeholdende `.kant/`, og indlæse korrekt.
-- [ ] **AC5 - Synkroniseret Oprydning af Slettede Elementer**: Når et begreb, en klasse eller en relation er slettet fra modellen, slettes dens tilsvarende `<uuid>.json` fil fra disk ved næste `save_to_directory`.
-- [ ] **AC6 - Fail-Closed Validering & Atomicitet**: Samtlige begreber valideres før skrivning og ved indlæsning. Ugyldige data afvises uden at efterlade korrupt tilstand.
-- [ ] **AC7 - Verifikation via Accepttest**: `test_task_044_decomposed_storage_and_deterministic_serialization` beviser at dekomponering, roundtrip, slette-oprydning og determinisme fungerer fejlfrit.
+- [x] **AC1 - Dekomponeret Skrivning (.kant/)**: `ProjectStorage::save_to_directory(project, root_path)` gemmer projektet i `.kant/` med undermapperne `concepts/`, `classes/`, `relations/` og `diagrams/` samt `metadata.json`.
+- [x] **AC2 - Deterministisk JSON Formatering**: Alle JSON-filer skrives med alfabetisk sorterede nøgler og deterministisk sorterede arrays. Idempotente gen-skrivninger producerer identiske filer bit-for-bit.
+- [x] **AC3 - Fuld Dekomponeret Indlæsning & Roundtrip**: `ProjectStorage::load_from_directory(root_path)` indlæser alle entiteter og diagrammer og genskaber et komplet og semantisk ækvivalent `ModelProject`.
+- [x] **AC4 - Transparent Formatdetektion**: `ProjectStorage::load(path)` kan automatisk detektere om stien peger på en `.kant.json` fil, en `.kant/` mappe eller en projektmappe indeholdende `.kant/`, og indlæse korrekt.
+- [x] **AC5 - Synkroniseret Oprydning af Slettede Elementer**: Når et begreb, en klasse eller en relation er slettet fra modellen, slettes dens tilsvarende `<uuid>.json` fil fra disk ved næste `save_to_directory`.
+- [x] **AC6 - Fail-Closed Validering & Atomicitet**: Samtlige begreber valideres før skrivning og ved indlæsning. Ugyldige data afvises uden at efterlade korrupt tilstand.
+- [x] **AC7 - Verifikation via Accepttest**: `test_task_044_decomposed_storage_and_deterministic_serialization` beviser at dekomponering, roundtrip, slette-oprydning og determinisme fungerer fejlfrit.
 
 ---
 
