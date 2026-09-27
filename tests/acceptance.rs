@@ -5531,3 +5531,119 @@ fn test_task_047_git_ui_topbar_status_and_publish_dialog() {
     // 8. Oprydning
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
+
+#[test]
+fn test_task_048_model_graph_timeline_element_history_and_conflict_resolver() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::git::GitService;
+    use kant::features::model::merge::ModelConflict;
+    use kant::ui::app::{App, ConflictChoice, Message};
+    use uuid::Uuid;
+
+    let temp_dir = std::env::temp_dir().join(format!("kant_test_048_{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+
+    // 1. Initialiser repo og app
+    GitService::init_repository(&temp_dir).expect("init repo");
+    let mut app = App::new_with_path(Some(temp_dir.clone()));
+
+    // 2. Opret og udgiv version 1 (Begreb Køretøj)
+    let c1 = Concept::new("Køretøj", "Transportmiddel", BelongsToDomain::Yes);
+    let c1_id = app.project_mut().add_concept(c1).unwrap();
+    let _ = app.update(Message::OpenPublishModal);
+    let _ = app.update(Message::UpdatePublishMessage(
+        "Version 1: Oprettet Køretøj".into(),
+    ));
+    let _ = app.update(Message::ConfirmPublish);
+
+    // 3. Opdater begreb og udgiv version 2
+    let mut c1_updated = app.project().get_concept(c1_id).unwrap().clone();
+    c1_updated.set_definition("Opdateret transportmiddel");
+    app.project_mut().update_concept(c1_updated).unwrap();
+    let _ = app.update(Message::OpenPublishModal);
+    let _ = app.update(Message::UpdatePublishMessage(
+        "Version 2: Opdateret definition".into(),
+    ));
+    let _ = app.update(Message::ConfirmPublish);
+
+    // 4. Åbn Modelhistorik (Tidslinje)
+    assert!(app.history_modal().is_none());
+    let _ = app.update(Message::OpenModelHistoryModal);
+    assert!(
+        app.history_modal().is_some(),
+        "Modelhistorik modal skal være åben"
+    );
+    let history = app.history_modal().unwrap();
+    assert_eq!(
+        history.commits.len(),
+        2,
+        "Historik skal indeholde 2 commits"
+    );
+    assert_eq!(history.commits[0].message, "Version 2: Opdateret definition");
+    assert_eq!(history.commits[1].message, "Version 1: Oprettet Køretøj");
+    let _ = app.update(Message::CloseModelHistoryModal);
+    assert!(app.history_modal().is_none());
+
+    // 5. Åbn Element-specifik historik ("Time Travel" / Audit)
+    let _ = app.update(Message::OpenElementHistoryModal(c1_id));
+    assert!(
+        app.history_modal().is_some(),
+        "Elementhistorik modal skal være åben"
+    );
+    let elem_hist = app.history_modal().unwrap();
+    assert_eq!(
+        elem_hist.commits.len(),
+        2,
+        "c1 historik skal indeholde 2 commits"
+    );
+    assert_eq!(elem_hist.target_element_id, Some(c1_id));
+    let _ = app.update(Message::CloseModelHistoryModal);
+
+    // 6. Test Visuel Konfliktløser Modal (Conflict Resolver)
+    assert!(app.conflict_resolver_modal().is_none());
+    let conflict = ModelConflict {
+        entity_kind: kant::features::model::merge::ConflictEntityKind::Concept(c1_id),
+        entity_name: "Køretøj".into(),
+        field_name: "definition".into(),
+        base_value: "Transportmiddel".into(),
+        our_value: "Lokalt ændret transportmiddel".into(),
+        their_value: "Server ændret transportmiddel".into(),
+    };
+    let _ = app.update(Message::OpenConflictResolverModal(vec![conflict.clone()]));
+    assert!(
+        app.conflict_resolver_modal().is_some(),
+        "Konfliktløser modal skal være åben"
+    );
+    let resolver = app.conflict_resolver_modal().unwrap();
+    assert_eq!(resolver.conflicts.len(), 1);
+
+    // Vælg "Theirs" (serverens version) og løs konflikten
+    let _ = app.update(Message::ResolveConflict {
+        index: 0,
+        choice: ConflictChoice::Theirs,
+    });
+    assert_eq!(
+        app.conflict_resolver_modal()
+            .unwrap()
+            .resolved_choices
+            .get(&0),
+        Some(&ConflictChoice::Theirs)
+    );
+
+    // Bekræft fletning
+    let _ = app.update(Message::ApplyResolvedConflicts);
+    assert!(
+        app.conflict_resolver_modal().is_none(),
+        "Konfliktløser skal lukkes efter anvendelse"
+    );
+
+    // Valider at begrebets definition nu er opdateret til 'theirs_value'
+    assert_eq!(
+        app.project().get_concept(c1_id).unwrap().definition(),
+        "Server ændret transportmiddel"
+    );
+
+    // 7. Oprydning
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
