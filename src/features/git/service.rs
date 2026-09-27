@@ -105,10 +105,15 @@ impl GitService {
         })?;
 
         if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let msg = if stderr.is_empty() {
+                String::from_utf8_lossy(&output.stdout).trim().to_string()
+            } else {
+                stderr
+            };
             return Err(GitError::CommandFailed {
                 cmd: format!("git {}", args.join(" ")),
-                message: stderr,
+                message: msg,
             });
         }
 
@@ -214,7 +219,14 @@ impl GitService {
         // 2. Stage .kant/
         Self::run_git(repo_path, &["add", ".kant"])?;
 
-        // 3. Afgør commit-besked
+        // 3. Tjek om der er staged ændringer at committe
+        let is_clean = Self::run_git(repo_path, &["diff", "--cached", "--quiet"]).is_ok();
+        if is_clean {
+            let oid = Self::run_git(repo_path, &["rev-parse", "HEAD"]).unwrap_or_default();
+            return Ok(oid.trim().to_string());
+        }
+
+        // 4. Afgør commit-besked
         let commit_message = if message.trim().is_empty() {
             let staged_diff = Self::run_git(repo_path, &["diff", "--cached", "--name-status"])?;
             let changes = Self::parse_staged_diff(repo_path, &staged_diff)?;
