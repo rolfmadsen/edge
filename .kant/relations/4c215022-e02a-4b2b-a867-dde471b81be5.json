@@ -1,0 +1,11 @@
+{
+  "directed": true,
+  "from": "8a9adb5d-97fb-46fb-b348-99bc30fc8431",
+  "id": "4c215022-e02a-4b2b-a867-dde471b81be5",
+  "kind": "Association",
+  "label": "bruger, opretter eller ejer",
+  "relation_type": "ConceptRelation",
+  "source_port": "Bottom",
+  "target_port": "Top",
+  "to": "60524b8a-ed56-4b09-a73e-c451be9837af"
+}

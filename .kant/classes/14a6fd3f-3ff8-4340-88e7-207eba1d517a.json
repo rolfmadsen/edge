@@ -1,5 +1,16 @@
 {
-  "attributes": [],
+  "attributes": [
+    {
+      "concept_ids": [],
+      "data_type": "CharacterString",
+      "id": "e010dd56-1afd-4ee6-b515-3f519891d561",
+      "multiplicity": {
+        "lower": 1,
+        "upper": 1
+      },
+      "name": "repoTitle"
+    }
+  ],
   "concept_ids": [
     "60524b8a-ed56-4b09-a73e-c451be9837af"
   ],
