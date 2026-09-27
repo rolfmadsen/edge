@@ -74,14 +74,24 @@ impl GitService {
         }
     }
 
+    /// Sikrer at en tom sti håndteres som aktuel arbejdsmappe ('.').
+    pub fn effective_repo_dir(repo_path: &Path) -> &Path {
+        if repo_path.as_os_str().is_empty() {
+            Path::new(".")
+        } else {
+            repo_path
+        }
+    }
+
     pub fn run_git_with_env(
         repo_dir: &Path,
         args: &[&str],
         envs: &[(&str, &str)],
     ) -> Result<String, GitError> {
         Self::check_git_installed()?;
+        let effective_dir = Self::effective_repo_dir(repo_dir);
         let mut cmd = Command::new("git");
-        cmd.current_dir(repo_dir);
+        cmd.current_dir(effective_dir);
         for &(k, v) in envs {
             cmd.env(k, v);
         }
@@ -122,11 +132,9 @@ impl GitService {
     /// Henter synkroniseringsstatus for det lokale repository i forhold til remote.
     pub fn get_sync_status(repo_path: &Path) -> Result<RepoSyncStatus, GitError> {
         Self::check_git_installed()?;
-        if !repo_path.join(".git").exists() {
-            return Ok(RepoSyncStatus::Uninitialized);
-        }
+        let effective_path = Self::effective_repo_dir(repo_path);
 
-        if Self::run_git(repo_path, &["rev-parse", "--is-inside-work-tree"]).is_err() {
+        if Self::run_git(effective_path, &["rev-parse", "--is-inside-work-tree"]).is_err() {
             return Ok(RepoSyncStatus::Uninitialized);
         }
 
@@ -625,8 +633,14 @@ impl GitService {
 
     /// Sætter lokalt forfatternavn og e-mail i repositoriet.
     pub fn set_user_identity(repo_path: &Path, name: &str, email: &str) -> Result<(), GitError> {
-        Self::run_git(repo_path, &["config", "user.name", name])?;
-        Self::run_git(repo_path, &["config", "user.email", email])?;
+        let name_trimmed = name.trim();
+        if !name_trimmed.is_empty() {
+            Self::run_git(repo_path, &["config", "user.name", name_trimmed])?;
+        }
+        let email_trimmed = email.trim();
+        if !email_trimmed.is_empty() {
+            Self::run_git(repo_path, &["config", "user.email", email_trimmed])?;
+        }
         Ok(())
     }
 

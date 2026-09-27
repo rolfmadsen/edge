@@ -783,16 +783,20 @@ impl App {
     }
 
     pub fn new_with_path(path: Option<PathBuf>) -> Self {
-        let git_sync_status = if let Some(p) = &path {
-            let dir = if p.is_dir() {
-                p.as_path()
-            } else {
-                p.parent().unwrap_or(std::path::Path::new("."))
-            };
-            GitService::get_sync_status(dir).unwrap_or(RepoSyncStatus::Uninitialized)
-        } else {
-            RepoSyncStatus::Uninitialized
+        let repo_dir = match &path {
+            Some(p) => {
+                if p.is_dir() {
+                    p.clone()
+                } else {
+                    match p.parent() {
+                        Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
+                        _ => PathBuf::from("."),
+                    }
+                }
+            }
+            None => PathBuf::from("."),
         };
+        let git_sync_status = GitService::get_sync_status(&repo_dir).unwrap_or(RepoSyncStatus::Uninitialized);
 
         if let Some(p) = &path {
             if p.exists() {
@@ -966,6 +970,22 @@ impl App {
 
     pub fn current_file_path(&self) -> Option<&PathBuf> {
         self.current_file_path.as_ref()
+    }
+
+    pub fn repo_dir(&self) -> PathBuf {
+        match &self.current_file_path {
+            Some(p) => {
+                if p.is_dir() {
+                    p.clone()
+                } else {
+                    match p.parent() {
+                        Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
+                        _ => PathBuf::from("."),
+                    }
+                }
+            }
+            None => PathBuf::from("."),
+        }
     }
 
     pub fn save_status(&self) -> &SaveStatus {
@@ -1862,68 +1882,56 @@ impl App {
                 self.metadata_modal = None;
             }
             Message::RefreshGitStatus => {
-                if let Some(path) = &self.current_file_path {
-                    let dir = if path.is_dir() {
-                        path.as_path()
-                    } else {
-                        path.parent().unwrap_or(std::path::Path::new("."))
-                    };
-                    if let Ok(st) = GitService::get_sync_status(dir) {
-                        self.git_sync_status = st;
-                    }
+                let dir = self.repo_dir();
+                if let Ok(st) = GitService::get_sync_status(&dir) {
+                    self.git_sync_status = st;
                 }
             }
             Message::OpenPublishModal => {
-                if let Some(path) = &self.current_file_path {
-                    let dir = if path.is_dir() {
-                        path.as_path()
-                    } else {
-                        path.parent().unwrap_or(std::path::Path::new("."))
-                    };
-                    let _ = ProjectStorage::save_to_directory(&self.project, dir);
+                let dir = self.repo_dir();
+                let _ = ProjectStorage::save_to_directory(&self.project, &dir);
 
-                    let mut preview_events = Vec::new();
-                    if let Ok(status_out) = GitService::run_git(dir, &["status", "--porcelain"]) {
-                        for line in status_out.lines() {
-                            let line = line.trim();
-                            if line.is_empty() {
-                                continue;
-                            }
-                            let status_code = line.chars().take(2).collect::<String>();
-                            let file_path = line[2..].trim();
-                            let action = if status_code.contains('D') {
-                                ChangeAction::Deleted
-                            } else if status_code.contains('A') || status_code.contains('?') {
-                                ChangeAction::Added
-                            } else {
-                                ChangeAction::Modified
-                            };
-                            let content = match action {
-                                ChangeAction::Deleted => GitService::run_git(
-                                    dir,
-                                    &["show", &format!("HEAD:{}", file_path)],
-                                )
-                                .ok(),
-                                _ => std::fs::read_to_string(dir.join(file_path)).ok(),
-                            };
-                            if let Some(ev) = DomainEventMapper::map_file_change(
-                                action,
-                                file_path,
-                                content.as_deref(),
-                            ) {
-                                preview_events.push(ev);
-                            }
+                let mut preview_events = Vec::new();
+                if let Ok(status_out) = GitService::run_git(&dir, &["status", "--porcelain"]) {
+                    for line in status_out.lines() {
+                        let line = line.trim();
+                        if line.is_empty() {
+                            continue;
+                        }
+                        let status_code = line.chars().take(2).collect::<String>();
+                        let file_path = line[2..].trim();
+                        let action = if status_code.contains('D') {
+                            ChangeAction::Deleted
+                        } else if status_code.contains('A') || status_code.contains('?') {
+                            ChangeAction::Added
+                        } else {
+                            ChangeAction::Modified
+                        };
+                        let content = match action {
+                            ChangeAction::Deleted => GitService::run_git(
+                                &dir,
+                                &["show", &format!("HEAD:{}", file_path)],
+                            )
+                            .ok(),
+                            _ => std::fs::read_to_string(dir.join(file_path)).ok(),
+                        };
+                        if let Some(ev) = DomainEventMapper::map_file_change(
+                            action,
+                            file_path,
+                            content.as_deref(),
+                        ) {
+                            preview_events.push(ev);
                         }
                     }
-
-                    let summary = DomainEventMapper::generate_commit_summary(&preview_events);
-                    let default_msg = if summary.trim().is_empty() {
-                        "Opdatering af model".to_string()
-                    } else {
-                        summary
-                    };
-                    self.publish_modal = Some(PublishModalState::new(default_msg, preview_events));
                 }
+
+                let summary = DomainEventMapper::generate_commit_summary(&preview_events);
+                let default_msg = if summary.trim().is_empty() {
+                    "Opdatering af model".to_string()
+                } else {
+                    summary
+                };
+                self.publish_modal = Some(PublishModalState::new(default_msg, preview_events));
             }
             Message::ClosePublishModal => {
                 self.publish_modal = None;
@@ -1935,69 +1943,39 @@ impl App {
             }
             Message::ConfirmPublish => {
                 if let Some(modal) = self.publish_modal.take() {
-                    if let Some(path) = &self.current_file_path {
-                        let dir = if path.is_dir() {
-                            path.as_path()
-                        } else {
-                            path.parent().unwrap_or(std::path::Path::new("."))
-                        };
-                        let _ = GitService::publish_model(dir, &self.project, &modal.message);
-                        if let Ok(st) = GitService::get_sync_status(dir) {
-                            self.git_sync_status = st;
-                        }
+                    let dir = self.repo_dir();
+                    let _ = GitService::publish_model(&dir, &self.project, &modal.message);
+                    if let Ok(st) = GitService::get_sync_status(&dir) {
+                        self.git_sync_status = st;
                     }
                 }
             }
             Message::InitGitRepository => {
-                if let Some(path) = &self.current_file_path {
-                    let dir = if path.is_dir() {
-                        path.as_path()
-                    } else {
-                        path.parent().unwrap_or(std::path::Path::new("."))
-                    };
-                    let _ = GitService::init_repository(dir);
-                    if let Ok(st) = GitService::get_sync_status(dir) {
-                        self.git_sync_status = st;
-                    }
+                let dir = self.repo_dir();
+                let _ = GitService::init_repository(&dir);
+                if let Ok(st) = GitService::get_sync_status(&dir) {
+                    self.git_sync_status = st;
                 }
             }
             Message::PullModel => {
-                if let Some(path) = &self.current_file_path {
-                    let dir = if path.is_dir() {
-                        path.as_path()
-                    } else {
-                        path.parent().unwrap_or(std::path::Path::new("."))
-                    };
-                    let _ = GitService::pull_model(dir, "origin", "main");
-                    if let Ok(p) = ProjectStorage::load(dir) {
-                        self.project = p;
-                    }
-                    if let Ok(st) = GitService::get_sync_status(dir) {
-                        self.git_sync_status = st;
-                    }
+                let dir = self.repo_dir();
+                let _ = GitService::pull_model(&dir, "origin", "main");
+                if let Ok(p) = ProjectStorage::load(&dir) {
+                    self.project = p;
+                }
+                if let Ok(st) = GitService::get_sync_status(&dir) {
+                    self.git_sync_status = st;
                 }
             }
             Message::OpenModelHistoryModal => {
-                if let Some(path) = &self.current_file_path {
-                    let dir = if path.is_dir() {
-                        path.as_path()
-                    } else {
-                        path.parent().unwrap_or(std::path::Path::new("."))
-                    };
-                    let commits = GitService::get_commit_history(dir, 50).unwrap_or_default();
-                    self.history_modal = Some(ModelHistoryModalState::new(None, commits));
-                }
+                let dir = self.repo_dir();
+                let commits = GitService::get_commit_history(&dir, 50).unwrap_or_default();
+                self.history_modal = Some(ModelHistoryModalState::new(None, commits));
             }
             Message::OpenElementHistoryModal(id) => {
-                if let Some(path) = &self.current_file_path {
-                    let dir = if path.is_dir() {
-                        path.as_path()
-                    } else {
-                        path.parent().unwrap_or(std::path::Path::new("."))
-                    };
-                    let commits = GitService::get_element_history(dir, id).unwrap_or_default();
-                    self.history_modal = Some(ModelHistoryModalState::new(Some(id), commits));
-                }
+                let dir = self.repo_dir();
+                let commits = GitService::get_element_history(&dir, id).unwrap_or_default();
+                self.history_modal = Some(ModelHistoryModalState::new(Some(id), commits));
             }
             Message::CloseModelHistoryModal => {
                 self.history_modal = None;
@@ -2075,33 +2053,20 @@ impl App {
 
             Message::OpenGitConnectionModal => {
                 self.active_menu = None;
-                let repo_dir = self.current_file_path.as_deref().map(|p| {
-                    if p.is_dir() {
-                        p.to_path_buf()
-                    } else {
-                        p.parent()
-                            .unwrap_or(std::path::Path::new("."))
-                            .to_path_buf()
-                    }
-                });
+                let dir = self.repo_dir();
 
-                let (remote_url, author_name, author_email) = if let Some(dir) = &repo_dir {
-                    let url = GitService::get_remote_url(dir)
-                        .ok()
-                        .flatten()
-                        .unwrap_or_default();
-                    let (name, email) = GitService::get_user_identity(dir)
-                        .ok()
-                        .unwrap_or((None, None));
-                    (url, name.unwrap_or_default(), email.unwrap_or_default())
-                } else {
-                    (String::new(), String::new(), String::new())
-                };
+                let url = GitService::get_remote_url(&dir)
+                    .ok()
+                    .flatten()
+                    .unwrap_or_default();
+                let (name, email) = GitService::get_user_identity(&dir)
+                    .ok()
+                    .unwrap_or((None, None));
 
                 self.git_connection_modal = Some(GitConnectionModalState {
-                    remote_url,
-                    author_name,
-                    author_email,
+                    remote_url: url,
+                    author_name: name.unwrap_or_default(),
+                    author_email: email.unwrap_or_default(),
                     error_message: None,
                 });
             }
@@ -2132,52 +2097,47 @@ impl App {
             }
 
             Message::SaveGitConnection => {
-                if let Some(state) = self.git_connection_modal.take() {
-                    let repo_dir = self.current_file_path.as_deref().map(|p| {
-                        if p.is_dir() {
-                            p.to_path_buf()
-                        } else {
-                            p.parent()
-                                .unwrap_or(std::path::Path::new("."))
-                                .to_path_buf()
-                        }
-                    });
+                if let Some(mut state) = self.git_connection_modal.take() {
+                    let dir = self.repo_dir();
 
-                    if let Some(dir) = repo_dir {
-                        if !dir.join(".git").exists() {
-                            let _ = GitService::init_repository(&dir);
+                    let is_inside_repo = GitService::run_git(&dir, &["rev-parse", "--is-inside-work-tree"]).is_ok();
+                    if !is_inside_repo {
+                        if let Err(e) = GitService::init_repository(&dir) {
+                            state.error_message = Some(format!("Kunne ikke initialisere Git-lager: {}", e));
+                            self.git_connection_modal = Some(state);
+                            return Task::none();
                         }
-                        let url = state.remote_url.trim();
-                        if !url.is_empty() {
-                            let _ = GitService::set_remote_url(&dir, url);
-                        }
-                        let name = state.author_name.trim();
-                        let email = state.author_email.trim();
-                        if !name.is_empty() || !email.is_empty() {
-                            let _ = GitService::set_user_identity(&dir, name, email);
-                        }
-                        let _ = self.update(Message::RefreshGitStatus);
                     }
+
+                    let url = state.remote_url.trim();
+                    if !url.is_empty() {
+                        if let Err(e) = GitService::set_remote_url(&dir, url) {
+                            state.error_message = Some(format!("Kunne ikke gemme remote URL: {}", e));
+                            self.git_connection_modal = Some(state);
+                            return Task::none();
+                        }
+                    }
+
+                    let name = state.author_name.trim();
+                    let email = state.author_email.trim();
+                    if !name.is_empty() || !email.is_empty() {
+                        if let Err(e) = GitService::set_user_identity(&dir, name, email) {
+                            state.error_message = Some(format!("Kunne ikke gemme forfatteridentitet: {}", e));
+                            self.git_connection_modal = Some(state);
+                            return Task::none();
+                        }
+                    }
+
+                    let _ = self.update(Message::RefreshGitStatus);
                 }
             }
 
             Message::RemoveGitRemote => {
-                let repo_dir = self.current_file_path.as_deref().map(|p| {
-                    if p.is_dir() {
-                        p.to_path_buf()
-                    } else {
-                        p.parent()
-                            .unwrap_or(std::path::Path::new("."))
-                            .to_path_buf()
-                    }
-                });
-
-                if let Some(dir) = repo_dir {
-                    let _ = GitService::remove_remote(&dir);
-                    let _ = self.update(Message::RefreshGitStatus);
-                    if let Some(m) = &mut self.git_connection_modal {
-                        m.remote_url.clear();
-                    }
+                let dir = self.repo_dir();
+                let _ = GitService::remove_remote(&dir);
+                let _ = self.update(Message::RefreshGitStatus);
+                if let Some(m) = &mut self.git_connection_modal {
+                    m.remote_url.clear();
                 }
             }
 

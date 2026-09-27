@@ -5771,6 +5771,13 @@ fn test_task_049_git_connection_remote_configuration_and_clone_ui() {
     assert!(ui_clone_target.exists(), "Klonet mappe skal eksistere");
     assert_eq!(app.project().metadata().name(), "Klonbar Model");
 
-    // 4. Oprydning
+    // 4. Test håndtering af relativ filsti uden mappe (f.eks. standarden "model.kant.json")
+    let mut rel_app = EdgeApp::new();
+    rel_app.set_active_file_path(Some(std::path::PathBuf::from("model.kant.json")));
+    assert_eq!(rel_app.repo_dir(), std::path::PathBuf::from("."));
+    let _ = rel_app.update(Message::OpenGitConnectionModal);
+    assert!(rel_app.git_connection_modal().is_some());
+
+    // 5. Oprydning
     let _ = std::fs::remove_dir_all(&temp_root);
 }
