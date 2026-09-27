@@ -5676,7 +5676,6 @@ impl App {
                             .size(10)
                             .color(ThemeColors::TEXT_MUTED),
                         Space::new().height(2),
-                        menu_item("📦", "Klon model fra Git...", Message::OpenGitCloneModal,),
                         menu_item("📥", "Hent ændringer (Pull)", Message::PullModel,),
                         menu_item(
                             "🚀",
@@ -6719,8 +6718,16 @@ impl App {
                 .on_press(Message::CloseGitConnectionModal)
                 .padding([6, 14]),
         );
+        let is_empty_target = modal.target_dir.is_empty()
+            || !std::path::Path::new(&modal.target_dir).exists()
+            || std::path::Path::new(&modal.target_dir).read_dir().map_or(true, |mut i| i.next().is_none());
+        let save_label = if is_empty_target && !modal.remote_url.is_empty() {
+            "Hent & Forbind model"
+        } else {
+            "Gem indstillinger"
+        };
         actions = actions.push(
-            button(text("Gem indstillinger").size(12))
+            button(text(save_label).size(12))
                 .style(primary_button_style)
                 .on_press(Message::SaveGitConnection)
                 .padding([6, 16]),
