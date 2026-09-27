@@ -127,7 +127,7 @@ impl GitService {
             PathBuf::from(r"C:\Program Files\Git\cmd\git.exe"),
             PathBuf::from(r"C:\Program Files (x86)\Git\cmd\git.exe"),
         ];
-        if let Some(lad) = local_app_data {
+        if let Some(lad) = local_app_data.map(str::trim).filter(|s| !s.is_empty()) {
             candidates.push(PathBuf::from(lad).join(r"Programs\Git\cmd\git.exe"));
         }
         candidates

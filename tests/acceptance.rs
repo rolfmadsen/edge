@@ -6131,4 +6131,8 @@ fn test_task_053_windows_git_candidates_and_pathbuf_resolution() {
         PathBuf::from(mock_local_appdata).join(r"Programs\Git\cmd\git.exe"),
         "skal tilføje lokal appdata kandidat"
     );
+
+    // 3. Tom LOCALAPPDATA må ikke tilføje en tom relativ sti
+    let candidates_empty = GitService::windows_git_candidates(Some("   "));
+    assert_eq!(candidates_empty.len(), 2);
 }
