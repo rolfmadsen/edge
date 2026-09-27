@@ -1,19 +1,18 @@
 # Verification Report
  
-**Task ID**: `050-coarchi-publish-sync-workflow-and-token-authentication`  
-**Task Title**: Task 050: coArchi Synkroniseringsworkflow, Push & Token Autentifikation  
+**Task ID**: `051-model-repository-isolation-and-git-provider-agnosticism`  
+**Task Title**: Task 051: Model Repository Isolation and Git Provider Agnosticism  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Timestamp**: `2026-09-27T17:50:00Z`  
-**Head**: `c31aa14`  
+**Timestamp**: `2026-09-27T21:40:00Z`  
+**Head**: `78f2d73`  
  
 ## Acceptance Criteria
  
-- [x] **AC1 - Ren Udgiv-dialog uden 'Hent seneste'**: `view_publish_modal` indeholder kun `[ Annuller ]` og `[ Udgiv model ]`.
-- [x] **AC2 - GitService Push Model**: `GitService::push_model` kan skubbe den lokale models commits til et remote repository.
-- [x] **AC3 - Fuld coArchi Udgivelseskæde**: Ved bekræftelse i Udgiv-dialogen foretages automatisk commit, pull (med 3-vejs merge) og push.
-- [x] **AC4 - Token-håndtering i GitConnection**: `GitConnectionModalState` har et token-felt; lagring konfigurerer adgangstoken transparent, så push/pull autoriseres automatisk.
-- [x] **AC5 - Verifikation via Accepttest**: `tests/acceptance.rs` indeholder en dedikeret accepttest for den samlede coArchi-udgivelsessekvens og token-håndtering.
+- [x] **AC1 - Model Directory Isolation**: `repo_dir()` og `GitService` falder ALDRIG tilbage til `"."` eller overordnede softwareprojekter (kataloger med `Cargo.toml`, `package.json` osv. eller systemmapper som `~` og `/`). Ugemte modeller returnerer `None` og kræver eksplicit modelmappe for Git.
+- [x] **AC2 - Nyt Projekt = Ren Tavle**: "Nyt projekt" starter altid med ren tavle og uinitialiseret Git-status uden relation til gamle commits eller slettede elementer.
+- [x] **AC3 - Git-Hosting Agnosticisme**: `build_authenticated_url` understøtter GitLab (`oauth2:<TOKEN>`), Gitea/Forgejo (`<TOKEN>`), GitHub (`x-access-token:<TOKEN>`), samt eksplicitte credentials (`<BRUGER>:<TOKEN>`). Alle UI-tekster og placeholders er neutrale.
+- [x] **AC4 - Ren Kloning og Modelnavn**: "Klon model fra Git" nulstiller hele applikationstilstanden (editor, noder, relationer) og indlæser den klonede model rent. Kloning af et tomt fjernlager initialiserer en frisk FDA-model automatisk. Projektets modelnavn sættes automatisk til repository-navnet, hvis det ikke allerede er defineret.
  
 ---
  
@@ -21,9 +20,9 @@
  
 | Check Name | Status | Exit Code | Details |
 |---|---|---|---|
-| `fmt` (`cargo fmt --check`) | `PASSED` | `0` | Formatteret jf. standarder |
-| `lint` (`cargo clippy --all-targets`) | `PASSED` | `0` | 0 advarsler |
-| `tests` (`cargo test --workspace`) | `PASSED` | `0` | 106/106 tests passed (33 unit, 62 acceptance, 4 proptests, 7 relay tests) |
-| `check` (`cargo check --workspace`) | `PASSED` | `0` | Fuld workspace kompilering uden fejl |
+| `lint` (`cargo clippy --all-targets -- -D warnings`) | `PASSED` | `0` | 0 advarsler |
+| `tests` (`cargo test --workspace`) | `PASSED` | `0` | 107/107 tests passed (33 unit, 63 acceptance, 4 proptests, 7 relay tests) |
+| `check-spec` (`xgauntlet check-spec`) | `PASSED` | `0` | OKF v0.2 spec validering bestået |
+| `verify` (`xgauntlet verify`) | `PASSED` | `0` | 5/5 checks passed (spec, lint, types, unit, invariants) |
  
 ---

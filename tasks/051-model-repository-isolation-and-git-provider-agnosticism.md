@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 051: Model Repository Isolation and Git Provider Agnosticism"
 description: "Isoler hvert FDA-modelprojekt i sin egen dedikerede mappe og Git-lager, beskyt mod softwarekataloger, gør Git-integrationen provider-agnostisk (GitLab/Gitea/GitHub), sikr ren nulstilling ved kloning samt automatisk navngivning baseret på repository-navn."
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-27T21:34:00Z" }
 tags: [git, isolation, model-repository, provider-agnostic, coarchi, clone]
 ---
 
 # Task 051: Model Repository Isolation and Git Provider Agnosticism
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-27`
 
@@ -17,10 +17,10 @@ tags: [git, isolation, model-repository, provider-agnostic, coarchi, clone]
 Sikre at hvert modelprojekt i Kant er en isoleret enhed med sit eget dedikerede Git-lager, beskytte mod uønsket brug af overordnede software- eller systemkataloger som Git-rod, fjerne hardcoded GitHub-binding til fordel for generisk Git-understøttelse (GitLab, Gitea, Forgejo, intern Git), sikre at 'Klon model fra Git' åbner i et fuldstændig rent, nulstillet projekt uden lækage fra tidligere åbnede modeller, samt udlede projektets modelnavn direkte fra repository-navnet ved kloning.
 
 ## 📋 Acceptance Criteria
-- [ ] AC1 (Model Directory Isolation): `repo_dir()` og GitService må ALDRIG falde tilbage til `"."` eller bruge et overordnet softwareprojekt (mapper med `Cargo.toml`, `package.json` osv. eller systemmapper som `~` og `/`). Hvis en model er ny/ugemt, er Git inaktiv eller kræver eksplicit modelmappe.
-- [ ] AC2 (Nyt Projekt = Ren Tavle): "Nyt projekt" starter altid med ren tavle og uinitialiseret Git-status uden historik eller slettede elementer fra tidligere modeller.
-- [ ] AC3 (Git-Hosting Agnosticisme): `build_authenticated_url` understøtter GitLab (`oauth2:<TOKEN>`), Gitea/Forgejo (`<TOKEN>`), GitHub (`x-access-token:<TOKEN>`), samt eksplicitte credentials (`<BRUGER>:<TOKEN>`). Alle UI-tekster og placeholders er neutrale.
-- [ ] AC4 (Ren Kloning og Modelnavn): "Klon model fra Git" nulstiller hele applikationstilstanden (editor, noder, relationer) og indlæser den klonede model rent. Hvis fjernlageret er tomt, initialiseres en ren FDA-model automatisk. Projektets navn (`metadata.name`) sættes automatisk til repository-navnet, hvis det ikke allerede er defineret.
+- [x] AC1 (Model Directory Isolation): `repo_dir()` og GitService må ALDRIG falde tilbage til `"."` eller bruge et overordnet softwareprojekt (mapper med `Cargo.toml`, `package.json` osv. eller systemmapper som `~` og `/`). Hvis en model er ny/ugemt, er Git inaktiv eller kræver eksplicit modelmappe.
+- [x] AC2 (Nyt Projekt = Ren Tavle): "Nyt projekt" starter altid med ren tavle og uinitialiseret Git-status uden historik eller slettede elementer fra tidligere modeller.
+- [x] AC3 (Git-Hosting Agnosticisme): `build_authenticated_url` understøtter GitLab (`oauth2:<TOKEN>`), Gitea/Forgejo (`<TOKEN>`), GitHub (`x-access-token:<TOKEN>`), samt eksplicitte credentials (`<BRUGER>:<TOKEN>`). Alle UI-tekster og placeholders er neutrale.
+- [x] AC4 (Ren Kloning og Modelnavn): "Klon model fra Git" nulstiller hele applikationstilstanden (editor, noder, relationer) og indlæser den klonede model rent. Hvis fjernlageret er tomt, initialiseres en ren FDA-model automatisk. Projektets navn (`metadata.name`) sættes automatisk til repository-navnet, hvis det ikke allerede er defineret.
 
 ## 🚫 Must NOT
 - Must NOT tillade at en model genbruger eller ændrer Git-lageret for Kant-applikationens eget kildekodelager (`edge`).
@@ -30,6 +30,7 @@ Sikre at hvert modelprojekt i Kant er en isoleret enhed med sit eget dedikerede 
 
 ## 📝 Revisions
 - 2026-09-27: Oprettet opgavepakke baseret på sparring med brugeren.
+- 2026-09-27: Gennemført TDD implementering, verifikation og fuld test-suite (107/107 tests bestået).
 
 ## 🧪 Verifikation
 - Unit tests i `src/features/git/service.rs` for provider-agnostisk URL-opbygning, udledning af repo-navn fra URL, og sikkerhedsguardrails for modelmapper.
