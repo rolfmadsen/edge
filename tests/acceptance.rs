@@ -5026,3 +5026,164 @@ fn test_task_039_canvas_class_text_cutoff_and_inspector_focus() {
         "Egenskabs-panelet skal åbnes i hurtigredigering med fokus på foretrukken term"
     );
 }
+
+#[test]
+fn test_task_044_decomposed_storage_and_deterministic_serialization() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::information_model::{
+        Attribute, InformationClass, Multiplicity, PrimitiveType,
+    };
+    use kant::features::model::storage::ProjectStorage;
+    use kant::features::model::{ModelMetadata, ModelProject, ModelStatus};
+    use uuid::Uuid;
+
+    let temp_dir = std::env::temp_dir().join(format!("kant_test_044_{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+
+    // 1. Byg et modelprojekt med metadata, begreber, klasser og attributter
+    let metadata = ModelMetadata::new(
+        "Køretøjsmodellen Decomposed",
+        "Test for dekomponeret format",
+        "https://data.gov.dk/model/vehicle",
+        "Motorstyrelsen",
+        "Transport",
+        "1.0.0",
+        ModelStatus::Draft,
+    );
+    let mut project = ModelProject::new(metadata);
+
+    let mut c1 = Concept::new(
+        "Køretøj",
+        "Et motordrevet transportmiddel",
+        BelongsToDomain::Yes,
+    );
+    c1.set_source(Some("Færdselsloven".to_string()));
+    let c1_id = project.add_concept(c1).unwrap();
+
+    let c2 = Concept::new(
+        "Vejafgift",
+        "Gebyr for passage ad vej",
+        BelongsToDomain::Yes,
+    );
+    let c2_id = project.add_concept(c2).unwrap();
+
+    let mut cls1 = InformationClass::new("Køretøj");
+    cls1.add_concept_id(c1_id);
+    let attr1 = Attribute::new(
+        "stelnummer",
+        PrimitiveType::CharacterString,
+        Multiplicity::exactly_one(),
+    );
+    cls1.add_attribute(attr1);
+    let cls1_id = project.information_model_mut().add_class(cls1);
+
+    // 2. Gem til dekomponeret mappe (.kant/)
+    ProjectStorage::save_to_directory(&project, &temp_dir).expect("save_to_directory skal lykkes");
+
+    let kant_dir = temp_dir.join(".kant");
+    assert!(kant_dir.is_dir(), ".kant/ mappen skal eksistere");
+    assert!(
+        kant_dir.join("metadata.json").is_file(),
+        "metadata.json skal eksistere"
+    );
+    assert!(
+        kant_dir
+            .join("concepts")
+            .join(format!("{}.json", c1_id))
+            .is_file(),
+        "c1 fil skal eksistere"
+    );
+    assert!(
+        kant_dir
+            .join("concepts")
+            .join(format!("{}.json", c2_id))
+            .is_file(),
+        "c2 fil skal eksistere"
+    );
+    assert!(
+        kant_dir
+            .join("classes")
+            .join(format!("{}.json", cls1_id))
+            .is_file(),
+        "cls1 fil skal eksistere"
+    );
+    assert!(
+        kant_dir.join("diagrams").is_dir(),
+        "diagrams/ mappen skal eksistere"
+    );
+
+    // 3. Deterministisk formatering (idempotens)
+    let meta_content_first = std::fs::read_to_string(kant_dir.join("metadata.json")).unwrap();
+    let c1_content_first =
+        std::fs::read_to_string(kant_dir.join("concepts").join(format!("{}.json", c1_id))).unwrap();
+
+    // Gem igen uden ændringer
+    ProjectStorage::save_to_directory(&project, &temp_dir).expect("Anden gemning skal lykkes");
+    let meta_content_second = std::fs::read_to_string(kant_dir.join("metadata.json")).unwrap();
+    let c1_content_second =
+        std::fs::read_to_string(kant_dir.join("concepts").join(format!("{}.json", c1_id))).unwrap();
+
+    assert_eq!(
+        meta_content_first, meta_content_second,
+        "metadata.json skal være bit-for-bit idempotent"
+    );
+    assert_eq!(
+        c1_content_first, c1_content_second,
+        "begrebsfil skal være bit-for-bit idempotent"
+    );
+
+    // 4. Indlæs igen og bekræft roundtrip
+    let loaded =
+        ProjectStorage::load_from_directory(&temp_dir).expect("load_from_directory skal lykkes");
+    assert_eq!(loaded.metadata().name(), "Køretøjsmodellen Decomposed");
+    assert_eq!(loaded.concepts().len(), 2);
+    assert_eq!(
+        loaded.get_concept(c1_id).unwrap().preferred_term(),
+        "Køretøj"
+    );
+    assert_eq!(
+        loaded.get_concept(c2_id).unwrap().preferred_term(),
+        "Vejafgift"
+    );
+    assert_eq!(loaded.information_model().classes().len(), 1);
+    assert_eq!(
+        loaded
+            .information_model()
+            .get_class(cls1_id)
+            .unwrap()
+            .name(),
+        "Køretøj"
+    );
+
+    // 5. Test automatisk formatdetektion via ProjectStorage::load
+    let loaded_from_root =
+        ProjectStorage::load(&temp_dir).expect("load på root dir skal detektere .kant/");
+    assert_eq!(
+        loaded_from_root.metadata().name(),
+        "Køretøjsmodellen Decomposed"
+    );
+    let loaded_from_dot_kant =
+        ProjectStorage::load(&kant_dir).expect("load direkte på .kant/ skal lykkes");
+    assert_eq!(
+        loaded_from_dot_kant.metadata().name(),
+        "Køretøjsmodellen Decomposed"
+    );
+
+    // 6. Test synkroniseret oprydning (sletning af c2)
+    project.remove_concept(c2_id);
+    ProjectStorage::save_to_directory(&project, &temp_dir)
+        .expect("Gemning efter sletning skal lykkes");
+    assert!(
+        !kant_dir
+            .join("concepts")
+            .join(format!("{}.json", c2_id))
+            .exists(),
+        "Slettet begreb må ikke efterlade zombie-fil i concepts/"
+    );
+    let loaded_after_delete = ProjectStorage::load_from_directory(&temp_dir).unwrap();
+    assert_eq!(loaded_after_delete.concepts().len(), 1);
+
+    // Oprydning
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
