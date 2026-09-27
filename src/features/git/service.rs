@@ -553,4 +553,116 @@ impl GitService {
             conflicts: merge_result.conflicts,
         })
     }
+
+    /// Henter remote URL for origin, hvis konfigureret.
+    pub fn get_remote_url(repo_path: &Path) -> Result<Option<String>, GitError> {
+        let output = Self::run_git(repo_path, &["remote", "get-url", "origin"]);
+        match output {
+            Ok(url) => {
+                let trimmed = url.trim();
+                if trimmed.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(trimmed.to_string()))
+                }
+            }
+            Err(_) => Ok(None),
+        }
+    }
+
+    /// Konfigurerer remote URL for origin (tilføjer eller opdaterer).
+    pub fn set_remote_url(repo_path: &Path, url: &str) -> Result<(), GitError> {
+        let current = Self::get_remote_url(repo_path)?;
+        if current.is_some() {
+            Self::run_git(repo_path, &["remote", "set-url", "origin", url])?;
+        } else {
+            Self::run_git(repo_path, &["remote", "add", "origin", url])?;
+        }
+        Ok(())
+    }
+
+    /// Fjerner origin remote hvis den findes.
+    pub fn remove_remote(repo_path: &Path) -> Result<(), GitError> {
+        let current = Self::get_remote_url(repo_path)?;
+        if current.is_some() {
+            let _ = Self::run_git(repo_path, &["remote", "remove", "origin"]);
+        }
+        Ok(())
+    }
+
+    /// Henter lokalt eller globalt konfigureret forfatternavn og e-mail.
+    pub fn get_user_identity(
+        repo_path: &Path,
+    ) -> Result<(Option<String>, Option<String>), GitError> {
+        let name_res = Self::run_git(repo_path, &["config", "user.name"]);
+        let name = match name_res {
+            Ok(s) => {
+                let t = s.trim();
+                if t.is_empty() {
+                    None
+                } else {
+                    Some(t.to_string())
+                }
+            }
+            Err(_) => None,
+        };
+
+        let email_res = Self::run_git(repo_path, &["config", "user.email"]);
+        let email = match email_res {
+            Ok(s) => {
+                let t = s.trim();
+                if t.is_empty() {
+                    None
+                } else {
+                    Some(t.to_string())
+                }
+            }
+            Err(_) => None,
+        };
+
+        Ok((name, email))
+    }
+
+    /// Sætter lokalt forfatternavn og e-mail i repositoriet.
+    pub fn set_user_identity(repo_path: &Path, name: &str, email: &str) -> Result<(), GitError> {
+        Self::run_git(repo_path, &["config", "user.name", name])?;
+        Self::run_git(repo_path, &["config", "user.email", email])?;
+        Ok(())
+    }
+
+    /// Kloner et eksternt Git repository til en lokal destination.
+    pub fn clone_repository(remote_url: &str, destination_dir: &Path) -> Result<(), GitError> {
+        if destination_dir.exists()
+            && destination_dir
+                .read_dir()
+                .is_ok_and(|mut i| i.next().is_some())
+        {
+            return Err(GitError::Io(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                "Destinationsmappen eksisterer allerede og er ikke tom",
+            )));
+        }
+        let dest_str = destination_dir
+            .to_str()
+            .ok_or_else(|| GitError::CommandFailed {
+                cmd: "clone".to_string(),
+                message: "Ugyldig destinationssti".to_string(),
+            })?;
+
+        let parent = destination_dir.parent().unwrap_or_else(|| Path::new("."));
+        let output = Command::new("git")
+            .args(["clone", remote_url, dest_str])
+            .current_dir(parent)
+            .output()?;
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            return Err(GitError::CommandFailed {
+                cmd: "clone".to_string(),
+                message: format!("Kloning fejlede: {}", err),
+            });
+        }
+
+        Ok(())
+    }
 }

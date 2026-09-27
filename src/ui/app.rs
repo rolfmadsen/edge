@@ -92,6 +92,24 @@ impl ConflictResolverModalState {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitConnectionModalState {
+    pub remote_url: String,
+    pub author_name: String,
+    pub author_email: String,
+    pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GitCloneModalState {
+    pub remote_url: String,
+    pub target_dir: String,
+    pub is_cloning: bool,
+    pub error_message: Option<String>,
+}
+
+pub type EdgeApp = App;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeOption {
     pub id: NodeId,
     pub label: String,
@@ -559,6 +577,21 @@ pub enum Message {
     },
     ApplyResolvedConflicts,
 
+    // Git Forbindelse & Kloning (Task 049)
+    OpenGitConnectionModal,
+    CloseGitConnectionModal,
+    UpdateGitRemoteUrl(String),
+    UpdateGitAuthorName(String),
+    UpdateGitAuthorEmail(String),
+    SaveGitConnection,
+    RemoveGitRemote,
+
+    OpenGitCloneModal,
+    CloseGitCloneModal,
+    UpdateGitCloneUrl(String),
+    UpdateGitCloneTargetDir(String),
+    ExecuteGitClone,
+
     // Statusbar / Eksterne links (Task 018)
     OpenModelRules,
 
@@ -733,6 +766,8 @@ pub struct App {
     publish_modal: Option<PublishModalState>,
     history_modal: Option<ModelHistoryModalState>,
     conflict_resolver_modal: Option<ConflictResolverModalState>,
+    git_connection_modal: Option<GitConnectionModalState>,
+    git_clone_modal: Option<GitCloneModalState>,
 }
 
 impl Default for App {
@@ -811,6 +846,8 @@ impl App {
                         publish_modal: None,
                         history_modal: None,
                         conflict_resolver_modal: None,
+                        git_connection_modal: None,
+                        git_clone_modal: None,
                     };
                 }
             }
@@ -867,6 +904,8 @@ impl App {
             publish_modal: None,
             history_modal: None,
             conflict_resolver_modal: None,
+            git_connection_modal: None,
+            git_clone_modal: None,
         }
     }
 
@@ -884,6 +923,18 @@ impl App {
 
     pub fn conflict_resolver_modal(&self) -> Option<&ConflictResolverModalState> {
         self.conflict_resolver_modal.as_ref()
+    }
+
+    pub fn git_connection_modal(&self) -> Option<&GitConnectionModalState> {
+        self.git_connection_modal.as_ref()
+    }
+
+    pub fn git_clone_modal(&self) -> Option<&GitCloneModalState> {
+        self.git_clone_modal.as_ref()
+    }
+
+    pub fn set_active_file_path(&mut self, path: Option<PathBuf>) {
+        self.current_file_path = path;
     }
 
     pub fn git_status_badge_text(&self) -> String {
@@ -2019,6 +2070,182 @@ impl App {
                         }
                     }
                     self.save_status = SaveStatus::Unsaved;
+                }
+            }
+
+            Message::OpenGitConnectionModal => {
+                self.active_menu = None;
+                let repo_dir = self.current_file_path.as_deref().map(|p| {
+                    if p.is_dir() {
+                        p.to_path_buf()
+                    } else {
+                        p.parent()
+                            .unwrap_or(std::path::Path::new("."))
+                            .to_path_buf()
+                    }
+                });
+
+                let (remote_url, author_name, author_email) = if let Some(dir) = &repo_dir {
+                    let url = GitService::get_remote_url(dir)
+                        .ok()
+                        .flatten()
+                        .unwrap_or_default();
+                    let (name, email) = GitService::get_user_identity(dir)
+                        .ok()
+                        .unwrap_or((None, None));
+                    (url, name.unwrap_or_default(), email.unwrap_or_default())
+                } else {
+                    (String::new(), String::new(), String::new())
+                };
+
+                self.git_connection_modal = Some(GitConnectionModalState {
+                    remote_url,
+                    author_name,
+                    author_email,
+                    error_message: None,
+                });
+            }
+
+            Message::CloseGitConnectionModal => {
+                self.git_connection_modal = None;
+            }
+
+            Message::UpdateGitRemoteUrl(url) => {
+                if let Some(m) = &mut self.git_connection_modal {
+                    m.remote_url = url;
+                    m.error_message = None;
+                }
+            }
+
+            Message::UpdateGitAuthorName(name) => {
+                if let Some(m) = &mut self.git_connection_modal {
+                    m.author_name = name;
+                    m.error_message = None;
+                }
+            }
+
+            Message::UpdateGitAuthorEmail(email) => {
+                if let Some(m) = &mut self.git_connection_modal {
+                    m.author_email = email;
+                    m.error_message = None;
+                }
+            }
+
+            Message::SaveGitConnection => {
+                if let Some(state) = self.git_connection_modal.take() {
+                    let repo_dir = self.current_file_path.as_deref().map(|p| {
+                        if p.is_dir() {
+                            p.to_path_buf()
+                        } else {
+                            p.parent()
+                                .unwrap_or(std::path::Path::new("."))
+                                .to_path_buf()
+                        }
+                    });
+
+                    if let Some(dir) = repo_dir {
+                        if !dir.join(".git").exists() {
+                            let _ = GitService::init_repository(&dir);
+                        }
+                        let url = state.remote_url.trim();
+                        if !url.is_empty() {
+                            let _ = GitService::set_remote_url(&dir, url);
+                        }
+                        let name = state.author_name.trim();
+                        let email = state.author_email.trim();
+                        if !name.is_empty() || !email.is_empty() {
+                            let _ = GitService::set_user_identity(&dir, name, email);
+                        }
+                        let _ = self.update(Message::RefreshGitStatus);
+                    }
+                }
+            }
+
+            Message::RemoveGitRemote => {
+                let repo_dir = self.current_file_path.as_deref().map(|p| {
+                    if p.is_dir() {
+                        p.to_path_buf()
+                    } else {
+                        p.parent()
+                            .unwrap_or(std::path::Path::new("."))
+                            .to_path_buf()
+                    }
+                });
+
+                if let Some(dir) = repo_dir {
+                    let _ = GitService::remove_remote(&dir);
+                    let _ = self.update(Message::RefreshGitStatus);
+                    if let Some(m) = &mut self.git_connection_modal {
+                        m.remote_url.clear();
+                    }
+                }
+            }
+
+            Message::OpenGitCloneModal => {
+                self.active_menu = None;
+                self.git_clone_modal = Some(GitCloneModalState {
+                    remote_url: String::new(),
+                    target_dir: String::new(),
+                    is_cloning: false,
+                    error_message: None,
+                });
+            }
+
+            Message::CloseGitCloneModal => {
+                self.git_clone_modal = None;
+            }
+
+            Message::UpdateGitCloneUrl(url) => {
+                if let Some(m) = &mut self.git_clone_modal {
+                    m.remote_url = url;
+                    m.error_message = None;
+                }
+            }
+
+            Message::UpdateGitCloneTargetDir(dir) => {
+                if let Some(m) = &mut self.git_clone_modal {
+                    m.target_dir = dir;
+                    m.error_message = None;
+                }
+            }
+
+            Message::ExecuteGitClone => {
+                if let Some(state) = self.git_clone_modal.as_mut() {
+                    let url = state.remote_url.trim().to_string();
+                    let target = state.target_dir.trim().to_string();
+                    if url.is_empty() || target.is_empty() {
+                        state.error_message =
+                            Some("Både Git URL og destinationsmappe skal udfyldes".into());
+                    } else {
+                        let target_path = PathBuf::from(&target);
+                        match GitService::clone_repository(&url, &target_path) {
+                            Ok(_) => match ProjectStorage::load(&target_path) {
+                                Ok(project) => {
+                                    self.project = project;
+                                    self.current_file_path = Some(target_path.clone());
+                                    self.save_status = SaveStatus::Saved {
+                                        path: target_path.display().to_string(),
+                                        timestamp: current_timestamp(),
+                                    };
+                                    self.git_clone_modal = None;
+                                    let _ = self.update(Message::RefreshGitStatus);
+                                }
+                                Err(e) => {
+                                    if let Some(m) = &mut self.git_clone_modal {
+                                        m.error_message = Some(format!(
+                                                "Kloning lykkedes, men modellen kunne ikke indlæses: {}",
+                                                e
+                                            ));
+                                    }
+                                }
+                            },
+                            Err(e) => {
+                                if let Some(m) = &mut self.git_clone_modal {
+                                    m.error_message = Some(format!("{}", e));
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -4149,6 +4376,16 @@ impl App {
             .as_ref()
             .map(|modal| self.view_conflict_resolver_modal(modal));
 
+        let maybe_git_connection_modal: Option<Element<Message>> = self
+            .git_connection_modal
+            .as_ref()
+            .map(|modal| self.view_git_connection_modal(modal));
+
+        let maybe_git_clone_modal: Option<Element<Message>> = self
+            .git_clone_modal
+            .as_ref()
+            .map(|modal| self.view_git_clone_modal(modal));
+
         let maybe_metadata_modal: Option<Element<Message>> =
             self.metadata_modal.as_ref().map(|meta_state| {
                 let title_row = row![
@@ -5104,9 +5341,29 @@ impl App {
                             "Modelomslag & Metadata...",
                             Message::OpenMetadataModal
                         ),
+                        Space::new().height(4),
+                        make_separator(),
+                        Space::new().height(4),
+                        text("VERSIONSSTYRING (GIT)")
+                            .size(10)
+                            .color(ThemeColors::TEXT_MUTED),
+                        Space::new().height(2),
+                        menu_item(
+                            "🌐",
+                            "Git-forbindelse & Fjernlager...",
+                            Message::OpenGitConnectionModal,
+                        ),
+                        menu_item("📦", "Klon model fra Git...", Message::OpenGitCloneModal,),
+                        menu_item(
+                            "⏳",
+                            "Modelhistorik & Tidslinje...",
+                            Message::OpenModelHistoryModal,
+                        ),
+                        menu_item("🚀", "Udgiv modelændringer...", Message::OpenPublishModal,),
+                        menu_item("📥", "Hent seneste ændringer", Message::PullModel,),
                     ]
                     .spacing(2)
-                    .width(Length::Fixed(240.0)),
+                    .width(Length::Fixed(260.0)),
                 ),
                 MenuType::Help => (
                     216.0,
@@ -5360,6 +5617,10 @@ impl App {
         } else if let Some(modal) = maybe_history_modal {
             stack![base_layout, modal].into()
         } else if let Some(modal) = maybe_publish_modal {
+            stack![base_layout, modal].into()
+        } else if let Some(modal) = maybe_git_connection_modal {
+            stack![base_layout, modal].into()
+        } else if let Some(modal) = maybe_git_clone_modal {
             stack![base_layout, modal].into()
         } else if let Some(modal) = maybe_metadata_modal {
             stack![base_layout, modal].into()
@@ -5838,6 +6099,257 @@ impl App {
             .padding(20);
 
         container(dialog_card)
+            .style(modal_backdrop_style)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .into()
+    }
+
+    fn view_git_connection_modal<'a>(
+        &self,
+        modal: &'a GitConnectionModalState,
+    ) -> Element<'a, Message> {
+        let title_row = row![
+            text("🌐 Git-forbindelse & Fjernlager")
+                .size(17)
+                .color(ThemeColors::SLATE_900),
+            Space::new().width(Length::Fill),
+            button(text("✕").size(13))
+                .style(secondary_button_style)
+                .on_press(Message::CloseGitConnectionModal)
+                .padding([3, 7]),
+        ]
+        .align_y(Alignment::Center);
+
+        let subtitle = text("Forbind denne model til et centralt Git-fjernlager (fx GitHub, GitLab eller Azure DevOps).")
+            .size(12)
+            .color(ThemeColors::TEXT_MUTED);
+
+        let remote_field = column![
+            text("Fjernlager URL (Remote Origin)")
+                .size(12)
+                .color(ThemeColors::SLATE_700),
+            text_input(
+                "fx https://github.com/organisation/fda-model.git",
+                &modal.remote_url
+            )
+            .style(modern_input_style)
+            .on_input(Message::UpdateGitRemoteUrl)
+            .padding([8, 12]),
+        ]
+        .spacing(4);
+
+        let author_row = row![
+            column![
+                text("Arkitektnavn (user.name)")
+                    .size(12)
+                    .color(ThemeColors::SLATE_700),
+                text_input("Fornavn Efternavn", &modal.author_name)
+                    .style(modern_input_style)
+                    .on_input(Message::UpdateGitAuthorName)
+                    .padding([8, 12]),
+            ]
+            .spacing(4)
+            .width(Length::FillPortion(1)),
+            column![
+                text("Arbejdsmail (user.email)")
+                    .size(12)
+                    .color(ThemeColors::SLATE_700),
+                text_input("navn@organisation.dk", &modal.author_email)
+                    .style(modern_input_style)
+                    .on_input(Message::UpdateGitAuthorEmail)
+                    .padding([8, 12]),
+            ]
+            .spacing(4)
+            .width(Length::FillPortion(1)),
+        ]
+        .spacing(12);
+
+        let mut body = column![
+            title_row,
+            subtitle,
+            Space::new().height(8),
+            remote_field,
+            author_row,
+        ]
+        .spacing(10);
+
+        if let Some(err) = &modal.error_message {
+            let err_box = container(
+                text(err)
+                    .size(12)
+                    .color(iced::Color::from_rgb(0.85, 0.2, 0.2)),
+            )
+            .style(|_| container::Style {
+                background: Some(iced::Background::Color(iced::Color::from_rgb(
+                    1.0, 0.94, 0.94,
+                ))),
+                border: iced::Border {
+                    color: iced::Color::from_rgb(0.9, 0.4, 0.4),
+                    width: 1.0,
+                    radius: 6.0.into(),
+                },
+                ..Default::default()
+            })
+            .padding(8)
+            .width(Length::Fill);
+            body = body.push(err_box);
+        }
+
+        let mut actions = row![].spacing(8).align_y(Alignment::Center);
+
+        if !modal.remote_url.is_empty() {
+            actions = actions.push(
+                button(text("Fjern fjernlager").size(12))
+                    .style(|_theme, status| button::Style {
+                        background: match status {
+                            button::Status::Hovered => Some(iced::Background::Color(
+                                iced::Color::from_rgb(1.0, 0.9, 0.9),
+                            )),
+                            _ => None,
+                        },
+                        text_color: iced::Color::from_rgb(0.85, 0.2, 0.2),
+                        border: iced::Border {
+                            color: iced::Color::from_rgb(0.85, 0.2, 0.2),
+                            width: 1.0,
+                            radius: 6.0.into(),
+                        },
+                        ..Default::default()
+                    })
+                    .on_press(Message::RemoveGitRemote)
+                    .padding([6, 12]),
+            );
+        }
+
+        actions = actions.push(Space::new().width(Length::Fill));
+        actions = actions.push(
+            button(text("Annuller").size(12))
+                .style(secondary_button_style)
+                .on_press(Message::CloseGitConnectionModal)
+                .padding([6, 14]),
+        );
+        actions = actions.push(
+            button(text("Gem forbindelse").size(12))
+                .style(primary_button_style)
+                .on_press(Message::SaveGitConnection)
+                .padding([6, 16]),
+        );
+
+        body = body.push(Space::new().height(8));
+        body = body.push(actions);
+
+        let modal_card = container(body)
+            .style(modal_card_style)
+            .padding(24)
+            .width(Length::Fixed(520.0));
+
+        container(modal_card)
+            .style(modal_backdrop_style)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .into()
+    }
+
+    fn view_git_clone_modal<'a>(&self, modal: &'a GitCloneModalState) -> Element<'a, Message> {
+        let title_row = row![
+            text("📦 Klon Model fra Git Lager")
+                .size(17)
+                .color(ThemeColors::SLATE_900),
+            Space::new().width(Length::Fill),
+            button(text("✕").size(13))
+                .style(secondary_button_style)
+                .on_press(Message::CloseGitCloneModal)
+                .padding([3, 7]),
+        ]
+        .align_y(Alignment::Center);
+
+        let subtitle = text("Hent en eksisterende fælles FDA-model ned til din computer fra et centralt repository.")
+            .size(12)
+            .color(ThemeColors::TEXT_MUTED);
+
+        let url_field = column![
+            text("Git Lager URL (Clone URL)")
+                .size(12)
+                .color(ThemeColors::SLATE_700),
+            text_input(
+                "fx https://github.com/organisation/fda-model.git",
+                &modal.remote_url
+            )
+            .style(modern_input_style)
+            .on_input(Message::UpdateGitCloneUrl)
+            .padding([8, 12]),
+        ]
+        .spacing(4);
+
+        let dir_field = column![
+            text("Lokal Målmappe (Hvor modellen skal placeres)")
+                .size(12)
+                .color(ThemeColors::SLATE_700),
+            text_input("/sti/til/lokal/modelmappe", &modal.target_dir)
+                .style(modern_input_style)
+                .on_input(Message::UpdateGitCloneTargetDir)
+                .padding([8, 12]),
+        ]
+        .spacing(4);
+
+        let mut body = column![
+            title_row,
+            subtitle,
+            Space::new().height(8),
+            url_field,
+            dir_field,
+        ]
+        .spacing(10);
+
+        if let Some(err) = &modal.error_message {
+            let err_box = container(
+                text(err)
+                    .size(12)
+                    .color(iced::Color::from_rgb(0.85, 0.2, 0.2)),
+            )
+            .style(|_| container::Style {
+                background: Some(iced::Background::Color(iced::Color::from_rgb(
+                    1.0, 0.94, 0.94,
+                ))),
+                border: iced::Border {
+                    color: iced::Color::from_rgb(0.9, 0.4, 0.4),
+                    width: 1.0,
+                    radius: 6.0.into(),
+                },
+                ..Default::default()
+            })
+            .padding(8)
+            .width(Length::Fill);
+            body = body.push(err_box);
+        }
+
+        let actions = row![
+            Space::new().width(Length::Fill),
+            button(text("Annuller").size(12))
+                .style(secondary_button_style)
+                .on_press(Message::CloseGitCloneModal)
+                .padding([6, 14]),
+            button(text("Klon og åbn model").size(12))
+                .style(primary_button_style)
+                .on_press(Message::ExecuteGitClone)
+                .padding([6, 16]),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center);
+
+        body = body.push(Space::new().height(8));
+        body = body.push(actions);
+
+        let modal_card = container(body)
+            .style(modal_card_style)
+            .padding(24)
+            .width(Length::Fixed(520.0));
+
+        container(modal_card)
             .style(modal_backdrop_style)
             .width(Length::Fill)
             .height(Length::Fill)

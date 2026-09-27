@@ -5652,9 +5652,10 @@ fn test_task_048_model_graph_timeline_element_history_and_conflict_resolver() {
 
 #[test]
 fn test_task_049_git_connection_remote_configuration_and_clone_ui() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
     use kant::features::git::service::GitService;
-    use kant::features::model::Concept;
     use kant::ui::app::{EdgeApp, Message};
+    use uuid::Uuid;
 
     if !GitService::is_git_installed() {
         eprintln!("Skipping test: git binary not found");
@@ -5692,11 +5693,13 @@ fn test_task_049_git_connection_remote_configuration_and_clone_ui() {
     assert_eq!(remote_after_remove, None);
 
     // 2. Klargør en commit i repo_dir så det kan klones
-    let mut initial_project = ModelProject::new("Klonbar Model");
-    let c = Concept::new("Kunde", "En person der køber ydelser");
+    let mut initial_project = kant::features::model::ModelProject::default();
+    initial_project.metadata_mut().set_name("Klonbar Model");
+    let c = Concept::new("Kunde", "En person der køber ydelser", BelongsToDomain::Yes);
     initial_project.add_concept(c).unwrap();
-    ProjectStorage::save_to_directory(&repo_dir, &initial_project).unwrap();
-    GitService::publish_model(&repo_dir, "Initiel model før klon").unwrap();
+    kant::features::model::storage::ProjectStorage::save_to_directory(&initial_project, &repo_dir)
+        .unwrap();
+    GitService::publish_model(&repo_dir, &initial_project, "Initiel model før klon").unwrap();
 
     // Test GitService::clone_repository
     GitService::clone_repository(repo_dir.to_str().unwrap(), &clone_dir)
@@ -5710,10 +5713,15 @@ fn test_task_049_git_connection_remote_configuration_and_clone_ui() {
     // Åbn forbindelsesdialog
     assert!(app.git_connection_modal().is_none());
     let _ = app.update(Message::OpenGitConnectionModal);
-    assert!(app.git_connection_modal().is_some(), "GitConnectionModal skal være åben");
+    assert!(
+        app.git_connection_modal().is_some(),
+        "GitConnectionModal skal være åben"
+    );
 
     // Udfyld formularfelter
-    let _ = app.update(Message::UpdateGitRemoteUrl("https://github.com/kant-fda/central.git".into()));
+    let _ = app.update(Message::UpdateGitRemoteUrl(
+        "https://github.com/kant-fda/central.git".into(),
+    ));
     let _ = app.update(Message::UpdateGitAuthorName("Mette Modeller".into()));
     let _ = app.update(Message::UpdateGitAuthorEmail("mette@fda.dk".into()));
 
@@ -5724,7 +5732,10 @@ fn test_task_049_git_connection_remote_configuration_and_clone_ui() {
 
     // Gem forbindelsen
     let _ = app.update(Message::SaveGitConnection);
-    assert!(app.git_connection_modal().is_none(), "Modal skal lukkes efter gem");
+    assert!(
+        app.git_connection_modal().is_none(),
+        "Modal skal lukkes efter gem"
+    );
 
     // Bekræft at GitService afspejler ændringerne på disk
     assert_eq!(
@@ -5738,19 +5749,28 @@ fn test_task_049_git_connection_remote_configuration_and_clone_ui() {
     // Test Klon modal i UI
     assert!(app.git_clone_modal().is_none());
     let _ = app.update(Message::OpenGitCloneModal);
-    assert!(app.git_clone_modal().is_some(), "GitCloneModal skal være åben");
+    assert!(
+        app.git_clone_modal().is_some(),
+        "GitCloneModal skal være åben"
+    );
 
     let ui_clone_target = temp_root.join("ui_cloned");
-    let _ = app.update(Message::UpdateGitCloneUrl(repo_dir.to_str().unwrap().into()));
-    let _ = app.update(Message::UpdateGitCloneTargetDir(ui_clone_target.to_str().unwrap().into()));
+    let _ = app.update(Message::UpdateGitCloneUrl(
+        repo_dir.to_str().unwrap().into(),
+    ));
+    let _ = app.update(Message::UpdateGitCloneTargetDir(
+        ui_clone_target.to_str().unwrap().into(),
+    ));
 
     // Udfør klon i appen
     let _ = app.update(Message::ExecuteGitClone);
-    assert!(app.git_clone_modal().is_none(), "Klon modal skal lukke ved succes");
+    assert!(
+        app.git_clone_modal().is_none(),
+        "Klon modal skal lukke ved succes"
+    );
     assert!(ui_clone_target.exists(), "Klonet mappe skal eksistere");
     assert_eq!(app.project().metadata().name(), "Klonbar Model");
 
     // 4. Oprydning
     let _ = std::fs::remove_dir_all(&temp_root);
 }
-
