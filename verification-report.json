@@ -3,14 +3,15 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "048-model-graph-timeline-element-history-and-visual-conflict-resolver",
-    "task_title": "Task 048: Model Graph Tidslinje, Element-Historik & Visuel Konflikthåndtering",
-    "task_digest": "7c92da1562098c25f416f995288e723e1099eb87d7e1530af6f1ce71d44b882c",
+    "task_id": "049-git-connection-remote-configuration-and-clone-ui",
+    "task_title": "Task 049: Git Forbindelseskonfiguration, Fjernlager & Klon Model UI",
+    "task_digest": "8a93bc271098e34d7f526a099f81a72d2098fb98e8f240ba6e2df81c55c9941d",
     "acceptance_criteria": [
-      "AC1 - Modelhistorik Tidslinje: Appen kan åbne modelhistorikken (Message::OpenModelHistoryModal) og vise seneste versioner som domænehændelser.",
-      "AC2 - Element-specifik Historik: Appen kan hente og vise historik specifikt filtreret på et begrebs eller en klasses UUID (Message::OpenElementHistoryModal(Uuid)).",
-      "AC3 - Visuel Konfliktløser Modal: Ved modstridende felter kan appen præsentere ModelConflict i en dialog (Message::OpenConflictResolverModal) og lade brugeren vælge vinder-værdi (Message::ResolveConflict(...)).",
-      "AC4 - Verifikation via Accepttest: Test i tests/acceptance.rs beviser at tidslinje, element-historik og konfliktløsning fungerer i appens state maskine."
+      "AC1 - Git-sektion i Filer Menu: Menulinjen Filer indeholder handlingspunkter for Forbindelse, Klon, Historik, Udgiv og Hent.",
+      "AC2 - Git Forbindelsesdialog: GitConnectionModal tillader indtastning og lagring af Remote URL (origin) samt forfatterens navn og e-mail.",
+      "AC3 - Klon Model Workflow: GitCloneModal kloner et repository fra en angivet URL til en lokal sti og indlæser den klonede model i appen.",
+      "AC4 - GitService Remote & Identity API: GitService tilbyder pålidelige metoder til remote URL, brugeridentitet og git clone.",
+      "AC5 - Verifikation via Accepttest: Test i tests/acceptance.rs verificerer hele workflowet for remote-konfiguration, kloning og menu-interaktion."
     ],
     "unresolved_criteria": []
   },
@@ -18,15 +19,15 @@
     "manifest_version": "1.0",
     "vcs": {
       "type": "git",
-      "head": "1857362",
-      "commit": "1857362",
+      "head": "8c7ca6e",
+      "commit": "8c7ca6e",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-27T16:39:00Z",
-    "finished_at": "2026-09-27T16:40:40Z",
-    "total_duration_seconds": 100.0,
+    "started_at": "2026-09-27T16:50:00Z",
+    "finished_at": "2026-09-27T16:55:00Z",
+    "total_duration_seconds": 120.0,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -47,7 +48,7 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 1.5,
+      "duration_seconds": 0.7,
       "optional": false,
       "passed": true
     },
@@ -55,7 +56,7 @@
       "name": "tests",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 5.5,
+      "duration_seconds": 4.5,
       "optional": false,
       "passed": true
     }

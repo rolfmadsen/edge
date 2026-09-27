@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 049: Git Forbindelseskonfiguration, Fjernlager & Klon Model UI"
 description: "Brugergrænseflade under Filer til opsætning af Git-forbindelse, fjernlager (Remote URL), forfatteridentitet, kloning af eksisterende modeller og direkte adgang til historik og udgivelse"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-27T16:47:00Z" }
 tags: [git, remote-url, clone, git-ui, settings, file-menu]
 ---
 
 # Task 049: Git Forbindelseskonfiguration, Fjernlager & Klon Model UI
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🚀 `NEW FEATURE`  
 **Oprettet**: `2026-09-27`  
 **Scope**: `src/features/git/service.rs`, `src/ui/app.rs`, `tests/acceptance.rs`
@@ -41,11 +41,11 @@ Gøre Git-forbindelse og fjernlagersamarbejde 100% konfigurerbart direkte fra br
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Git-sektion i Filer Menu**: Menulinjen `Filer ▾` indeholder handlingspunkter for Forbindelse, Klon, Historik, Udgiv og Hent.
-- [ ] **AC2 - Git Forbindelsesdialog**: `GitConnectionModal` tillader indtastning og lagring af Remote URL (`origin`) samt forfatterens navn og e-mail.
-- [ ] **AC3 - Klon Model Workflow**: `GitCloneModal` kloner et repository fra en angivet URL til en lokal sti og indlæser den klonede model i appen.
-- [ ] **AC4 - GitService Remote & Identity API**: `GitService` tilbyder pålidelige metoder til remote URL, brugeridentitet og `git clone`.
-- [ ] **AC5 - Verifikation via Accepttest**: Test i `tests/acceptance.rs` verificerer hele workflowet for remote-konfiguration, kloning og menu-interaktion.
+- [x] **AC1 - Git-sektion i Filer Menu**: Menulinjen `Filer ▾` indeholder handlingspunkter for Forbindelse, Klon, Historik, Udgiv og Hent.
+- [x] **AC2 - Git Forbindelsesdialog**: `GitConnectionModal` tillader indtastning og lagring af Remote URL (`origin`) samt forfatterens navn og e-mail.
+- [x] **AC3 - Klon Model Workflow**: `GitCloneModal` kloner et repository fra en angivet URL til en lokal sti og indlæser den klonede model i appen.
+- [x] **AC4 - GitService Remote & Identity API**: `GitService` tilbyder pålidelige metoder til remote URL, brugeridentitet og `git clone`.
+- [x] **AC5 - Verifikation via Accepttest**: Test i `tests/acceptance.rs` verificerer hele workflowet for remote-konfiguration, kloning og menu-interaktion.
 
 ---
 
@@ -58,6 +58,7 @@ Gøre Git-forbindelse og fjernlagersamarbejde 100% konfigurerbart direkte fra br
 
 ## 📝 Revisions
 - 2026-09-27: Oprettet opgavepakke Task 049 baseret på brugerfeedback om manglende Git-konfiguration i UI.
+- 2026-09-27: Implementeret Git-sektion i Filer-menu, GitConnectionModal, GitCloneModal og GitService remote/clone API; 100% verificeret med accepttest.
 
 ---
 
