@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 050: coArchi Synkroniseringsworkflow, Push & Token Autentifikation"
 description: "Fuldendt coArchi-modeludgivelse (Commit -> Auto-Pull/3-vejs merge -> Auto-Push), fjernelse af forældede Hent seneste knapper i modalen, dedikeret Personal Access Token understøttelse i GitConnectionModal og gennemskuelig synkroniseringsfeedback."
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-27T17:46:00Z" }
 tags: [git, coarchi, push, sync, token, auth, conflict-resolution, iced]
 ---
 
 # Task 050: coArchi Synkroniseringsworkflow, Push & Token Autentifikation
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🚀 `NEW FEATURE` / 🔄 `ENHANCEMENT`  
 **Oprettet**: `2026-09-27`  
 **Scope**: `src/features/git/service.rs`, `src/ui/app.rs`, `tests/acceptance.rs`
@@ -39,11 +39,11 @@ Bring Kants Git-integration 100% på niveau med det etablerede **coArchi** workf
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Ren Udgiv-dialog uden "Hent seneste"**: `view_publish_modal` indeholder kun `[ Annuller ]` og `[ Udgiv model ]`.
-- [ ] **AC2 - GitService Push Model**: `GitService::push_model` kan skubbe den lokale models commits til et remote repository.
-- [ ] **AC3 - Fuld coArchi Udgivelseskæde**: Ved bekræftelse i Udgiv-dialogen foretages automatisk commit, pull (med 3-vejs merge) og push.
-- [ ] **AC4 - Token-håndtering i GitConnection**: `GitConnectionModalState` har et token-felt; lagring konfigurerer adgangstoken transparent, så push/pull autoriseres automatisk.
-- [ ] **AC5 - Verifikation via Accepttest**: `tests/acceptance.rs` indeholder en dedikeret accepttest for den samlede coArchi-udgivelsessekvens og token-håndtering.
+- [x] **AC1 - Ren Udgiv-dialog uden "Hent seneste"**: `view_publish_modal` indeholder kun `[ Annuller ]` og `[ Udgiv model ]`.
+- [x] **AC2 - GitService Push Model**: `GitService::push_model` kan skubbe den lokale models commits til et remote repository.
+- [x] **AC3 - Fuld coArchi Udgivelseskæde**: Ved bekræftelse i Udgiv-dialogen foretages automatisk commit, pull (med 3-vejs merge) og push.
+- [x] **AC4 - Token-håndtering i GitConnection**: `GitConnectionModalState` har et token-felt; lagring konfigurerer adgangstoken transparent, så push/pull autoriseres automatisk.
+- [x] **AC5 - Verifikation via Accepttest**: `tests/acceptance.rs` indeholder en dedikeret accepttest for den samlede coArchi-udgivelsessekvens og token-håndtering.
 
 ---
 
@@ -56,6 +56,7 @@ Bring Kants Git-integration 100% på niveau med det etablerede **coArchi** workf
 
 ## 📝 Revisions
 - 2026-09-27: Oprettet opgavepakke Task 050 for fuld coArchi modeludgivelse og token-autentifikation.
+- 2026-09-27: Implementeret push_model, auto-pull/3-vejs merge/push pipeline i ConfirmPublish, fjernet Hent seneste fra Udgiv modal, tilføjet Personal Access Token i GitConnectionModal; 100% verificeret via tests/acceptance.rs.
 
 ---
 

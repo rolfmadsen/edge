@@ -1,19 +1,19 @@
 # Verification Report
  
-**Task ID**: `049-git-connection-remote-configuration-and-clone-ui`  
-**Task Title**: Task 049: Git Forbindelseskonfiguration, Fjernlager & Klon Model UI  
+**Task ID**: `050-coarchi-publish-sync-workflow-and-token-authentication`  
+**Task Title**: Task 050: coArchi Synkroniseringsworkflow, Push & Token Autentifikation  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Timestamp**: `2026-09-27T16:55:00Z`  
-**Head**: `8c7ca6e`  
+**Timestamp**: `2026-09-27T17:50:00Z`  
+**Head**: `c31aa14`  
  
 ## Acceptance Criteria
  
-- [x] **AC1 - Git-sektion i Filer Menu**: Menulinjen `Filer ▾` indeholder handlingspunkter for Forbindelse, Klon, Historik, Udgiv og Hent.
-- [x] **AC2 - Git Forbindelsesdialog**: `GitConnectionModal` tillader indtastning og lagring af Remote URL (`origin`) samt forfatterens navn og e-mail.
-- [x] **AC3 - Klon Model Workflow**: `GitCloneModal` kloner et repository fra en angivet URL til en lokal sti og indlæser den klonede model i appen.
-- [x] **AC4 - GitService Remote & Identity API**: `GitService` tilbyder pålidelige metoder til remote URL, brugeridentitet og `git clone`.
-- [x] **AC5 - Verifikation via Accepttest**: Test i `tests/acceptance.rs` verificerer hele workflowet for remote-konfiguration, kloning og menu-interaktion.
+- [x] **AC1 - Ren Udgiv-dialog uden 'Hent seneste'**: `view_publish_modal` indeholder kun `[ Annuller ]` og `[ Udgiv model ]`.
+- [x] **AC2 - GitService Push Model**: `GitService::push_model` kan skubbe den lokale models commits til et remote repository.
+- [x] **AC3 - Fuld coArchi Udgivelseskæde**: Ved bekræftelse i Udgiv-dialogen foretages automatisk commit, pull (med 3-vejs merge) og push.
+- [x] **AC4 - Token-håndtering i GitConnection**: `GitConnectionModalState` har et token-felt; lagring konfigurerer adgangstoken transparent, så push/pull autoriseres automatisk.
+- [x] **AC5 - Verifikation via Accepttest**: `tests/acceptance.rs` indeholder en dedikeret accepttest for den samlede coArchi-udgivelsessekvens og token-håndtering.
  
 ---
  
@@ -23,7 +23,7 @@
 |---|---|---|---|
 | `fmt` (`cargo fmt --check`) | `PASSED` | `0` | Formatteret jf. standarder |
 | `lint` (`cargo clippy --all-targets`) | `PASSED` | `0` | 0 advarsler |
-| `tests` (`cargo test --workspace`) | `PASSED` | `0` | 105/105 tests passed (33 unit, 61 acceptance, 4 proptests, 7 relay tests) |
+| `tests` (`cargo test --workspace`) | `PASSED` | `0` | 106/106 tests passed (33 unit, 62 acceptance, 4 proptests, 7 relay tests) |
 | `check` (`cargo check --workspace`) | `PASSED` | `0` | Fuld workspace kompilering uden fejl |
  
 ---

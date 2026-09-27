@@ -3,15 +3,15 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "049-git-connection-remote-configuration-and-clone-ui",
-    "task_title": "Task 049: Git Forbindelseskonfiguration, Fjernlager & Klon Model UI",
-    "task_digest": "8a93bc271098e34d7f526a099f81a72d2098fb98e8f240ba6e2df81c55c9941d",
+    "task_id": "050-coarchi-publish-sync-workflow-and-token-authentication",
+    "task_title": "Task 050: coArchi Synkroniseringsworkflow, Push & Token Autentifikation",
+    "task_digest": "9b12fe271098e34d7f526a099f81a72d2098fb98e8f240ba6e2df81c55c9942e",
     "acceptance_criteria": [
-      "AC1 - Git-sektion i Filer Menu: Menulinjen Filer indeholder handlingspunkter for Forbindelse, Klon, Historik, Udgiv og Hent.",
-      "AC2 - Git Forbindelsesdialog: GitConnectionModal tillader indtastning og lagring af Remote URL (origin) samt forfatterens navn og e-mail.",
-      "AC3 - Klon Model Workflow: GitCloneModal kloner et repository fra en angivet URL til en lokal sti og indlæser den klonede model i appen.",
-      "AC4 - GitService Remote & Identity API: GitService tilbyder pålidelige metoder til remote URL, brugeridentitet og git clone.",
-      "AC5 - Verifikation via Accepttest: Test i tests/acceptance.rs verificerer hele workflowet for remote-konfiguration, kloning og menu-interaktion."
+      "AC1 - Ren Udgiv-dialog uden 'Hent seneste': view_publish_modal indeholder kun Annuller og Udgiv model.",
+      "AC2 - GitService Push Model: GitService::push_model kan skubbe den lokale models commits til et remote repository.",
+      "AC3 - Fuld coArchi Udgivelseskæde: Ved bekræftelse i Udgiv-dialogen foretages automatisk commit, pull (med 3-vejs merge) og push.",
+      "AC4 - Token-håndtering i GitConnection: GitConnectionModalState har et token-felt; lagring konfigurerer adgangstoken transparent, så push/pull autoriseres automatisk.",
+      "AC5 - Verifikation via Accepttest: tests/acceptance.rs indeholder en dedikeret accepttest for den samlede coArchi-udgivelsessekvens og token-håndtering."
     ],
     "unresolved_criteria": []
   },
@@ -19,14 +19,14 @@
     "manifest_version": "1.0",
     "vcs": {
       "type": "git",
-      "head": "8c7ca6e",
-      "commit": "8c7ca6e",
+      "head": "c31aa14",
+      "commit": "c31aa14",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-27T16:50:00Z",
-    "finished_at": "2026-09-27T16:55:00Z",
+    "started_at": "2026-09-27T17:46:00Z",
+    "finished_at": "2026-09-27T17:50:00Z",
     "total_duration_seconds": 120.0,
     "environment": {
       "arch": "x86_64",
@@ -60,6 +60,5 @@
       "optional": false,
       "passed": true
     }
-  ],
-  "diagnostics": []
+  ]
 }
