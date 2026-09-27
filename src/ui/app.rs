@@ -2362,6 +2362,14 @@ impl App {
                         return Task::none();
                     };
 
+                    if !GitService::is_safe_model_repo_dir(&dir) {
+                        state.error_message = Some(
+                            "Den valgte mappe indeholder softwarekildekode (Cargo.toml). Vælg en dedikeret modelmappe (f.eks. i 'Kant Modeller').".into(),
+                        );
+                        self.git_connection_modal = Some(state);
+                        return Task::none();
+                    }
+
                     let url = state.remote_url.trim().to_string();
                     let token = state.token.trim().to_string();
                     let name = state.author_name.trim().to_string();
