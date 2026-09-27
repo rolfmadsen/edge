@@ -5458,3 +5458,76 @@ fn test_task_046_git_service_and_domain_event_mapping() {
     // Oprydning
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
+
+#[test]
+fn test_task_047_git_ui_topbar_status_and_publish_dialog() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::git::{GitService, RepoSyncStatus};
+    use kant::ui::app::{App, Message};
+    use uuid::Uuid;
+
+    let temp_dir = std::env::temp_dir().join(format!("kant_test_047_{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+
+    // 1. Initialiser repo
+    GitService::init_repository(&temp_dir).expect("init repo");
+
+    // 2. Opret App instans med projektmappen
+    let mut app = App::new_with_path(Some(temp_dir.clone()));
+
+    // 3. Tjek indledende status
+    let _ = app.update(Message::RefreshGitStatus);
+    assert!(
+        matches!(
+            app.git_sync_status(),
+            RepoSyncStatus::Synced | RepoSyncStatus::UnpublishedCommits(0)
+        ),
+        "Initial status skal være synkroniseret eller 0 uudgivne commits"
+    );
+
+    // 4. Foretag modelændring (tilføj begreb)
+    let c1 = Concept::new("Køretøj", "Transportmiddel", BelongsToDomain::Yes);
+    app.project_mut().add_concept(c1).unwrap();
+
+    // 5. Åbn Udgiv Model modal
+    assert!(app.publish_modal().is_none());
+    let _ = app.update(Message::OpenPublishModal);
+    assert!(app.publish_modal().is_some(), "Udgiv modal skal være åben");
+
+    // Modalen skal have en forhåndsvisning eller forslag
+    let modal = app.publish_modal().unwrap();
+    assert!(
+        !modal.message.is_empty() || !modal.preview_events.is_empty(),
+        "Modal skal indeholde forslag eller forhåndsvisning af ændringer"
+    );
+
+    // 6. Skriv kommentar og bekræft udgivelse
+    let _ = app.update(Message::UpdatePublishMessage(
+        "Første officielle version af køretøjsmodellen".into(),
+    ));
+    assert_eq!(
+        app.publish_modal().unwrap().message,
+        "Første officielle version af køretøjsmodellen"
+    );
+
+    let _ = app.update(Message::ConfirmPublish);
+    assert!(
+        app.publish_modal().is_none(),
+        "Modal skal lukkes efter udgivelse"
+    );
+
+    // 7. Valider opdateret status og badge-tekst
+    assert_eq!(
+        *app.git_sync_status(),
+        RepoSyncStatus::UnpublishedCommits(1)
+    );
+    let badge_text = app.git_status_badge_text();
+    assert!(
+        badge_text.contains('1') || badge_text.contains("klar") || badge_text.contains("Udgivet"),
+        "Badgetekst skal afspejle uudgivne commits: {}",
+        badge_text
+    );
+
+    // 8. Oprydning
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
