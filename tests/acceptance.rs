@@ -5906,3 +5906,115 @@ fn test_task_050_coarchi_publish_sync_workflow_and_token_authentication() {
     // Oprydning
     let _ = std::fs::remove_dir_all(&temp_root);
 }
+
+#[test]
+fn test_task_051_model_isolation_and_git_provider_agnosticism() {
+    use kant::features::git::service::{GitService, RepoSyncStatus};
+    use kant::ui::app::ConceptFormField;
+    use std::path::Path;
+
+    // 1. Repo name parsing fra URL
+    assert_eq!(
+        GitService::parse_repo_name("https://github.com/rolfmadsen/kant_begrebs_og_informationsmodeller.git"),
+        Some("kant_begrebs_og_informationsmodeller".to_string())
+    );
+    assert_eq!(
+        GitService::parse_repo_name("https://gitlab.com/organisation/fda-vejafgift"),
+        Some("fda-vejafgift".to_string())
+    );
+    assert_eq!(
+        GitService::parse_repo_name("git@gitea.local:models/begreber.git"),
+        Some("begreber".to_string())
+    );
+
+    // 2. Provider-agnostisk URL opbygning (GitLab, Gitea, GitHub, Custom)
+    let gitlab_url = GitService::build_authenticated_url(
+        "https://gitlab.com/org/fda-model.git",
+        "glpat-token123",
+    );
+    assert_eq!(gitlab_url, "https://oauth2:glpat-token123@gitlab.com/org/fda-model.git");
+
+    let gitea_url = GitService::build_authenticated_url(
+        "https://gitea.internal/org/fda-model.git",
+        "my_gitea_token",
+    );
+    assert!(
+        gitea_url.contains("my_gitea_token@gitea.internal"),
+        "Gitea / intern Git URL skal indeholde token: {}",
+        gitea_url
+    );
+
+    let github_url = GitService::build_authenticated_url(
+        "https://github.com/org/fda-model.git",
+        "ghp_token456",
+    );
+    assert_eq!(github_url, "https://x-access-token:ghp_token456@github.com/org/fda-model.git");
+
+    // 3. Sikkerhedsguardrail: Isoleret modelkatalog
+    // Roden af vores edge repo indeholder Cargo.toml og må ALDRIG betragtes som en sikker modelmappe
+    assert!(
+        !GitService::is_safe_model_repo_dir(Path::new(".")),
+        "Aktuel software-kildekodemappe med Cargo.toml må IKKE tillades som model-repo"
+    );
+
+    let temp_root = std::env::temp_dir().join(format!("kant_test_051_iso_{}", uuid::Uuid::new_v4()));
+    let model_dir = temp_root.join("dedicated_model_project");
+    std::fs::create_dir_all(&model_dir).unwrap();
+    assert!(
+        GitService::is_safe_model_repo_dir(&model_dir),
+        "En dedikeret tom modelmappe skal være tilladt"
+    );
+
+    // 4. App state isolation:
+    // Uden eksplicit filsti eller ved "Nyt projekt" skal repo_dir være None
+    let mut app = App::new_with_path(None);
+    assert_eq!(
+        app.repo_dir(),
+        None,
+        "Nyt projekt uden valgt sti må ALDRIG falde tilbage til '.'!"
+    );
+
+    // Opret et begreb i hukommelsen
+    let _ = app.update(Message::StartNewConcept);
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::PreferredTerm,
+        "TestBegreb".to_string(),
+    ));
+    let _ = app.update(Message::SaveConcept);
+    assert_eq!(app.project().concepts().len(), 1);
+
+    // Tryk "Nyt projekt" -> Skal nulstille til ren tavle og repo_dir() skal være None
+    let _ = app.update(Message::NewProject);
+    assert_eq!(app.project().concepts().len(), 0);
+    assert_eq!(app.repo_dir(), None);
+    assert_eq!(app.git_sync_status(), &RepoSyncStatus::Uninitialized);
+
+    // 5. Kloning af tomt repository udleder automatisk projektnavn og initialiserer rent projekt
+    let remote_dir = temp_root.join("remote_bare_repo.git");
+    let _ = std::process::Command::new("git")
+        .args([
+            "init",
+            "--bare",
+            "-b",
+            "main",
+            remote_dir.to_str().unwrap(),
+        ])
+        .output();
+
+    let clone_dest = temp_root.join("cloned_fda_vejafgift");
+    let remote_url = format!("file://{}", remote_dir.display());
+
+    let _ = app.update(Message::OpenGitCloneModal);
+    let _ = app.update(Message::UpdateGitCloneUrl("https://gitlab.com/org/fda-vejafgift.git".into()));
+    // Set actual target to our local bare repo for physical clone execution
+    let _ = app.update(Message::UpdateGitCloneUrl(remote_url));
+    let _ = app.update(Message::UpdateGitCloneTargetDir(clone_dest.to_str().unwrap().into()));
+    let _ = app.update(Message::ExecuteGitClone);
+
+    // Verificer at projektet er indlæst og har navnet udledt hvis det var tomt
+    assert_eq!(app.repo_dir(), Some(clone_dest.clone()));
+    assert!(app.git_clone_modal().is_none());
+
+    let _ = std::fs::remove_dir_all(&temp_root);
+}
+
