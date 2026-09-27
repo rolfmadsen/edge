@@ -104,6 +104,8 @@ pub struct GitConnectionModalState {
 pub struct GitCloneModalState {
     pub remote_url: String,
     pub target_dir: String,
+    pub custom_target_dir: bool,
+    pub token: String,
     pub is_cloning: bool,
     pub error_message: Option<String>,
 }
@@ -592,6 +594,9 @@ pub enum Message {
     CloseGitCloneModal,
     UpdateGitCloneUrl(String),
     UpdateGitCloneTargetDir(String),
+    UpdateGitCloneToken(String),
+    BrowseGitCloneTargetDir,
+    GitCloneTargetDirSelected(crate::ui::file_dialog::DialogResult),
     ExecuteGitClone,
 
     // Statusbar / Eksterne links (Task 018)
@@ -2295,6 +2300,8 @@ impl App {
                 self.git_clone_modal = Some(GitCloneModalState {
                     remote_url: String::new(),
                     target_dir: String::new(),
+                    custom_target_dir: false,
+                    token: String::new(),
                     is_cloning: false,
                     error_message: None,
                 });
@@ -2306,8 +2313,8 @@ impl App {
 
             Message::UpdateGitCloneUrl(url) => {
                 if let Some(m) = &mut self.git_clone_modal {
-                    if let Some(repo_name) = GitService::parse_repo_name(&url) {
-                        if m.target_dir.is_empty() || m.target_dir.contains("Kant Modeller") {
+                    if !m.custom_target_dir {
+                        if let Some(repo_name) = GitService::parse_repo_name(&url) {
                             let base_dir = std::env::var("HOME")
                                 .or_else(|_| std::env::var("USERPROFILE"))
                                 .map(PathBuf::from)
@@ -2323,19 +2330,59 @@ impl App {
 
             Message::UpdateGitCloneTargetDir(dir) => {
                 if let Some(m) = &mut self.git_clone_modal {
+                    m.custom_target_dir = !dir.trim().is_empty();
                     m.target_dir = dir;
                     m.error_message = None;
                 }
             }
 
+            Message::UpdateGitCloneToken(token) => {
+                if let Some(m) = &mut self.git_clone_modal {
+                    m.token = token;
+                    m.error_message = None;
+                }
+            }
+
+            Message::BrowseGitCloneTargetDir => {
+                return Task::perform(
+                    async move { crate::ui::file_dialog::pick_folder() },
+                    Message::GitCloneTargetDirSelected,
+                );
+            }
+
+            Message::GitCloneTargetDirSelected(result) => {
+                if let Some(m) = &mut self.git_clone_modal {
+                    if let crate::ui::file_dialog::DialogResult::Selected(path) = result {
+                        let final_path = if let Some(repo_name) = GitService::parse_repo_name(&m.remote_url) {
+                            let is_non_empty_dir = path.is_dir()
+                                && path.read_dir().map_or(false, |mut i| i.next().is_some());
+                            if is_non_empty_dir && path.file_name().and_then(|n| n.to_str()) != Some(&repo_name) {
+                                path.join(repo_name)
+                            } else {
+                                path
+                            }
+                        } else {
+                            path
+                        };
+                        m.target_dir = final_path.display().to_string();
+                        m.custom_target_dir = true;
+                        m.error_message = None;
+                    }
+                }
+            }
+
             Message::ExecuteGitClone => {
                 if let Some(state) = self.git_clone_modal.as_mut() {
-                    let url = state.remote_url.trim().to_string();
+                    let mut url = state.remote_url.trim().to_string();
                     let target = state.target_dir.trim().to_string();
+                    let token = state.token.trim().to_string();
                     if url.is_empty() || target.is_empty() {
                         state.error_message =
                             Some("Både Git URL og destinationsmappe skal udfyldes".into());
                     } else {
+                        if !token.is_empty() {
+                            url = GitService::build_authenticated_url(&url, &token);
+                        }
                         let target_path = PathBuf::from(&target);
                         match GitService::clone_repository(&url, &target_path) {
                             Ok(_) => {
@@ -6573,9 +6620,30 @@ impl App {
             text("Lokal Målmappe (Hvor modellen skal placeres)")
                 .size(12)
                 .color(ThemeColors::SLATE_700),
-            text_input("/sti/til/lokal/modelmappe", &modal.target_dir)
+            row![
+                text_input("/sti/til/lokal/modelmappe", &modal.target_dir)
+                    .style(modern_input_style)
+                    .on_input(Message::UpdateGitCloneTargetDir)
+                    .padding([8, 12])
+                    .width(Length::Fill),
+                button(text("📂 Gennemse...").size(12))
+                    .style(secondary_button_style)
+                    .on_press(Message::BrowseGitCloneTargetDir)
+                    .padding([8, 12]),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
+        ]
+        .spacing(4);
+
+        let token_field = column![
+            text("Access Token (valgfrit - nødvendigt for private Git lagre)")
+                .size(12)
+                .color(ThemeColors::SLATE_700),
+            text_input("Personlig Access Token (PAT) eller kodeord", &modal.token)
+                .secure(true)
                 .style(modern_input_style)
-                .on_input(Message::UpdateGitCloneTargetDir)
+                .on_input(Message::UpdateGitCloneToken)
                 .padding([8, 12]),
         ]
         .spacing(4);
@@ -6586,6 +6654,7 @@ impl App {
             Space::new().height(8),
             url_field,
             dir_field,
+            token_field,
         ]
         .spacing(10);
 
@@ -6631,7 +6700,7 @@ impl App {
         let modal_card = container(body)
             .style(modal_card_style)
             .padding(24)
-            .width(Length::Fixed(520.0));
+            .width(Length::Fixed(560.0));
 
         container(modal_card)
             .style(modal_backdrop_style)

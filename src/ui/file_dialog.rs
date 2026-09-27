@@ -50,6 +50,15 @@ pub fn pick_file_to_save(default_name: Option<&str>) -> DialogResult {
     }
 }
 
+/// Åbner native mappevælger til at vælge en destinationsmappe til f.eks. Git-kloning
+pub fn pick_folder() -> DialogResult {
+    let dialog = rfd::FileDialog::new().set_title("Vælg mappe til model");
+    match dialog.pick_folder() {
+        Some(path) => DialogResult::Selected(path),
+        None => DialogResult::Cancelled,
+    }
+}
+
 /// Scanner en mappe for eksisterende *.kant.json, *.edge.json eller model*.json filer
 pub fn scan_local_project_files(dir: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();

@@ -825,13 +825,23 @@ impl GitService {
             })?;
 
         let parent = destination_dir.parent().unwrap_or_else(|| Path::new("."));
+        if !parent.as_os_str().is_empty() && !parent.exists() {
+            std::fs::create_dir_all(parent)?;
+        }
+
         let output = Command::new("git")
+            .env("GIT_TERMINAL_PROMPT", "0")
             .args(["clone", remote_url, dest_str])
             .current_dir(parent)
             .output()?;
 
         if !output.status.success() {
-            let err = String::from_utf8_lossy(&output.stderr);
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let err = if stderr.is_empty() {
+                String::from_utf8_lossy(&output.stdout).trim().to_string()
+            } else {
+                stderr
+            };
             return Err(GitError::CommandFailed {
                 cmd: "clone".to_string(),
                 message: format!("Kloning fejlede: {}", err),

@@ -6005,17 +6005,31 @@ fn test_task_051_model_isolation_and_git_provider_agnosticism() {
         ])
         .output();
 
-    let clone_dest = temp_root.join("cloned_fda_vejafgift");
+    let nested_parent = temp_root.join("new_models_folder");
+    assert!(!nested_parent.exists(), "Forældremappe må ikke eksistere forud for testen");
+    let clone_dest = nested_parent.join("cloned_fda_vejafgift");
     let remote_url = format!("file://{}", remote_dir.display());
 
     let _ = app.update(Message::OpenGitCloneModal);
     let _ = app.update(Message::UpdateGitCloneUrl("https://gitlab.com/org/fda-vejafgift.git".into()));
-    // Set actual target to our local bare repo for physical clone execution
+    let _ = app.update(Message::UpdateGitCloneToken("glpat-secret-token-123".into()));
+    assert_eq!(app.git_clone_modal().unwrap().token, "glpat-secret-token-123");
+
+    // Simulér valg af destinationsmappe via folder-dialog
+    let _ = app.update(Message::GitCloneTargetDirSelected(
+        kant::ui::file_dialog::DialogResult::Selected(clone_dest.clone()),
+    ));
+    assert_eq!(app.git_clone_modal().unwrap().target_dir, clone_dest.display().to_string());
+
+    // Verificer at ændring i URL ikke overskriver brugerens valgte mappe
     let _ = app.update(Message::UpdateGitCloneUrl(remote_url));
-    let _ = app.update(Message::UpdateGitCloneTargetDir(clone_dest.to_str().unwrap().into()));
+    assert_eq!(app.git_clone_modal().unwrap().target_dir, clone_dest.display().to_string());
+
+    // Udfør klon - skal automatisk oprette nested_parent og lykkes
     let _ = app.update(Message::ExecuteGitClone);
 
-    // Verificer at projektet er indlæst og har navnet udledt hvis det var tomt
+    // Verificer at projektet er indlæst, forældremappen oprettet og modalen lukket
+    assert!(nested_parent.exists(), "Forældremappen skal være oprettet automatisk");
     assert_eq!(app.repo_dir(), Some(clone_dest.clone()));
     assert!(app.git_clone_modal().is_none());
 
