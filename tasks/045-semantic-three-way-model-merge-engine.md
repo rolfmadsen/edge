@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 045: Semantisk 3-Vejs Model Merge Motor (merge_models)"
 description: "Model-bevidst 3-vejs fusionsalgoritme for FDA begreber, klasser, relationer og diagrammer med automatisk feltfletning og struktureret konfliktopsporing"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-27T16:16:00Z" }
 tags: [merge, semantic-merge, 3-way, git, conflict-resolution, model-engine]
 ---
 
 # Task 045: Semantisk 3-Vejs Model Merge Motor (merge_models)
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🚀 `NEW FEATURE`  
 **Oprettet**: `2026-09-27`  
 **Scope**: `src/features/model/merge.rs`, `src/features/model/mod.rs`, `tests/acceptance.rs`
@@ -33,13 +33,13 @@ Implementere en domæne- og modelspecifik 3-vejs merge-motor (`merge_models`), d
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Automatisk fusion af uafhængige entiteter**: Nye eller ændrede begreber og klasser fra henholdsvis `ours` og `theirs` inkluderes begge i det flettede resultat.
-- [ ] **AC2 - Granulær feltfusion på samme entitet**: Ændringer på forskellige felter i samme begreb eller klasse sammensmeltes uden konflikt (fx `ours` ændrer `definition`, `theirs` ændrer `source`).
-- [ ] **AC3 - Detektion af modstridende feltændringer**: Samtidige ændringer af samme felt til forskellige værdier detekteres og returneres som en struktureret `ModelConflict` (med base, ours og theirs værdier).
-- [ ] **AC4 - Sikker håndtering af Sletning vs. Redigering**: Slettede entiteter, der er blevet redigeret af modparten, håndteres uden panics eller korrupte relationer.
-- [ ] **AC5 - 3-Vejs Fletning af Informationsklasser og Attributter**: Attributter flettes på ID-niveau, så parallelle tilføjelser af nye attributter til samme klasse begge bevares.
-- [ ] **AC6 - Idempotens & Fuld Integritet**: Fletning af identiske modeller (`merge(base, ours, ours)`) resulterer i 0 konflikter og identisk model.
-- [ ] **AC7 - Verifikation via Accepttest**: `test_task_045_semantic_three_way_model_merge` i `tests/acceptance.rs` beviser feltfusion, sletningshåndtering, konfliktopsamling og validering.
+- [x] **AC1 - Automatisk fusion af uafhængige entiteter**: Nye eller ændrede begreber og klasser fra henholdsvis `ours` og `theirs` inkluderes begge i det flettede resultat.
+- [x] **AC2 - Granulær feltfusion på samme entitet**: Ændringer på forskellige felter i samme begreb eller klasse sammensmeltes uden konflikt (fx `ours` ændrer `definition`, `theirs` ændrer `source`).
+- [x] **AC3 - Detektion af modstridende feltændringer**: Samtidige ændringer af samme felt til forskellige værdier detekteres og returneres som en struktureret `ModelConflict` (med base, ours og theirs værdier).
+- [x] **AC4 - Sikker håndtering af Sletning vs. Redigering**: Slettede entiteter, der er blevet redigeret af modparten, håndteres uden panics eller korrupte relationer.
+- [x] **AC5 - 3-Vejs Fletning af Informationsklasser og Attributter**: Attributter flettes på ID-niveau, så parallelle tilføjelser af nye attributter til samme klasse begge bevares.
+- [x] **AC6 - Idempotens & Fuld Integritet**: Fletning af identiske modeller (`merge(base, ours, ours)`) resulterer i 0 konflikter og identisk model.
+- [x] **AC7 - Verifikation via Accepttest**: `test_task_045_semantic_three_way_model_merge` i `tests/acceptance.rs` beviser feltfusion, sletningshåndtering, konfliktopsamling og validering.
 
 ---
 

@@ -4,17 +4,17 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "044-decomposed-model-storage-and-deterministic-serialization",
-    "task_title": "Task 044: Dekomponeret Model Storage Engine (.kant/) & Deterministisk Serialisering",
-    "task_digest": "78a9c2b18974a84e5a79739c279628ad143185f40f4b4e935a6aed142b23e60e",
+    "task_id": "045-semantic-three-way-model-merge-engine",
+    "task_title": "Task 045: Semantisk 3-Vejs Model Merge Motor (merge_models)",
+    "task_digest": "3e98b714529a8c14f305f884177d612e0988da76c6d0429f5f02bc60c33a921d",
     "acceptance_criteria": [
-      "AC1 - Dekomponeret Skrivning (.kant/): ProjectStorage::save_to_directory gemmer metadata, concepts, classes, relations og diagrams i separate deterministiske JSON-filer.",
-      "AC2 - Deterministisk JSON Formatering: Alle JSON-filer skrives med alfabetisk sorterede nøgler og deterministisk sorterede arrays; idempotent skrivning.",
-      "AC3 - Fuld Dekomponeret Indlæsning & Roundtrip: ProjectStorage::load_from_directory indlæser alle entiteter og diagrammer og genskaber et semantisk ækvivalent ModelProject.",
-      "AC4 - Transparent Formatdetektion: ProjectStorage::load detekterer automatisk .kant.json fil, .kant/ mappe eller projektmappe.",
-      "AC5 - Synkroniseret Oprydning: Slettede entiteter efterlader ikke zombie-filer i .kant/ kataloget.",
-      "AC6 - Fail-Closed Validering & Atomicitet: Begreber valideres før skrivning og ved indlæsning.",
-      "AC7 - Verifikation via Accepttest: test_task_044_decomposed_storage_and_deterministic_serialization passerer 100%."
+      "AC1 - Automatisk fusion af uafhængige entiteter: Nye/ændrede begreber og klasser inkluderes begge.",
+      "AC2 - Granulær feltfusion på samme entitet: Uafhængige feltændringer sammensmeltes uden konflikt.",
+      "AC3 - Detektion af modstridende feltændringer: Samtidige ændringer af samme felt fanges som ModelConflict.",
+      "AC4 - Sikker håndtering af Sletning vs. Redigering: Elementer bevares med advarsel for at undgå brudte relationer.",
+      "AC5 - 3-Vejs Fletning af Informationsklasser og Attributter: Attributter flettes på ID-niveau.",
+      "AC6 - Idempotens & Fuld Integritet: merge(base, ours, ours) giver 0 konflikter.",
+      "AC7 - Verifikation via Accepttest: test_task_045_semantic_three_way_model_merge passerer 100%."
     ],
     "unresolved_criteria": []
   },
@@ -22,15 +22,15 @@
     "manifest_version": "1.0",
     "vcs": {
       "type": "git",
-      "head": "0392bd1",
-      "commit": "0392bd1",
+      "head": "60d4b7c",
+      "commit": "60d4b7c",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-27T16:13:40Z",
-    "finished_at": "2026-09-27T16:13:49Z",
-    "total_duration_seconds": 9.12,
+    "started_at": "2026-09-27T16:19:55Z",
+    "finished_at": "2026-09-27T16:20:02Z",
+    "total_duration_seconds": 7.15,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -51,7 +51,7 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 1.79,
+      "duration_seconds": 0.71,
       "optional": false,
       "passed": true
     },
@@ -59,7 +59,7 @@
       "name": "tests",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.75,
+      "duration_seconds": 0.74,
       "optional": false,
       "passed": true
     }
