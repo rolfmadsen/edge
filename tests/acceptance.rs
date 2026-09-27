@@ -5344,3 +5344,90 @@ fn test_task_045_semantic_three_way_model_merge() {
         "Merge af identiske grene skal have 0 konflikter"
     );
 }
+
+#[test]
+fn test_task_046_git_service_and_domain_event_mapping() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::git::{ChangeAction, DomainEventMapper, GitService, RepoSyncStatus};
+    use kant::features::information_model::InformationClass;
+    use kant::features::model::{ModelMetadata, ModelProject, ModelStatus};
+    use uuid::Uuid;
+
+    let temp_dir = std::env::temp_dir().join(format!("kant_test_046_{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+
+    // 1. Initialiser Git-lager
+    GitService::init_repository(&temp_dir).expect("init_repository skal lykkes");
+    assert!(temp_dir.join(".git").is_dir(), ".git mappen skal være oprettet");
+
+    // 2. Tjek status på tomt repo
+    let status = GitService::get_sync_status(&temp_dir).expect("status check skal lykkes");
+    assert!(
+        matches!(status, RepoSyncStatus::Synced | RepoSyncStatus::UnpublishedCommits(0)),
+        "Nyt repo skal være synkroniseret eller have 0 uudgivne commits"
+    );
+
+    // 3. Opret modelprojekt og udgiv (første commit)
+    let meta = ModelMetadata::new(
+        "Køretøjsmodellen Git",
+        "Test for Git integration",
+        "https://data.gov.dk/model/vehicle",
+        "Motorstyrelsen",
+        "Transport",
+        "1.0.0",
+        ModelStatus::Draft,
+    );
+    let mut project = ModelProject::new(meta);
+
+    let c1 = Concept::new("Køretøj", "Transportmiddel til personer eller gods", BelongsToDomain::Yes);
+    let c1_id = project.add_concept(c1).unwrap();
+
+    let commit1_oid = GitService::publish_model(&temp_dir, &project, "Oprettet grundmodel med Køretøj")
+        .expect("publish_model skal lykkes");
+    assert!(!commit1_oid.is_empty(), "Commit OID må ikke være tom");
+
+    // 4. Hent historik og verificer domænehændelser
+    let history = GitService::get_commit_history(&temp_dir, 10).expect("get_commit_history skal lykkes");
+    assert_eq!(history.len(), 1);
+    let first_commit = &history[0];
+    assert_eq!(first_commit.oid, commit1_oid);
+    assert_eq!(first_commit.message, "Oprettet grundmodel med Køretøj");
+
+    // Skal have en hændelse: 🟢 Oprettet Begreb: Køretøj
+    let has_c1_added = first_commit.changes.iter().any(|e| {
+        e.action == ChangeAction::Added && e.entity_type == "Begreb" && e.entity_name == "Køretøj"
+    });
+    assert!(has_c1_added, "Commit skal indeholde en Added Begreb Køretøj hændelse");
+
+    // 5. Rediger begreb og tilføj klasse, og test auto-genereret commit-summary
+    let mut c1_updated = project.get_concept(c1_id).unwrap().clone();
+    c1_updated.set_definition("Opdateret definition af motordrevet transportmiddel");
+    project.update_concept(c1_updated).unwrap();
+
+    let cls1 = InformationClass::new("Køretøj");
+    let cls1_id = project.information_model_mut().add_class(cls1);
+
+    // Udgiv med tom besked -> skal bruge auto-genereret besked
+    let commit2_oid = GitService::publish_model(&temp_dir, &project, "")
+        .expect("publish_model med auto-summary skal lykkes");
+
+    let history_after = GitService::get_commit_history(&temp_dir, 10).expect("historik skal hentes");
+    assert_eq!(history_after.len(), 2);
+    let second_commit = &history_after[0];
+    assert_eq!(second_commit.oid, commit2_oid);
+    assert!(
+        !second_commit.message.is_empty(),
+        "Auto-genereret commitbesked må ikke være tom"
+    );
+
+    // 6. Test element-specifik historik ("Time Travel" / Audit)
+    let c1_history = GitService::get_element_history(&temp_dir, c1_id).expect("element historik for c1");
+    assert_eq!(c1_history.len(), 2, "c1 skal have præcis 2 commits (oprettelse og ændring)");
+
+    let cls1_history = GitService::get_element_history(&temp_dir, cls1_id).expect("element historik for cls1");
+    assert_eq!(cls1_history.len(), 1, "cls1 skal have præcis 1 commit (oprettelse)");
+
+    // Oprydning
+    let _ = std::fs::remove_dir_all(&temp_dir);
+}
+
