@@ -489,6 +489,23 @@ pub fn open_browser(url: &str) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Returnerer brugerens hjemmemappe robust på tværs af macOS (HOME), Linux (HOME) og Windows (USERPROFILE / HOMEDRIVE+HOMEPATH).
+pub fn user_home_dir() -> PathBuf {
+    std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .or_else(|_| {
+            let drive = std::env::var("HOMEDRIVE").unwrap_or_default();
+            let path = std::env::var("HOMEPATH").unwrap_or_default();
+            if !drive.is_empty() && !path.is_empty() {
+                Ok(format!("{}{}", drive, path))
+            } else {
+                Err(std::env::VarError::NotPresent)
+            }
+        })
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("."))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileDialogMode {
     Open,
@@ -2315,10 +2332,7 @@ impl App {
                 if let Some(m) = &mut self.git_clone_modal {
                     if !m.custom_target_dir {
                         if let Some(repo_name) = GitService::parse_repo_name(&url) {
-                            let base_dir = std::env::var("HOME")
-                                .or_else(|_| std::env::var("USERPROFILE"))
-                                .map(PathBuf::from)
-                                .unwrap_or_else(|_| PathBuf::from("."));
+                            let base_dir = user_home_dir();
                             let suggested = base_dir.join("Kant Modeller").join(&repo_name);
                             m.target_dir = suggested.display().to_string();
                         }

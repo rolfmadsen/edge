@@ -55,10 +55,81 @@ pub enum PullResult {
 pub struct GitService;
 
 impl GitService {
-    /// Tjekker om git eksekverbare fil er tilgængelig i PATH.
+    /// Opretter en Command til at køre git med korrekt cross-platform konfiguration.
+    /// På Windows skjules konsolvinduet (CREATE_NO_WINDOW).
+    /// På macOS/Windows/Linux søges der i kendte standardstier hvis 'git' ikke er i GUI-appens PATH.
+    pub fn git_command() -> Command {
+        let binary = Self::resolve_git_binary();
+        #[allow(unused_mut)]
+        let mut cmd = Command::new(binary);
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        }
+        cmd
+    }
+
+    /// Finder git-eksekverbar fil på tværs af macOS, Windows og Linux.
+    pub fn resolve_git_binary() -> std::ffi::OsString {
+        // 1. Tjek om standard "git" virker i systemets PATH
+        #[allow(unused_mut)]
+        let mut test_cmd = Command::new("git");
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            test_cmd.creation_flags(0x08000000);
+        }
+        if test_cmd.arg("--version").output().map(|o| o.status.success()).unwrap_or(false) {
+            return "git".into();
+        }
+
+        // 2. Fallbacks for macOS GUI-apps (hvor PATH ofte ikke arves fra .zshrc/.bash_profile i Finder)
+        #[cfg(target_os = "macos")]
+        {
+            for candidate in &["/usr/bin/git", "/opt/homebrew/bin/git", "/usr/local/bin/git"] {
+                let path = Path::new(candidate);
+                if path.exists() {
+                    return path.as_os_str().to_os_string();
+                }
+            }
+        }
+
+        // 3. Fallbacks for Windows (Standard Git for Windows installationer)
+        #[cfg(target_os = "windows")]
+        {
+            let mut candidates = vec![
+                PathBuf::from(r"C:\Program Files\Git\cmd\git.exe"),
+                PathBuf::from(r"C:\Program Files (x86)\Git\cmd\git.exe"),
+            ];
+            if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+                candidates.push(PathBuf::from(local_app_data).join(r"Programs\Git\cmd\git.exe"));
+            }
+            for candidate in candidates {
+                if candidate.exists() {
+                    return candidate.into_os_string();
+                }
+            }
+        }
+
+        // 4. Fallbacks for Linux
+        #[cfg(target_os = "linux")]
+        {
+            for candidate in &["/usr/bin/git", "/usr/local/bin/git", "/bin/git"] {
+                let path = Path::new(candidate);
+                if path.exists() {
+                    return path.as_os_str().to_os_string();
+                }
+            }
+        }
+
+        "git".into()
+    }
+
+    /// Tjekker om git eksekverbare fil er tilgængelig i PATH eller standardstier.
     pub fn is_git_installed() -> bool {
-        Command::new("git")
-            .arg("--version")
+        let mut cmd = Self::git_command();
+        cmd.arg("--version")
             .output()
             .map(|out| out.status.success())
             .unwrap_or(false)
@@ -90,8 +161,9 @@ impl GitService {
     ) -> Result<String, GitError> {
         Self::check_git_installed()?;
         let effective_dir = Self::effective_repo_dir(repo_dir);
-        let mut cmd = Command::new("git");
+        let mut cmd = Self::git_command();
         cmd.current_dir(effective_dir);
+        cmd.env("GIT_TERMINAL_PROMPT", "0");
         for &(k, v) in envs {
             cmd.env(k, v);
         }
@@ -669,7 +741,7 @@ impl GitService {
             return false;
         }
         let canonical = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
-        if canonical == Path::new("/") {
+        if canonical == Path::new("/") || canonical.parent().is_none() {
             return false;
         }
         if let Ok(home) = std::env::var("HOME") {
@@ -680,6 +752,14 @@ impl GitService {
         if let Ok(profile) = std::env::var("USERPROFILE") {
             if !profile.is_empty() && (dir == Path::new(&profile) || canonical == Path::new(&profile)) {
                 return false;
+            }
+        }
+        if let Ok(drive) = std::env::var("HOMEDRIVE") {
+            if let Ok(path) = std::env::var("HOMEPATH") {
+                let home = format!("{}{}", drive, path);
+                if !home.is_empty() && (dir == Path::new(&home) || canonical == Path::new(&home)) {
+                    return false;
+                }
             }
         }
 
@@ -829,11 +909,11 @@ impl GitService {
             std::fs::create_dir_all(parent)?;
         }
 
-        let output = Command::new("git")
-            .env("GIT_TERMINAL_PROMPT", "0")
-            .args(["clone", remote_url, dest_str])
-            .current_dir(parent)
-            .output()?;
+        let mut cmd = Self::git_command();
+        cmd.env("GIT_TERMINAL_PROMPT", "0");
+        cmd.args(["clone", remote_url, dest_str]);
+        cmd.current_dir(parent);
+        let output = cmd.output()?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
