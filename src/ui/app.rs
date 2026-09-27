@@ -94,6 +94,8 @@ impl ConflictResolverModalState {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GitConnectionModalState {
     pub remote_url: String,
+    pub target_dir: String,
+    pub custom_target_dir: bool,
     pub token: String,
     pub author_name: String,
     pub author_email: String,
@@ -601,6 +603,9 @@ pub enum Message {
     OpenGitConnectionModal,
     CloseGitConnectionModal,
     UpdateGitRemoteUrl(String),
+    UpdateGitTargetDir(String),
+    BrowseGitTargetDir,
+    GitTargetDirSelected(crate::ui::file_dialog::DialogResult),
     UpdateGitToken(String),
     UpdateGitAuthorName(String),
     UpdateGitAuthorEmail(String),
@@ -2196,7 +2201,7 @@ impl App {
             Message::OpenGitConnectionModal => {
                 self.active_menu = None;
                 let dir_opt = self.repo_dir();
-                let (raw_url, (name, email)) = if let Some(dir) = &dir_opt {
+                let (raw_url, (name, email), target_dir) = if let Some(dir) = &dir_opt {
                     let u = GitService::get_remote_url(dir)
                         .ok()
                         .flatten()
@@ -2204,14 +2209,17 @@ impl App {
                     let id = GitService::get_user_identity(dir)
                         .ok()
                         .unwrap_or((None, None));
-                    (u, id)
+                    (u, id, dir.display().to_string())
                 } else {
-                    (String::new(), (None, None))
+                    (String::new(), (None, None), String::new())
                 };
                 let (url, token) = GitService::parse_remote_url(&raw_url);
+                let has_target = !target_dir.is_empty();
 
                 self.git_connection_modal = Some(GitConnectionModalState {
                     remote_url: url,
+                    target_dir,
+                    custom_target_dir: has_target,
                     token: token.unwrap_or_default(),
                     author_name: name.unwrap_or_default(),
                     author_email: email.unwrap_or_default(),
@@ -2225,8 +2233,51 @@ impl App {
 
             Message::UpdateGitRemoteUrl(url) => {
                 if let Some(m) = &mut self.git_connection_modal {
+                    if !m.custom_target_dir {
+                        if let Some(repo_name) = GitService::parse_repo_name(&url) {
+                            let base_dir = user_home_dir();
+                            let suggested = base_dir.join("Kant Modeller").join(&repo_name);
+                            m.target_dir = suggested.display().to_string();
+                        }
+                    }
                     m.remote_url = url;
                     m.error_message = None;
+                }
+            }
+
+            Message::UpdateGitTargetDir(dir) => {
+                if let Some(m) = &mut self.git_connection_modal {
+                    m.custom_target_dir = !dir.trim().is_empty();
+                    m.target_dir = dir;
+                    m.error_message = None;
+                }
+            }
+
+            Message::BrowseGitTargetDir => {
+                return Task::perform(
+                    async move { crate::ui::file_dialog::pick_folder() },
+                    Message::GitTargetDirSelected,
+                );
+            }
+
+            Message::GitTargetDirSelected(result) => {
+                if let Some(m) = &mut self.git_connection_modal {
+                    if let crate::ui::file_dialog::DialogResult::Selected(path) = result {
+                        let final_path = if let Some(repo_name) = GitService::parse_repo_name(&m.remote_url) {
+                            let is_non_empty_dir = path.is_dir()
+                                && path.read_dir().map_or(false, |mut i| i.next().is_some());
+                            if is_non_empty_dir && path.file_name().and_then(|n| n.to_str()) != Some(&repo_name) {
+                                path.join(repo_name)
+                            } else {
+                                path
+                            }
+                        } else {
+                            path
+                        };
+                        m.target_dir = final_path.display().to_string();
+                        m.custom_target_dir = true;
+                        m.error_message = None;
+                    }
                 }
             }
 
@@ -2253,50 +2304,115 @@ impl App {
 
             Message::SaveGitConnection => {
                 if let Some(mut state) = self.git_connection_modal.take() {
-                    let dir = match self.repo_dir() {
-                        Some(d) => d,
-                        None => {
-                            state.error_message = Some(
-                                "Modellen skal først gemmes i en dedikeret modelmappe før den kan forbindes til Git".into(),
-                            );
-                            self.git_connection_modal = Some(state);
-                            return Task::none();
-                        }
+                    let target_str = state.target_dir.trim().to_string();
+                    let dir = if !target_str.is_empty() {
+                        PathBuf::from(target_str)
+                    } else if let Some(d) = self.repo_dir() {
+                        d
+                    } else {
+                        state.error_message = Some(
+                            "Vælg eller angiv en lokal målmappe, hvor modellen skal placeres på computeren".into(),
+                        );
+                        self.git_connection_modal = Some(state);
+                        return Task::none();
                     };
 
-                    let is_inside_repo =
-                        GitService::run_git(&dir, &["rev-parse", "--is-inside-work-tree"]).is_ok();
+                    let url = state.remote_url.trim().to_string();
+                    let token = state.token.trim().to_string();
+                    let name = state.author_name.trim().to_string();
+                    let email = state.author_email.trim().to_string();
+
+                    // Sørg for at forældremappen eksisterer
+                    if let Some(parent) = dir.parent() {
+                        if !parent.as_os_str().is_empty() && !parent.exists() {
+                            let _ = std::fs::create_dir_all(parent);
+                        }
+                    }
+
+                    // Tjek om mappen er et eksisterende git-repo
+                    let is_inside_repo = GitService::run_git(&dir, &["rev-parse", "--is-inside-work-tree"]).is_ok();
+
                     if !is_inside_repo {
-                        if let Err(e) = GitService::init_repository(&dir) {
-                            state.error_message =
-                                Some(format!("Kunne ikke initialisere Git-lager: {}", e));
-                            self.git_connection_modal = Some(state);
-                            return Task::none();
+                        if !url.is_empty() {
+                            let auth_url = if !token.is_empty() {
+                                GitService::build_authenticated_url(&url, &token)
+                            } else {
+                                url.clone()
+                            };
+
+                            let is_empty_dir = !dir.exists() || dir.read_dir().map_or(true, |mut i| i.next().is_none());
+                            if is_empty_dir {
+                                match GitService::clone_repository(&auth_url, &dir) {
+                                    Ok(_) => {
+                                        let mut project = match ProjectStorage::load(&dir) {
+                                            Ok(p) => p,
+                                            Err(_) => {
+                                                let mut fresh = ModelProject::default();
+                                                if let Some(repo_name) = GitService::parse_repo_name(&url) {
+                                                    fresh.metadata_mut().set_name(repo_name);
+                                                }
+                                                let _ = ProjectStorage::save_to_directory(&fresh, &dir);
+                                                fresh
+                                            }
+                                        };
+                                        if let Some(repo_name) = GitService::parse_repo_name(&url) {
+                                            if project.metadata().name() == "Nyt FDA Modelprojekt" || project.metadata().name().trim().is_empty() {
+                                                project.metadata_mut().set_name(repo_name);
+                                            }
+                                        }
+                                        project.sync_concept_graph();
+                                        project.sync_information_graph();
+                                        self.project = project;
+                                    }
+                                    Err(e) => {
+                                        state.error_message = Some(format!("Kloning fejlede: {}", e));
+                                        self.git_connection_modal = Some(state);
+                                        return Task::none();
+                                    }
+                                }
+                            } else {
+                                if let Err(e) = GitService::init_repository(&dir) {
+                                    state.error_message = Some(format!("Kunne ikke initialisere Git: {}", e));
+                                    self.git_connection_modal = Some(state);
+                                    return Task::none();
+                                }
+                                let _ = ProjectStorage::save_to_directory(&self.project, &dir);
+                            }
+                        } else {
+                            if let Err(e) = GitService::init_repository(&dir) {
+                                state.error_message = Some(format!("Kunne ikke initialisere Git: {}", e));
+                                self.git_connection_modal = Some(state);
+                                return Task::none();
+                            }
+                            let _ = ProjectStorage::save_to_directory(&self.project, &dir);
                         }
+                    } else {
+                        let _ = ProjectStorage::save_to_directory(&self.project, &dir);
                     }
 
-                    let url = state.remote_url.trim();
                     if !url.is_empty() {
-                        let final_url = GitService::build_authenticated_url(url, &state.token);
+                        let final_url = GitService::build_authenticated_url(&url, &token);
                         if let Err(e) = GitService::set_remote_url(&dir, &final_url) {
-                            state.error_message =
-                                Some(format!("Kunne ikke gemme remote URL: {}", e));
+                            state.error_message = Some(format!("Kunne ikke gemme remote URL: {}", e));
                             self.git_connection_modal = Some(state);
                             return Task::none();
                         }
                     }
 
-                    let name = state.author_name.trim();
-                    let email = state.author_email.trim();
                     if !name.is_empty() || !email.is_empty() {
-                        if let Err(e) = GitService::set_user_identity(&dir, name, email) {
-                            state.error_message =
-                                Some(format!("Kunne ikke gemme forfatteridentitet: {}", e));
+                        if let Err(e) = GitService::set_user_identity(&dir, &name, &email) {
+                            state.error_message = Some(format!("Kunne ikke gemme forfatteridentitet: {}", e));
                             self.git_connection_modal = Some(state);
                             return Task::none();
                         }
                     }
 
+                    self.current_file_path = Some(dir.clone());
+                    self.save_status = SaveStatus::Saved {
+                        path: dir.display().to_string(),
+                        timestamp: current_timestamp(),
+                    };
+                    self.git_connection_modal = None;
                     let _ = self.update(Message::RefreshGitStatus);
                 }
             }
@@ -6472,6 +6588,26 @@ impl App {
         ]
         .spacing(4);
 
+        let dir_field = column![
+            text("Lokal Målmappe (Hvor modellen placeres på din computer)")
+                .size(12)
+                .color(ThemeColors::SLATE_700),
+            row![
+                text_input("/sti/til/lokal/modelmappe", &modal.target_dir)
+                    .style(modern_input_style)
+                    .on_input(Message::UpdateGitTargetDir)
+                    .padding([8, 12])
+                    .width(Length::Fill),
+                button(text("📂 Gennemse...").size(12))
+                    .style(secondary_button_style)
+                    .on_press(Message::BrowseGitTargetDir)
+                    .padding([8, 12]),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
+        ]
+        .spacing(4);
+
         let token_field = column![
             text("Personal Access Token (valgfrit ved private HTTPS-arkiver)")
                 .size(12)
@@ -6522,6 +6658,7 @@ impl App {
             subtitle,
             Space::new().height(8),
             remote_field,
+            dir_field,
             token_field,
             author_row,
             author_hint,
@@ -6595,7 +6732,7 @@ impl App {
         let modal_card = container(body)
             .style(modal_card_style)
             .padding(24)
-            .width(Length::Fixed(520.0));
+            .width(Length::Fixed(560.0));
 
         container(modal_card)
             .style(modal_backdrop_style)
