@@ -5186,3 +5186,159 @@ fn test_task_044_decomposed_storage_and_deterministic_serialization() {
     // Oprydning
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
+
+#[test]
+fn test_task_045_semantic_three_way_model_merge() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::information_model::{
+        Attribute, InformationClass, Multiplicity, PrimitiveType,
+    };
+    use kant::features::model::merge::merge_models;
+    use kant::features::model::{ModelMetadata, ModelProject, ModelStatus};
+
+    // 1. Opret Base model (fælles forfader)
+    let base_meta = ModelMetadata::new(
+        "Trafikmodel",
+        "Base beskrivelse",
+        "https://data.gov.dk/model/traffic",
+        "Transportministeriet",
+        "Trafik",
+        "1.0.0",
+        ModelStatus::Draft,
+    );
+    let mut base = ModelProject::new(base_meta);
+
+    let mut c1 = Concept::new("Køretøj", "Et transportmiddel", BelongsToDomain::Yes);
+    let c1_id = base.add_concept(c1.clone()).unwrap();
+
+    let c2 = Concept::new("Vejafgift", "Gebyr for vej", BelongsToDomain::Yes);
+    let c2_id = base.add_concept(c2.clone()).unwrap();
+
+    let mut cls1 = InformationClass::new("Køretøj");
+    cls1.add_concept_id(c1_id);
+    let attr1 = Attribute::new(
+        "id",
+        PrimitiveType::Integer,
+        Multiplicity::exactly_one(),
+    );
+    let attr1_id = attr1.id();
+    cls1.add_attribute(attr1);
+    let cls1_id = base.information_model_mut().add_class(cls1);
+
+    // 2. Opret Ours (lokale ændringer)
+    let mut ours = base.clone();
+    // Ændrer definition på c1
+    let mut c1_ours = ours.get_concept(c1_id).unwrap().clone();
+    c1_ours.set_definition("Et motordrevet transportmiddel");
+    ours.update_concept(c1_ours).unwrap();
+
+    // Ændrer definition på c2 til en lokal værdi
+    let mut c2_ours = ours.get_concept(c2_id).unwrap().clone();
+    c2_ours.set_definition("Lokal definition af afgift");
+    ours.update_concept(c2_ours).unwrap();
+
+    // Tilføjer c3 lokalt
+    let c3 = Concept::new("Færdselsregel", "Regel for adfærd i trafikken", BelongsToDomain::Yes);
+    let c3_id = ours.add_concept(c3).unwrap();
+
+    // Tilføjer attribute 2 til cls1 lokalt
+    let attr2 = Attribute::new(
+        "stelnummer",
+        PrimitiveType::CharacterString,
+        Multiplicity::exactly_one(),
+    );
+    let attr2_id = attr2.id();
+    ours.information_model_mut()
+        .get_class_mut(cls1_id)
+        .unwrap()
+        .add_attribute(attr2);
+
+    // 3. Opret Theirs (server ændringer)
+    let mut theirs = base.clone();
+    // Tilføjer source på c1 (bevarer base definition)
+    let mut c1_theirs = theirs.get_concept(c1_id).unwrap().clone();
+    c1_theirs.set_source(Some("Færdselsloven § 2".to_string()));
+    theirs.update_concept(c1_theirs).unwrap();
+
+    // Ændrer definition på c2 til en server værdi (MODSTRIDENDE)
+    let mut c2_theirs = theirs.get_concept(c2_id).unwrap().clone();
+    c2_theirs.set_definition("Server definition af afgift");
+    theirs.update_concept(c2_theirs).unwrap();
+
+    // Tilføjer c4 på serveren
+    let c4 = Concept::new("Parkering", "Henstilling af køretøj", BelongsToDomain::Yes);
+    let c4_id = theirs.add_concept(c4).unwrap();
+
+    // Tilføjer attribute 3 til cls1 på serveren
+    let attr3 = Attribute::new(
+        "registreringsnummer",
+        PrimitiveType::CharacterString,
+        Multiplicity::zero_or_one(),
+    );
+    let attr3_id = attr3.id();
+    theirs
+        .information_model_mut()
+        .get_class_mut(cls1_id)
+        .unwrap()
+        .add_attribute(attr3);
+
+    // 4. Kør merge_models
+    let outcome = merge_models(&base, &ours, &theirs);
+
+    // 5. Valider konflikter
+    assert_eq!(
+        outcome.conflicts.len(),
+        1,
+        "Der skal være præcis 1 feltkonflikt på Concept 2 (definition)"
+    );
+    let conflict = &outcome.conflicts[0];
+    assert_eq!(conflict.field_name, "definition");
+    assert_eq!(conflict.base_value, "Gebyr for vej");
+    assert_eq!(conflict.our_value, "Lokal definition af afgift");
+    assert_eq!(conflict.their_value, "Server definition af afgift");
+
+    // 6. Valider sammensmeltning af uafhængige felter (Concept 1)
+    let merged_c1 = outcome.merged_project.get_concept(c1_id).unwrap();
+    assert_eq!(
+        merged_c1.definition(),
+        "Et motordrevet transportmiddel",
+        "Ours definition skal være bevaret i Concept 1"
+    );
+    assert_eq!(
+        merged_c1.source(),
+        Some("Færdselsloven § 2"),
+        "Theirs kilde skal være flettet ind i Concept 1"
+    );
+
+    // 7. Valider uafhængige entiteter tilføjet på hver sin gren
+    assert!(
+        outcome.merged_project.get_concept(c3_id).is_some(),
+        "Concept 3 oprettet i Ours skal findes i flettet model"
+    );
+    assert!(
+        outcome.merged_project.get_concept(c4_id).is_some(),
+        "Concept 4 oprettet i Theirs skal findes i flettet model"
+    );
+    assert_eq!(outcome.merged_project.concepts().len(), 4);
+
+    // 8. Valider sammensmeltning af klasseattributter
+    let merged_cls = outcome
+        .merged_project
+        .information_model()
+        .get_class(cls1_id)
+        .unwrap();
+    assert_eq!(
+        merged_cls.attributes().len(),
+        3,
+        "Klassen skal have alle 3 attributter: base (id), ours (stelnummer) og theirs (registreringsnummer)"
+    );
+    let attr_ids: Vec<_> = merged_cls.attributes().iter().map(|a| a.id()).collect();
+    assert!(attr_ids.contains(&attr1_id));
+    assert!(attr_ids.contains(&attr2_id));
+    assert!(attr_ids.contains(&attr3_id));
+
+    // 9. Valider idempotens: merge(base, ours, ours) skal have 0 konflikter
+    let self_merge = merge_models(&base, &ours, &ours);
+    assert!(self_merge.conflicts.is_empty(), "Merge af identiske grene skal have 0 konflikter");
+}
+
