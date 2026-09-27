@@ -949,9 +949,9 @@ impl App {
                 if *n == 0 {
                     "Synkroniseret".to_string()
                 } else if *n == 1 {
-                    "1 klar til udgivelse".to_string()
+                    "1 udgivet lokalt".to_string()
                 } else {
-                    format!("{} klar til udgivelse", n)
+                    format!("{} udgivet lokalt", n)
                 }
             }
             RepoSyncStatus::IncomingCommits(n) => {
@@ -1892,7 +1892,7 @@ impl App {
                 let _ = ProjectStorage::save_to_directory(&self.project, &dir);
 
                 let mut preview_events = Vec::new();
-                if let Ok(status_out) = GitService::run_git(&dir, &["status", "--porcelain"]) {
+                if let Ok(status_out) = GitService::run_git(&dir, &["status", "--porcelain", "-uall", ".kant"]) {
                     for line in status_out.lines() {
                         let line = line.trim();
                         if line.is_empty() {

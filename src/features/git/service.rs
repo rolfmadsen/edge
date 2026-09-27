@@ -138,9 +138,9 @@ impl GitService {
             return Ok(RepoSyncStatus::Uninitialized);
         }
 
-        let has_head = Self::run_git(repo_path, &["rev-parse", "--verify", "HEAD"]).is_ok();
+        let has_head = Self::run_git(effective_path, &["rev-parse", "--verify", "HEAD"]).is_ok();
         if !has_head {
-            let status_out = Self::run_git(repo_path, &["status", "--porcelain"])?;
+            let status_out = Self::run_git(effective_path, &["status", "--porcelain", "-uall", ".kant"])?;
             if status_out.trim().is_empty() {
                 return Ok(RepoSyncStatus::UnpublishedCommits(0));
             } else {
@@ -148,17 +148,17 @@ impl GitService {
             }
         }
 
-        let status_out = Self::run_git(repo_path, &["status", "--porcelain"])?;
+        let status_out = Self::run_git(effective_path, &["status", "--porcelain", "-uall", ".kant"])?;
         if !status_out.trim().is_empty() {
             return Ok(RepoSyncStatus::PendingChanges);
         }
 
-        let upstream = Self::run_git(repo_path, &["rev-parse", "--abbrev-ref", "@{u}"]);
+        let upstream = Self::run_git(effective_path, &["rev-parse", "--abbrev-ref", "@{u}"]);
         match upstream {
             Ok(_) => {
                 let rev_list = Self::run_git(
-                    repo_path,
-                    &["rev-list", "--left-right", "--count", "HEAD...@{u}"],
+                    effective_path,
+                    &["rev-list", "--left-right", "--count", "HEAD...@{u}", "--", ".kant"],
                 )?;
                 let counts: Vec<&str> = rev_list.split_whitespace().collect();
                 let local = counts
@@ -181,7 +181,7 @@ impl GitService {
                 }
             }
             Err(_) => {
-                let count_out = Self::run_git(repo_path, &["rev-list", "--count", "HEAD"])?;
+                let count_out = Self::run_git(effective_path, &["rev-list", "--count", "HEAD", "--", ".kant"])?;
                 let count = count_out.trim().parse::<usize>().unwrap_or(0);
                 Ok(RepoSyncStatus::UnpublishedCommits(count))
             }
