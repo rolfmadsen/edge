@@ -296,6 +296,8 @@ impl GitService {
                 "log",
                 &max_arg,
                 "--format=format:%H%x1f%h%x1f%an%x1f%ae%x1f%aI%x1f%s%x1e",
+                "--",
+                ".kant",
             ],
         )?;
 
