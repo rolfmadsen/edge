@@ -4,12 +4,20 @@
   "name": "Informationsmodel",
   "nodes": [
     {
+      "class_id": "c38d4a80-96ae-468c-8ce8-a75a9034fc66",
+      "height": 80.0,
+      "id": "dc980ef2-d66b-4b65-80c0-cc4ef98cd65f",
+      "width": 220.0,
+      "x": 60.0,
+      "y": 60.0
+    },
+    {
       "class_id": "1d08710e-fb89-4ba9-b7bf-e64e6652e0f9",
       "height": 80.0,
       "id": "fe1d2f04-81c1-4996-a0c7-d12dce0ecffc",
       "width": 220.0,
-      "x": 100.0,
-      "y": 160.0
+      "x": 60.0,
+      "y": -80.0
     }
   ]
 }
