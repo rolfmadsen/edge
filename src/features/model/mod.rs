@@ -6,7 +6,10 @@ use uuid::Uuid;
 
 pub mod decomposed;
 pub mod merge;
+pub mod recent;
 pub mod storage;
+
+pub use recent::RecentStore;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ModelStatus {

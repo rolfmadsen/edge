@@ -6050,3 +6050,58 @@ fn test_task_051_model_isolation_and_git_provider_agnosticism() {
     let _ = std::fs::remove_dir_all(&temp_root);
 }
 
+#[test]
+fn test_task_052_recent_models_and_decomposed_path_resolution() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::model::recent::RecentStore;
+    use kant::features::model::storage::ProjectStorage;
+    use kant::features::model::ModelProject;
+    use kant::ui::app::{EdgeApp, Message};
+    use uuid::Uuid;
+
+    let temp_root = std::env::temp_dir().join(format!("kant_test_052_{}", Uuid::new_v4()));
+    let model_dir = temp_root.join("test_model_repo");
+    let _ = std::fs::create_dir_all(&model_dir);
+
+    // 1. Opret og gem et dekomponeret modelprojekt
+    let mut proj = ModelProject::default();
+    proj.metadata_mut().set_name("FDA Sundhedsmodel");
+    let concept = Concept::new("Patient", "En person modtager behandling", BelongsToDomain::Yes);
+    proj.add_concept(concept).unwrap();
+    ProjectStorage::save_to_directory(&proj, &model_dir).expect("skal gemme dekomponeret model");
+
+    let metadata_file = model_dir.join(".kant").join("metadata.json");
+    assert!(metadata_file.exists(), ".kant/metadata.json skal eksistere");
+
+    // 2. Test effective_model_path normalisering
+    let eff1 = ProjectStorage::effective_model_path(&metadata_file);
+    assert_eq!(eff1, model_dir, "metadata.json skal normaliseres til model-roden");
+
+    let eff2 = ProjectStorage::effective_model_path(&model_dir.join(".kant"));
+    assert_eq!(eff2, model_dir.join(".kant"), "mappesti forbliver intakt");
+
+    // 3. Test at ProjectStorage::load indlæser den fulde model selvom stien er .kant/metadata.json
+    let loaded_from_metadata_file = ProjectStorage::load(&metadata_file)
+        .expect("load fra metadata.json skal automatisk detektere .kant/ og hente hele modellen");
+    assert_eq!(loaded_from_metadata_file.metadata().name(), "FDA Sundhedsmodel");
+    assert_eq!(loaded_from_metadata_file.concepts().len(), 1);
+    assert_eq!(loaded_from_metadata_file.concepts()[0].preferred_term(), "Patient");
+
+    // 4. Test RecentStore normalisering og tracking
+    let mut store = RecentStore::default();
+    store.record_opened(&metadata_file);
+    assert_eq!(store.last_opened, Some(model_dir.clone()));
+    assert_eq!(store.recent_paths, vec![model_dir.clone()]);
+    assert_eq!(store.get_auto_open_candidate(), Some(model_dir.clone()));
+
+    // 5. Test i UI App: Åbning af metadata_file sætter roden korrekt og indlæser begreber
+    let mut app = EdgeApp::new_with_path(None);
+    let _ = app.update(Message::OpenProjectFile(metadata_file));
+    assert_eq!(app.current_file_path(), Some(&model_dir));
+    assert_eq!(app.project().concepts().len(), 1);
+    assert_eq!(app.project().metadata().name(), "FDA Sundhedsmodel");
+
+    // 6. Oprydning
+    let _ = std::fs::remove_dir_all(&temp_root);
+}
+

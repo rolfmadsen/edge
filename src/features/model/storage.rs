@@ -76,32 +76,65 @@ impl ProjectStorage {
         crate::features::model::decomposed::load_decomposed(root_path)
     }
 
+    /// Returnerer den overordnede modelmappe, hvis den angivne sti peger på en fil inde i .kant/ kataloget.
+    pub fn effective_model_path(path: &Path) -> PathBuf {
+        if path.is_file() {
+            if path.file_name().and_then(|n| n.to_str()) == Some("metadata.json") {
+                if let Some(parent) = path.parent() {
+                    if parent.file_name().and_then(|n| n.to_str()) == Some(".kant") {
+                        if let Some(root) = parent.parent() {
+                            return root.to_path_buf();
+                        }
+                    }
+                    return parent.to_path_buf();
+                }
+            } else if let Some(parent) = path.parent() {
+                if parent.file_name().and_then(|n| n.to_str()) == Some(".kant") {
+                    if let Some(root) = parent.parent() {
+                        return root.to_path_buf();
+                    }
+                    return parent.to_path_buf();
+                } else if let Some(grandparent) = parent.parent() {
+                    if grandparent.file_name().and_then(|n| n.to_str()) == Some(".kant") {
+                        if let Some(root) = grandparent.parent() {
+                            return root.to_path_buf();
+                        }
+                        return grandparent.to_path_buf();
+                    }
+                }
+            }
+        }
+        path.to_path_buf()
+    }
+
     /// Automatisk format-detekterende indlæsning (støtter .kant.json fil, .kant mappe eller rodmappe).
     pub fn load(path: &Path) -> Result<ModelProject, StorageError> {
-        if path.is_dir() {
-            if path.file_name().and_then(|n| n.to_str()) == Some(".kant")
-                || path.join(".kant").is_dir()
+        let eff = Self::effective_model_path(path);
+        if eff.is_dir() {
+            if eff.file_name().and_then(|n| n.to_str()) == Some(".kant")
+                || eff.join(".kant").is_dir()
             {
-                Self::load_from_directory(path)
+                Self::load_from_directory(&eff)
             } else {
-                let default_file = path.join(Self::default_project_path());
+                let default_file = eff.join(Self::default_project_path());
                 if default_file.is_file() {
                     Self::load_from_file(&default_file)
                 } else {
-                    Self::load_from_directory(path)
+                    Self::load_from_directory(&eff)
                 }
             }
         } else {
-            Self::load_from_file(path)
+            Self::load_from_file(&eff)
         }
     }
 
     /// Automatisk format-detekterende skrivning.
     pub fn save(project: &ModelProject, path: &Path) -> Result<(), StorageError> {
-        if path.is_dir() || path.file_name().and_then(|n| n.to_str()) == Some(".kant") {
-            Self::save_to_directory(project, path)
+        let eff = Self::effective_model_path(path);
+        if eff.is_dir() || eff.file_name().and_then(|n| n.to_str()) == Some(".kant") {
+            Self::save_to_directory(project, &eff)
         } else {
-            Self::save_to_file(project, path)
+            Self::save_to_file(project, &eff)
         }
     }
 }

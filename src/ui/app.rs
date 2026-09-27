@@ -638,6 +638,9 @@ pub enum Message {
     // Persistens & Filhåndtering
     SaveProject,
     OpenProjectDialog,
+    OpenProjectFolderDialog,
+    OpenProjectFolderCompleted(crate::ui::file_dialog::DialogResult),
+    OpenRecentProject(PathBuf),
     SaveProjectAsDialog,
     OpenDialogCompleted(crate::ui::file_dialog::DialogResult),
     SaveDialogCompleted(crate::ui::file_dialog::DialogResult),
@@ -797,11 +800,12 @@ pub struct App {
     conflict_resolver_modal: Option<ConflictResolverModalState>,
     git_connection_modal: Option<GitConnectionModalState>,
     git_clone_modal: Option<GitCloneModalState>,
+    recent_store: crate::features::model::recent::RecentStore,
 }
 
 impl Default for App {
     fn default() -> Self {
-        Self::new()
+        Self::new_auto_open()
     }
 }
 
@@ -810,8 +814,24 @@ impl App {
         Self::new_with_path(None)
     }
 
+    /// Opretter applikationen og åbner automatisk den senest anvendte model, hvis den findes på disken.
+    pub fn new_auto_open() -> Self {
+        let store = crate::features::model::recent::RecentStore::load();
+        if let Some(candidate) = store.get_auto_open_candidate() {
+            Self::new_with_path(Some(candidate))
+        } else {
+            Self::new_with_path(None)
+        }
+    }
+
     pub fn new_with_path(path: Option<PathBuf>) -> Self {
-        let repo_dir = match &path {
+        let mut recent_store = crate::features::model::recent::RecentStore::load();
+        let effective_path = path.as_deref().map(ProjectStorage::effective_model_path);
+        if let Some(ref ep) = effective_path {
+            recent_store.record_opened(ep);
+        }
+
+        let repo_dir = match &effective_path {
             Some(p) => {
                 let mut candidate = if p.is_dir() {
                     p.clone()
@@ -839,7 +859,7 @@ impl App {
             .and_then(|d| GitService::get_sync_status(d).ok())
             .unwrap_or(RepoSyncStatus::Uninitialized);
 
-        if let Some(p) = &path {
+        if let Some(p) = &effective_path {
             if p.exists() {
                 if let Ok(mut proj) = ProjectStorage::load(p) {
                     proj.sync_concept_graph();
@@ -849,11 +869,12 @@ impl App {
                         active_tab: Tab::ConceptList,
                         editor_state: None,
                         search_query: String::new(),
-                        current_file_path: path.clone(),
+                        current_file_path: Some(p.clone()),
                         save_status: SaveStatus::Saved {
                             path: p.display().to_string(),
                             timestamp: current_timestamp(),
                         },
+                        recent_store,
                         file_dialog_mode: None,
                         file_dialog_input: String::new(),
                         selected_graph_node_id: None,
@@ -951,7 +972,12 @@ impl App {
             conflict_resolver_modal: None,
             git_connection_modal: None,
             git_clone_modal: None,
+            recent_store,
         }
+    }
+
+    pub fn recent_store(&self) -> &crate::features::model::recent::RecentStore {
+        &self.recent_store
     }
 
     pub fn git_sync_status(&self) -> &RepoSyncStatus {
@@ -2427,6 +2453,7 @@ impl App {
                     }
 
                     self.current_file_path = Some(dir.clone());
+                    self.recent_store.record_opened(&dir);
                     self.save_status = SaveStatus::Saved {
                         path: dir.display().to_string(),
                         timestamp: current_timestamp(),
@@ -2580,6 +2607,7 @@ impl App {
                                 self.info_class_search.clear();
                                 self.active_tab = Tab::ConceptList;
                                 self.git_clone_modal = None;
+                                self.recent_store.record_opened(&target_path);
                                 let _ = self.update(Message::RefreshGitStatus);
                             }
                             Err(e) => {
@@ -2776,6 +2804,23 @@ impl App {
                     Message::OpenDialogCompleted,
                 );
             }
+            Message::OpenProjectFolderDialog => {
+                self.active_menu = None;
+                return Task::perform(
+                    async { crate::ui::file_dialog::pick_folder() },
+                    Message::OpenProjectFolderCompleted,
+                );
+            }
+            Message::OpenProjectFolderCompleted(res) => match res {
+                crate::ui::file_dialog::DialogResult::Selected(path) => {
+                    return self.update(Message::OpenProjectFile(path));
+                }
+                _ => {}
+            },
+            Message::OpenRecentProject(path) => {
+                self.active_menu = None;
+                return self.update(Message::OpenProjectFile(path));
+            }
             Message::OpenDialogCompleted(res) => match res {
                 crate::ui::file_dialog::DialogResult::Selected(path) => {
                     return self.update(Message::OpenProjectFile(path));
@@ -2836,40 +2881,46 @@ impl App {
                 }
                 self.file_dialog_mode = None;
             }
-            Message::OpenProjectFile(path) => match ProjectStorage::load(&path) {
-                Ok(mut proj) => {
-                    proj.sync_concept_graph();
-                    proj.sync_information_graph();
-                    self.project = proj;
-                    let display = path.display().to_string();
-                    self.current_file_path = Some(path);
-                    self.save_status = SaveStatus::Saved {
-                        path: display,
-                        timestamp: current_timestamp(),
-                    };
-                    self.file_dialog_mode = None;
-                    self.selected_graph_node_id = None;
-                    self.relation_dialog = None;
-                    self.quick_create = None;
-                    self.is_inline_graph_editing = false;
-                    if !self.project.concepts().is_empty() {
-                        self.active_tab = Tab::ConceptList;
-                    }
-                    if let Some(dir) = self.repo_dir() {
-                        if let Ok(st) = GitService::get_sync_status(&dir) {
-                            self.git_sync_status = st;
+            Message::OpenProjectFile(path) => {
+                let effective = ProjectStorage::effective_model_path(&path);
+                match ProjectStorage::load(&effective) {
+                    Ok(mut proj) => {
+                        proj.sync_concept_graph();
+                        proj.sync_information_graph();
+                        self.project = proj;
+                        let display = effective.display().to_string();
+                        self.current_file_path = Some(effective.clone());
+                        self.recent_store.record_opened(&effective);
+                        self.save_status = SaveStatus::Saved {
+                            path: display,
+                            timestamp: current_timestamp(),
+                        };
+                        self.file_dialog_mode = None;
+                        self.selected_graph_node_id = None;
+                        self.relation_dialog = None;
+                        self.quick_create = None;
+                        self.is_inline_graph_editing = false;
+                        if !self.project.concepts().is_empty() {
+                            self.active_tab = Tab::ConceptList;
                         }
-                    } else {
-                        self.git_sync_status = RepoSyncStatus::Uninitialized;
+                        if let Some(dir) = self.repo_dir() {
+                            if let Ok(st) = GitService::get_sync_status(&dir) {
+                                self.git_sync_status = st;
+                            }
+                        } else {
+                            self.git_sync_status = RepoSyncStatus::Uninitialized;
+                        }
+                    }
+                    Err(err) => {
+                        self.save_status =
+                            SaveStatus::Error(format!("Kunne ikke åbne {}: {}", path.display(), err));
                     }
                 }
-                Err(err) => {
-                    self.save_status =
-                        SaveStatus::Error(format!("Kunne ikke åbne {}: {}", path.display(), err));
-                }
-            },
+            }
             Message::SaveProjectToFile(path) => {
-                self.current_file_path = Some(path);
+                let effective = ProjectStorage::effective_model_path(&path);
+                self.current_file_path = Some(effective.clone());
+                self.recent_store.record_opened(&effective);
                 self.trigger_autosave();
                 self.file_dialog_mode = None;
             }
@@ -5672,59 +5723,142 @@ impl App {
             };
 
             let (left_offset, menu_body) = match menu_type {
-                MenuType::File => (
-                    136.0,
-                    column![
+                MenuType::File => {
+                    let recent_item = |icon: &'static str, title: String, path_str: String, msg: Message| {
+                        button(
+                            row![
+                                text(icon).size(14),
+                                Space::new().width(8),
+                                column![
+                                    text(title).size(12).color(ThemeColors::SLATE_800),
+                                    text(path_str).size(9).color(ThemeColors::TEXT_MUTED),
+                                ]
+                                .spacing(1),
+                            ]
+                            .align_y(Alignment::Center),
+                        )
+                        .style(|_theme, status| {
+                            let background = match status {
+                                button::Status::Hovered => {
+                                    Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT))
+                                }
+                                button::Status::Pressed => {
+                                    Some(iced::Background::Color(ThemeColors::SURFACE_BORDER))
+                                }
+                                _ => None,
+                            };
+                            button::Style {
+                                background,
+                                text_color: ThemeColors::SLATE_800,
+                                border: iced::Border {
+                                    radius: 6.0.into(),
+                                    ..Default::default()
+                                },
+                                shadow: iced::Shadow::default(),
+                                ..Default::default()
+                            }
+                        })
+                        .on_press(msg)
+                        .width(Length::Fill)
+                        .padding([4, 8])
+                    };
+
+                    let mut file_col = column![
                         text("PROJEKT & FILER")
                             .size(10)
                             .color(ThemeColors::TEXT_MUTED),
                         Space::new().height(2),
                         menu_item("➕", "Nyt projekt", Message::NewProject),
-                        menu_item("📁", "Åbn projekt...", Message::OpenProjectDialog),
+                        menu_item("📄", "Åbn projektfil...", Message::OpenProjectDialog),
+                        menu_item("📁", "Åbn modelmappe...", Message::OpenProjectFolderDialog),
                         menu_item("💾", "Gem", Message::SaveProject),
                         menu_item("💾", "Gem som...", Message::SaveProjectAsDialog),
-                        Space::new().height(4),
-                        make_separator(),
-                        Space::new().height(4),
+                    ]
+                    .spacing(2);
+
+                    let existing_recents: Vec<_> = self
+                        .recent_store
+                        .recent_paths
+                        .iter()
+                        .filter(|p| p.exists())
+                        .take(5)
+                        .cloned()
+                        .collect();
+
+                    if !existing_recents.is_empty() {
+                        file_col = file_col.push(Space::new().height(4));
+                        file_col = file_col.push(make_separator());
+                        file_col = file_col.push(Space::new().height(4));
+                        file_col = file_col.push(
+                            text("SENESTE MODELLER (RECENT)")
+                                .size(10)
+                                .color(ThemeColors::TEXT_MUTED),
+                        );
+                        file_col = file_col.push(Space::new().height(2));
+
+                        for path in existing_recents {
+                            let is_dir = path.is_dir() || path.join(".kant").is_dir();
+                            let icon = if is_dir { "📁" } else { "📄" };
+                            let name = path
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("model")
+                                .to_string();
+                            let full_str = path.display().to_string();
+                            file_col = file_col.push(recent_item(
+                                icon,
+                                name,
+                                full_str,
+                                Message::OpenRecentProject(path),
+                            ));
+                        }
+                    }
+
+                    file_col = file_col.push(Space::new().height(4));
+                    file_col = file_col.push(make_separator());
+                    file_col = file_col.push(Space::new().height(4));
+                    file_col = file_col.push(
                         text("MODELINDSTILLINGER")
                             .size(10)
                             .color(ThemeColors::TEXT_MUTED),
-                        Space::new().height(2),
-                        menu_item(
-                            "📋",
-                            "Modelomslag & Metadata...",
-                            Message::OpenMetadataModal
-                        ),
-                        Space::new().height(4),
-                        make_separator(),
-                        Space::new().height(4),
+                    );
+                    file_col = file_col.push(Space::new().height(2));
+                    file_col = file_col.push(menu_item(
+                        "📋",
+                        "Modelomslag & Metadata...",
+                        Message::OpenMetadataModal,
+                    ));
+                    file_col = file_col.push(Space::new().height(4));
+                    file_col = file_col.push(make_separator());
+                    file_col = file_col.push(Space::new().height(4));
+                    file_col = file_col.push(
                         text("VERSIONSSTYRING (GIT)")
                             .size(10)
                             .color(ThemeColors::TEXT_MUTED),
-                        Space::new().height(2),
-                        menu_item("📥", "Hent ændringer (Pull)", Message::PullModel,),
-                        menu_item(
-                            "🚀",
-                            "Commit og send ændringer (pull, add & push)...",
-                            Message::OpenPublishModal,
-                        ),
-                        Space::new().height(4),
-                        make_separator(),
-                        Space::new().height(4),
-                        menu_item(
-                            "⏳",
-                            "Modelhistorik & Tidslinje...",
-                            Message::OpenModelHistoryModal,
-                        ),
-                        menu_item(
-                            "⚙️",
-                            "Git indstillinger...",
-                            Message::OpenGitConnectionModal,
-                        ),
-                    ]
-                    .spacing(2)
-                    .width(Length::Fixed(350.0)),
-                ),
+                    );
+                    file_col = file_col.push(Space::new().height(2));
+                    file_col = file_col.push(menu_item("📥", "Hent ændringer (Pull)", Message::PullModel));
+                    file_col = file_col.push(menu_item(
+                        "🚀",
+                        "Commit og send ændringer (pull, add & push)...",
+                        Message::OpenPublishModal,
+                    ));
+                    file_col = file_col.push(Space::new().height(4));
+                    file_col = file_col.push(make_separator());
+                    file_col = file_col.push(Space::new().height(4));
+                    file_col = file_col.push(menu_item(
+                        "⏳",
+                        "Modelhistorik & Tidslinje...",
+                        Message::OpenModelHistoryModal,
+                    ));
+                    file_col = file_col.push(menu_item(
+                        "⚙️",
+                        "Git indstillinger...",
+                        Message::OpenGitConnectionModal,
+                    ));
+
+                    (136.0, file_col.width(Length::Fixed(360.0)))
+                }
                 MenuType::Help => (
                     216.0,
                     column![
