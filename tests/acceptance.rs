@@ -5358,12 +5358,18 @@ fn test_task_046_git_service_and_domain_event_mapping() {
 
     // 1. Initialiser Git-lager
     GitService::init_repository(&temp_dir).expect("init_repository skal lykkes");
-    assert!(temp_dir.join(".git").is_dir(), ".git mappen skal være oprettet");
+    assert!(
+        temp_dir.join(".git").is_dir(),
+        ".git mappen skal være oprettet"
+    );
 
     // 2. Tjek status på tomt repo
     let status = GitService::get_sync_status(&temp_dir).expect("status check skal lykkes");
     assert!(
-        matches!(status, RepoSyncStatus::Synced | RepoSyncStatus::UnpublishedCommits(0)),
+        matches!(
+            status,
+            RepoSyncStatus::Synced | RepoSyncStatus::UnpublishedCommits(0)
+        ),
         "Nyt repo skal være synkroniseret eller have 0 uudgivne commits"
     );
 
@@ -5379,15 +5385,21 @@ fn test_task_046_git_service_and_domain_event_mapping() {
     );
     let mut project = ModelProject::new(meta);
 
-    let c1 = Concept::new("Køretøj", "Transportmiddel til personer eller gods", BelongsToDomain::Yes);
+    let c1 = Concept::new(
+        "Køretøj",
+        "Transportmiddel til personer eller gods",
+        BelongsToDomain::Yes,
+    );
     let c1_id = project.add_concept(c1).unwrap();
 
-    let commit1_oid = GitService::publish_model(&temp_dir, &project, "Oprettet grundmodel med Køretøj")
-        .expect("publish_model skal lykkes");
+    let commit1_oid =
+        GitService::publish_model(&temp_dir, &project, "Oprettet grundmodel med Køretøj")
+            .expect("publish_model skal lykkes");
     assert!(!commit1_oid.is_empty(), "Commit OID må ikke være tom");
 
     // 4. Hent historik og verificer domænehændelser
-    let history = GitService::get_commit_history(&temp_dir, 10).expect("get_commit_history skal lykkes");
+    let history =
+        GitService::get_commit_history(&temp_dir, 10).expect("get_commit_history skal lykkes");
     assert_eq!(history.len(), 1);
     let first_commit = &history[0];
     assert_eq!(first_commit.oid, commit1_oid);
@@ -5397,7 +5409,10 @@ fn test_task_046_git_service_and_domain_event_mapping() {
     let has_c1_added = first_commit.changes.iter().any(|e| {
         e.action == ChangeAction::Added && e.entity_type == "Begreb" && e.entity_name == "Køretøj"
     });
-    assert!(has_c1_added, "Commit skal indeholde en Added Begreb Køretøj hændelse");
+    assert!(
+        has_c1_added,
+        "Commit skal indeholde en Added Begreb Køretøj hændelse"
+    );
 
     // 5. Rediger begreb og tilføj klasse, og test auto-genereret commit-summary
     let mut c1_updated = project.get_concept(c1_id).unwrap().clone();
@@ -5411,7 +5426,8 @@ fn test_task_046_git_service_and_domain_event_mapping() {
     let commit2_oid = GitService::publish_model(&temp_dir, &project, "")
         .expect("publish_model med auto-summary skal lykkes");
 
-    let history_after = GitService::get_commit_history(&temp_dir, 10).expect("historik skal hentes");
+    let history_after =
+        GitService::get_commit_history(&temp_dir, 10).expect("historik skal hentes");
     assert_eq!(history_after.len(), 2);
     let second_commit = &history_after[0];
     assert_eq!(second_commit.oid, commit2_oid);
@@ -5419,15 +5435,26 @@ fn test_task_046_git_service_and_domain_event_mapping() {
         !second_commit.message.is_empty(),
         "Auto-genereret commitbesked må ikke være tom"
     );
+    let expected_summary = DomainEventMapper::generate_commit_summary(&second_commit.changes);
+    assert_eq!(second_commit.message, expected_summary);
 
     // 6. Test element-specifik historik ("Time Travel" / Audit)
-    let c1_history = GitService::get_element_history(&temp_dir, c1_id).expect("element historik for c1");
-    assert_eq!(c1_history.len(), 2, "c1 skal have præcis 2 commits (oprettelse og ændring)");
+    let c1_history =
+        GitService::get_element_history(&temp_dir, c1_id).expect("element historik for c1");
+    assert_eq!(
+        c1_history.len(),
+        2,
+        "c1 skal have præcis 2 commits (oprettelse og ændring)"
+    );
 
-    let cls1_history = GitService::get_element_history(&temp_dir, cls1_id).expect("element historik for cls1");
-    assert_eq!(cls1_history.len(), 1, "cls1 skal have præcis 1 commit (oprettelse)");
+    let cls1_history =
+        GitService::get_element_history(&temp_dir, cls1_id).expect("element historik for cls1");
+    assert_eq!(
+        cls1_history.len(),
+        1,
+        "cls1 skal have præcis 1 commit (oprettelse)"
+    );
 
     // Oprydning
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
-
