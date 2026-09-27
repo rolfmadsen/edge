@@ -5774,7 +5774,7 @@ fn test_task_049_git_connection_remote_configuration_and_clone_ui() {
     // 4. Test håndtering af relativ filsti uden mappe (f.eks. standarden "model.kant.json")
     let mut rel_app = EdgeApp::new();
     rel_app.set_active_file_path(Some(std::path::PathBuf::from("model.kant.json")));
-    assert_eq!(rel_app.repo_dir(), std::path::PathBuf::from("."));
+    assert_eq!(rel_app.repo_dir(), None, "Relativ fil uden dedikeret mappe må ikke returnere '.'");
     let _ = rel_app.update(Message::OpenGitConnectionModal);
     assert!(rel_app.git_connection_modal().is_some());
 
@@ -5979,6 +5979,10 @@ fn test_task_051_model_isolation_and_git_provider_agnosticism() {
     let _ = app.update(Message::UpdateConceptField(
         ConceptFormField::PreferredTerm,
         "TestBegreb".to_string(),
+    ));
+    let _ = app.update(Message::UpdateConceptField(
+        ConceptFormField::Definition,
+        "En definition af testbegrebet".to_string(),
     ));
     let _ = app.update(Message::SaveConcept);
     assert_eq!(app.project().concepts().len(), 1);

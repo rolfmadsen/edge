@@ -780,26 +780,32 @@ impl Default for App {
 
 impl App {
     pub fn new() -> Self {
-        let default_path = ProjectStorage::default_project_path();
-        Self::new_with_path(Some(default_path))
+        Self::new_with_path(None)
     }
 
     pub fn new_with_path(path: Option<PathBuf>) -> Self {
         let repo_dir = match &path {
             Some(p) => {
-                if p.is_dir() {
+                let candidate = if p.is_dir() {
                     p.clone()
                 } else {
                     match p.parent() {
                         Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
-                        _ => PathBuf::from("."),
+                        _ => PathBuf::new(),
                     }
+                };
+                if GitService::is_safe_model_repo_dir(&candidate) {
+                    Some(candidate)
+                } else {
+                    None
                 }
             }
-            None => PathBuf::from("."),
+            None => None,
         };
-        let git_sync_status =
-            GitService::get_sync_status(&repo_dir).unwrap_or(RepoSyncStatus::Uninitialized);
+        let git_sync_status = repo_dir
+            .as_ref()
+            .and_then(|d| GitService::get_sync_status(d).ok())
+            .unwrap_or(RepoSyncStatus::Uninitialized);
 
         if let Some(p) = &path {
             if p.exists() {
@@ -975,19 +981,28 @@ impl App {
         self.current_file_path.as_ref()
     }
 
-    pub fn repo_dir(&self) -> PathBuf {
-        match &self.current_file_path {
+    pub fn repo_dir(&self) -> Option<PathBuf> {
+        let candidate = match &self.current_file_path {
             Some(p) => {
                 if p.is_dir() {
-                    p.clone()
+                    Some(p.clone())
                 } else {
-                    match p.parent() {
-                        Some(parent) if !parent.as_os_str().is_empty() => parent.to_path_buf(),
-                        _ => PathBuf::from("."),
-                    }
+                    p.parent()
+                        .filter(|parent| !parent.as_os_str().is_empty())
+                        .map(|parent| parent.to_path_buf())
                 }
             }
-            None => PathBuf::from("."),
+            None => None,
+        };
+
+        if let Some(dir) = candidate {
+            if GitService::is_safe_model_repo_dir(&dir) {
+                Some(dir)
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 
@@ -1885,13 +1900,24 @@ impl App {
                 self.metadata_modal = None;
             }
             Message::RefreshGitStatus => {
-                let dir = self.repo_dir();
-                if let Ok(st) = GitService::get_sync_status(&dir) {
-                    self.git_sync_status = st;
+                if let Some(dir) = self.repo_dir() {
+                    if let Ok(st) = GitService::get_sync_status(&dir) {
+                        self.git_sync_status = st;
+                    }
+                } else {
+                    self.git_sync_status = RepoSyncStatus::Uninitialized;
                 }
             }
             Message::OpenPublishModal => {
-                let dir = self.repo_dir();
+                let dir = match self.repo_dir() {
+                    Some(d) => d,
+                    None => {
+                        self.save_status = SaveStatus::Error(
+                            "Gem venligst modellen i en dedikeret modelmappe før den kan udgives med Git".into(),
+                        );
+                        return self.update(Message::SaveProjectAsDialog);
+                    }
+                };
                 let _ = ProjectStorage::save_to_directory(&self.project, &dir);
 
                 let mut preview_events = Vec::new();
@@ -1947,7 +1973,17 @@ impl App {
             }
             Message::ConfirmPublish => {
                 if let Some(modal) = self.publish_modal.take() {
-                    let dir = self.repo_dir();
+                    let dir = match self.repo_dir() {
+                        Some(d) => d,
+                        None => {
+                            let mut failed_modal = modal;
+                            failed_modal.error = Some(
+                                "Modellen er ikke gemt i en dedikeret modelmappe".into(),
+                            );
+                            self.publish_modal = Some(failed_modal);
+                            return Task::none();
+                        }
+                    };
                     let has_pending =
                         GitService::run_git(&dir, &["status", "--porcelain", "-uall", ".kant"])
                             .map(|s| !s.trim().is_empty())
@@ -2010,44 +2046,53 @@ impl App {
                 }
             }
             Message::InitGitRepository => {
-                let dir = self.repo_dir();
-                let _ = GitService::init_repository(&dir);
-                if let Ok(st) = GitService::get_sync_status(&dir) {
-                    self.git_sync_status = st;
+                if let Some(dir) = self.repo_dir() {
+                    let _ = GitService::init_repository(&dir);
+                    if let Ok(st) = GitService::get_sync_status(&dir) {
+                        self.git_sync_status = st;
+                    }
+                } else {
+                    self.save_status = SaveStatus::Error(
+                        "Gem venligst modellen i en dedikeret modelmappe før versionsstyring aktiveres".into(),
+                    );
+                    return self.update(Message::SaveProjectAsDialog);
                 }
             }
             Message::PullModel => {
-                let dir = self.repo_dir();
-                match GitService::pull_model(&dir, "origin", "main") {
-                    Ok(PullResult::Merged { conflicts }) if !conflicts.is_empty() => {
-                        if let Ok(p) = ProjectStorage::load(&dir) {
-                            self.project = p;
+                if let Some(dir) = self.repo_dir() {
+                    match GitService::pull_model(&dir, "origin", "main") {
+                        Ok(PullResult::Merged { conflicts }) if !conflicts.is_empty() => {
+                            if let Ok(p) = ProjectStorage::load(&dir) {
+                                self.project = p;
+                            }
+                            self.conflict_resolver_modal =
+                                Some(ConflictResolverModalState::new(conflicts));
                         }
-                        self.conflict_resolver_modal =
-                            Some(ConflictResolverModalState::new(conflicts));
-                    }
-                    Ok(_) => {
-                        if let Ok(p) = ProjectStorage::load(&dir) {
-                            self.project = p;
+                        Ok(_) => {
+                            if let Ok(p) = ProjectStorage::load(&dir) {
+                                self.project = p;
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Fejl ved hentning af seneste model: {}", e);
                         }
                     }
-                    Err(e) => {
-                        eprintln!("Fejl ved hentning af seneste model: {}", e);
+                    if let Ok(st) = GitService::get_sync_status(&dir) {
+                        self.git_sync_status = st;
                     }
-                }
-                if let Ok(st) = GitService::get_sync_status(&dir) {
-                    self.git_sync_status = st;
                 }
             }
             Message::OpenModelHistoryModal => {
-                let dir = self.repo_dir();
-                let commits = GitService::get_commit_history(&dir, 50).unwrap_or_default();
-                self.history_modal = Some(ModelHistoryModalState::new(None, commits));
+                if let Some(dir) = self.repo_dir() {
+                    let commits = GitService::get_commit_history(&dir, 50).unwrap_or_default();
+                    self.history_modal = Some(ModelHistoryModalState::new(None, commits));
+                }
             }
             Message::OpenElementHistoryModal(id) => {
-                let dir = self.repo_dir();
-                let commits = GitService::get_element_history(&dir, id).unwrap_or_default();
-                self.history_modal = Some(ModelHistoryModalState::new(Some(id), commits));
+                if let Some(dir) = self.repo_dir() {
+                    let commits = GitService::get_element_history(&dir, id).unwrap_or_default();
+                    self.history_modal = Some(ModelHistoryModalState::new(Some(id), commits));
+                }
             }
             Message::CloseModelHistoryModal => {
                 self.history_modal = None;
@@ -2120,31 +2165,36 @@ impl App {
                         }
                     }
                     self.save_status = SaveStatus::Unsaved;
-                    let dir = self.repo_dir();
-                    let _ = GitService::publish_model(
-                        &dir,
-                        &self.project,
-                        "Løst modelfletningskonflikter",
-                    );
-                    let _ = GitService::push_model(&dir, "origin");
-                    if let Ok(st) = GitService::get_sync_status(&dir) {
-                        self.git_sync_status = st;
+                    if let Some(dir) = self.repo_dir() {
+                        let _ = GitService::publish_model(
+                            &dir,
+                            &self.project,
+                            "Løst modelfletningskonflikter",
+                        );
+                        let _ = GitService::push_model(&dir, "origin");
+                        if let Ok(st) = GitService::get_sync_status(&dir) {
+                            self.git_sync_status = st;
+                        }
                     }
                 }
             }
 
             Message::OpenGitConnectionModal => {
                 self.active_menu = None;
-                let dir = self.repo_dir();
-
-                let raw_url = GitService::get_remote_url(&dir)
-                    .ok()
-                    .flatten()
-                    .unwrap_or_default();
+                let dir_opt = self.repo_dir();
+                let (raw_url, (name, email)) = if let Some(dir) = &dir_opt {
+                    let u = GitService::get_remote_url(dir)
+                        .ok()
+                        .flatten()
+                        .unwrap_or_default();
+                    let id = GitService::get_user_identity(dir)
+                        .ok()
+                        .unwrap_or((None, None));
+                    (u, id)
+                } else {
+                    (String::new(), (None, None))
+                };
                 let (url, token) = GitService::parse_remote_url(&raw_url);
-                let (name, email) = GitService::get_user_identity(&dir)
-                    .ok()
-                    .unwrap_or((None, None));
 
                 self.git_connection_modal = Some(GitConnectionModalState {
                     remote_url: url,
@@ -2189,7 +2239,16 @@ impl App {
 
             Message::SaveGitConnection => {
                 if let Some(mut state) = self.git_connection_modal.take() {
-                    let dir = self.repo_dir();
+                    let dir = match self.repo_dir() {
+                        Some(d) => d,
+                        None => {
+                            state.error_message = Some(
+                                "Modellen skal først gemmes i en dedikeret modelmappe før den kan forbindes til Git".into(),
+                            );
+                            self.git_connection_modal = Some(state);
+                            return Task::none();
+                        }
+                    };
 
                     let is_inside_repo =
                         GitService::run_git(&dir, &["rev-parse", "--is-inside-work-tree"]).is_ok();
@@ -2229,9 +2288,10 @@ impl App {
             }
 
             Message::RemoveGitRemote => {
-                let dir = self.repo_dir();
-                let _ = GitService::remove_remote(&dir);
-                let _ = self.update(Message::RefreshGitStatus);
+                if let Some(dir) = self.repo_dir() {
+                    let _ = GitService::remove_remote(&dir);
+                    let _ = self.update(Message::RefreshGitStatus);
+                }
                 if let Some(m) = &mut self.git_connection_modal {
                     m.remote_url.clear();
                     m.token.clear();
@@ -2254,6 +2314,16 @@ impl App {
 
             Message::UpdateGitCloneUrl(url) => {
                 if let Some(m) = &mut self.git_clone_modal {
+                    if let Some(repo_name) = GitService::parse_repo_name(&url) {
+                        if m.target_dir.is_empty() || m.target_dir.contains("Kant Modeller") {
+                            let base_dir = std::env::var("HOME")
+                                .or_else(|_| std::env::var("USERPROFILE"))
+                                .map(PathBuf::from)
+                                .unwrap_or_else(|_| PathBuf::from("."));
+                            let suggested = base_dir.join("Kant Modeller").join(&repo_name);
+                            m.target_dir = suggested.display().to_string();
+                        }
+                    }
                     m.remote_url = url;
                     m.error_message = None;
                 }
@@ -2276,26 +2346,54 @@ impl App {
                     } else {
                         let target_path = PathBuf::from(&target);
                         match GitService::clone_repository(&url, &target_path) {
-                            Ok(_) => match ProjectStorage::load(&target_path) {
-                                Ok(project) => {
-                                    self.project = project;
-                                    self.current_file_path = Some(target_path.clone());
-                                    self.save_status = SaveStatus::Saved {
-                                        path: target_path.display().to_string(),
-                                        timestamp: current_timestamp(),
-                                    };
-                                    self.git_clone_modal = None;
-                                    let _ = self.update(Message::RefreshGitStatus);
-                                }
-                                Err(e) => {
-                                    if let Some(m) = &mut self.git_clone_modal {
-                                        m.error_message = Some(format!(
-                                                "Kloning lykkedes, men modellen kunne ikke indlæses: {}",
-                                                e
-                                            ));
+                            Ok(_) => {
+                                let mut project = match ProjectStorage::load(&target_path) {
+                                    Ok(p) => p,
+                                    Err(_) => {
+                                        // Tomt repository klonet: Initialiser frisk default FDA model
+                                        let mut fresh = ModelProject::default();
+                                        if let Some(repo_name) = GitService::parse_repo_name(&url) {
+                                            fresh.metadata_mut().set_name(repo_name);
+                                        }
+                                        let _ = ProjectStorage::save_to_directory(&fresh, &target_path);
+                                        fresh
+                                    }
+                                };
+
+                                // Sæt projektnavn fra repository-navnet hvis det ikke allerede er unikt defineret
+                                if let Some(repo_name) = GitService::parse_repo_name(&url) {
+                                    if project.metadata().name() == "Nyt FDA Modelprojekt"
+                                        || project.metadata().name().trim().is_empty()
+                                    {
+                                        project.metadata_mut().set_name(repo_name);
                                     }
                                 }
-                            },
+
+                                project.sync_concept_graph();
+                                project.sync_information_graph();
+
+                                // Fuldstændig ren tavle for det klonede projekt (AC4)
+                                self.project = project;
+                                self.current_file_path = Some(target_path.clone());
+                                self.save_status = SaveStatus::Saved {
+                                    path: target_path.display().to_string(),
+                                    timestamp: current_timestamp(),
+                                };
+                                self.editor_state = None;
+                                self.is_inline_graph_editing = false;
+                                self.selected_graph_node_id = None;
+                                self.selected_edge = None;
+                                self.relation_dialog = None;
+                                self.quick_create = None;
+                                self.selected_info_class_id = None;
+                                self.selected_info_graph_node_id = None;
+                                self.selected_info_edge = None;
+                                self.search_query.clear();
+                                self.info_class_search.clear();
+                                self.active_tab = Tab::ConceptList;
+                                self.git_clone_modal = None;
+                                let _ = self.update(Message::RefreshGitStatus);
+                            }
                             Err(e) => {
                                 if let Some(m) = &mut self.git_clone_modal {
                                     m.error_message = Some(format!("{}", e));
@@ -2358,10 +2456,14 @@ impl App {
                 self.search_query.clear();
                 self.current_file_path = None;
                 self.save_status = SaveStatus::Unsaved;
+                self.git_sync_status = RepoSyncStatus::Uninitialized;
                 self.selected_graph_node_id = None;
+                self.selected_edge = None;
                 self.relation_dialog = None;
                 self.quick_create = None;
                 self.selected_info_class_id = None;
+                self.selected_info_graph_node_id = None;
+                self.selected_info_edge = None;
                 self.info_class_search.clear();
             }
             Message::StartNewConcept => {
@@ -6292,7 +6394,7 @@ impl App {
         ]
         .align_y(Alignment::Center);
 
-        let subtitle = text("Forbind denne model til et centralt Git-fjernlager (fx GitHub, GitLab eller Azure DevOps).")
+        let subtitle = text("Forbind denne model til et centralt Git-fjernlager (fx GitLab, Gitea, GitHub eller intern Git-server).")
             .size(12)
             .color(ThemeColors::TEXT_MUTED);
 
@@ -6301,7 +6403,7 @@ impl App {
                 .size(12)
                 .color(ThemeColors::SLATE_700),
             text_input(
-                "fx https://github.com/organisation/fda-model.git",
+                "fx https://git.organisation.dk/model-arkiv.git (eller GitHub/GitLab)",
                 &modal.remote_url
             )
             .style(modern_input_style)
@@ -6315,7 +6417,7 @@ impl App {
                 .size(12)
                 .color(ThemeColors::SLATE_700),
             text_input(
-                "Indtast GitHub / GitLab token (f.eks. ghp_xxxxxxxxxxxx)",
+                "Indtast Personal Access Token (f.eks. glpat_..., ghp_... eller token)",
                 &modal.token
             )
             .secure(true)
@@ -6466,7 +6568,7 @@ impl App {
                 .size(12)
                 .color(ThemeColors::SLATE_700),
             text_input(
-                "fx https://github.com/organisation/fda-model.git",
+                "fx https://git.organisation.dk/model-arkiv.git (eller GitHub/GitLab)",
                 &modal.remote_url
             )
             .style(modern_input_style)

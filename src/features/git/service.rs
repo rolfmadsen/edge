@@ -2,7 +2,7 @@ use crate::features::git::events::{ChangeAction, DomainChangeEvent, DomainEventM
 use crate::features::model::storage::ProjectStorage;
 use crate::features::model::ModelProject;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use uuid::Uuid;
 
@@ -645,7 +645,63 @@ impl GitService {
         (raw_url.to_string(), None)
     }
 
-    /// Sammensætter en URL med token hvis specificeret.
+    /// Udleder repository-navnet fra en Git URL (fx 'kant_begrebs_og_informationsmodeller' fra 'https://github.com/org/kant_begrebs_og_informationsmodeller.git').
+    pub fn parse_repo_name(url: &str) -> Option<String> {
+        let trimmed = url.trim().trim_end_matches('/');
+        if trimmed.is_empty() {
+            return None;
+        }
+        let without_git = trimmed.strip_suffix(".git").unwrap_or(trimmed);
+        let segment = without_git.rsplit(|c| c == '/' || c == ':').next()?;
+        let clean_name = segment.trim();
+        if clean_name.is_empty() {
+            None
+        } else {
+            Some(clean_name.to_string())
+        }
+    }
+
+    /// Validerer om en mappe er en sikker, isoleret modelmappe og IKKE et software- eller systemkatalog.
+    pub fn is_safe_model_repo_dir(dir: &Path) -> bool {
+        if dir.as_os_str().is_empty() {
+            return false;
+        }
+        let canonical = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
+        if canonical == Path::new("/") {
+            return false;
+        }
+        if let Ok(home) = std::env::var("HOME") {
+            if !home.is_empty() && (dir == Path::new(&home) || canonical == PathBuf::from(&home)) {
+                return false;
+            }
+        }
+        if let Ok(profile) = std::env::var("USERPROFILE") {
+            if !profile.is_empty()
+                && (dir == Path::new(&profile) || canonical == PathBuf::from(&profile))
+            {
+                return false;
+            }
+        }
+
+        // Tjek for typiske software-udviklingskataloger, som aldrig må bruges som model-repo
+        let software_manifests = [
+            "Cargo.toml",
+            "package.json",
+            "pom.xml",
+            "go.mod",
+            "build.gradle",
+            "requirements.txt",
+        ];
+        for manifest in &software_manifests {
+            if dir.join(manifest).exists() {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// Sammensætter en URL med token hvis specificeret (agnostisk overfor GitLab, Gitea, GitHub, etc.).
     pub fn build_authenticated_url(url: &str, token: &str) -> String {
         let (clean_url, _) = Self::parse_remote_url(url);
         let trimmed_token = token.trim();
@@ -657,8 +713,10 @@ impl GitService {
                 format!("https://{}@{}", trimmed_token, stripped)
             } else if stripped.contains("github.com") {
                 format!("https://x-access-token:{}@{}", trimmed_token, stripped)
-            } else {
+            } else if stripped.contains("gitlab.com") || trimmed_token.starts_with("glpat-") {
                 format!("https://oauth2:{}@{}", trimmed_token, stripped)
+            } else {
+                format!("https://{}@{}", trimmed_token, stripped)
             }
         } else {
             clean_url
