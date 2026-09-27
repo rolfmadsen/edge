@@ -6143,10 +6143,10 @@ impl App {
 
         let author_row = row![
             column![
-                text("Arkitektnavn (user.name)")
+                text("Git Brugernavn (user.name)")
                     .size(12)
                     .color(ThemeColors::SLATE_700),
-                text_input("Fornavn Efternavn", &modal.author_name)
+                text_input("f.eks. Anders Hansen", &modal.author_name)
                     .style(modern_input_style)
                     .on_input(Message::UpdateGitAuthorName)
                     .padding([8, 12]),
@@ -6154,10 +6154,10 @@ impl App {
             .spacing(4)
             .width(Length::FillPortion(1)),
             column![
-                text("Arbejdsmail (user.email)")
+                text("Git E-mail (user.email)")
                     .size(12)
                     .color(ThemeColors::SLATE_700),
-                text_input("navn@organisation.dk", &modal.author_email)
+                text_input("f.eks. anders@organisation.dk", &modal.author_email)
                     .style(modern_input_style)
                     .on_input(Message::UpdateGitAuthorEmail)
                     .padding([8, 12]),
