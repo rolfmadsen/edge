@@ -5649,3 +5649,108 @@ fn test_task_048_model_graph_timeline_element_history_and_conflict_resolver() {
     // 7. Oprydning
     let _ = std::fs::remove_dir_all(&temp_dir);
 }
+
+#[test]
+fn test_task_049_git_connection_remote_configuration_and_clone_ui() {
+    use kant::features::git::service::GitService;
+    use kant::features::model::Concept;
+    use kant::ui::app::{EdgeApp, Message};
+
+    if !GitService::is_git_installed() {
+        eprintln!("Skipping test: git binary not found");
+        return;
+    }
+
+    let temp_root = std::env::temp_dir().join(format!("kant_test_049_{}", Uuid::new_v4()));
+    let repo_dir = temp_root.join("local_repo");
+    let clone_dir = temp_root.join("cloned_repo");
+    let _ = std::fs::create_dir_all(&repo_dir);
+
+    // 1. Initialiser repo og test direkte GitService remote & identity funktioner
+    assert!(GitService::init_repository(&repo_dir).is_ok());
+
+    // Før remote tilføjes skal den returnere None
+    let initial_remote = GitService::get_remote_url(&repo_dir).unwrap();
+    assert_eq!(initial_remote, None);
+
+    // Tilføj fjernlager URL (origin)
+    let test_remote_url = "https://github.com/kant-fda/model-arkiv.git";
+    GitService::set_remote_url(&repo_dir, test_remote_url).expect("set_remote_url skal lykkes");
+    let remote_after_set = GitService::get_remote_url(&repo_dir).unwrap();
+    assert_eq!(remote_after_set, Some(test_remote_url.to_string()));
+
+    // Sæt forfatteridentitet
+    GitService::set_user_identity(&repo_dir, "Søren Arkitekt", "soren@fda.dk")
+        .expect("set_user_identity skal lykkes");
+    let (name, email) = GitService::get_user_identity(&repo_dir).unwrap();
+    assert_eq!(name, Some("Søren Arkitekt".to_string()));
+    assert_eq!(email, Some("soren@fda.dk".to_string()));
+
+    // Fjern fjernlager
+    GitService::remove_remote(&repo_dir).expect("remove_remote skal lykkes");
+    let remote_after_remove = GitService::get_remote_url(&repo_dir).unwrap();
+    assert_eq!(remote_after_remove, None);
+
+    // 2. Klargør en commit i repo_dir så det kan klones
+    let mut initial_project = ModelProject::new("Klonbar Model");
+    let c = Concept::new("Kunde", "En person der køber ydelser");
+    initial_project.add_concept(c).unwrap();
+    ProjectStorage::save_to_directory(&repo_dir, &initial_project).unwrap();
+    GitService::publish_model(&repo_dir, "Initiel model før klon").unwrap();
+
+    // Test GitService::clone_repository
+    GitService::clone_repository(repo_dir.to_str().unwrap(), &clone_dir)
+        .expect("Git clone skal lykkes");
+    assert!(clone_dir.join(".kant").exists() || clone_dir.join(".git").exists());
+
+    // 3. Test UI App modaler for Git-forbindelse og Klon
+    let mut app = EdgeApp::new();
+    app.set_active_file_path(Some(repo_dir.clone()));
+
+    // Åbn forbindelsesdialog
+    assert!(app.git_connection_modal().is_none());
+    let _ = app.update(Message::OpenGitConnectionModal);
+    assert!(app.git_connection_modal().is_some(), "GitConnectionModal skal være åben");
+
+    // Udfyld formularfelter
+    let _ = app.update(Message::UpdateGitRemoteUrl("https://github.com/kant-fda/central.git".into()));
+    let _ = app.update(Message::UpdateGitAuthorName("Mette Modeller".into()));
+    let _ = app.update(Message::UpdateGitAuthorEmail("mette@fda.dk".into()));
+
+    let modal = app.git_connection_modal().unwrap();
+    assert_eq!(modal.remote_url, "https://github.com/kant-fda/central.git");
+    assert_eq!(modal.author_name, "Mette Modeller");
+    assert_eq!(modal.author_email, "mette@fda.dk");
+
+    // Gem forbindelsen
+    let _ = app.update(Message::SaveGitConnection);
+    assert!(app.git_connection_modal().is_none(), "Modal skal lukkes efter gem");
+
+    // Bekræft at GitService afspejler ændringerne på disk
+    assert_eq!(
+        GitService::get_remote_url(&repo_dir).unwrap(),
+        Some("https://github.com/kant-fda/central.git".into())
+    );
+    let (saved_name, saved_email) = GitService::get_user_identity(&repo_dir).unwrap();
+    assert_eq!(saved_name, Some("Mette Modeller".into()));
+    assert_eq!(saved_email, Some("mette@fda.dk".into()));
+
+    // Test Klon modal i UI
+    assert!(app.git_clone_modal().is_none());
+    let _ = app.update(Message::OpenGitCloneModal);
+    assert!(app.git_clone_modal().is_some(), "GitCloneModal skal være åben");
+
+    let ui_clone_target = temp_root.join("ui_cloned");
+    let _ = app.update(Message::UpdateGitCloneUrl(repo_dir.to_str().unwrap().into()));
+    let _ = app.update(Message::UpdateGitCloneTargetDir(ui_clone_target.to_str().unwrap().into()));
+
+    // Udfør klon i appen
+    let _ = app.update(Message::ExecuteGitClone);
+    assert!(app.git_clone_modal().is_none(), "Klon modal skal lukke ved succes");
+    assert!(ui_clone_target.exists(), "Klonet mappe skal eksistere");
+    assert_eq!(app.project().metadata().name(), "Klonbar Model");
+
+    // 4. Oprydning
+    let _ = std::fs::remove_dir_all(&temp_root);
+}
+
