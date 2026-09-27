@@ -134,6 +134,22 @@ fn cleanup_stale_files(dir: &Path, active_uuids: &HashSet<Uuid>) -> Result<(), s
     Ok(())
 }
 
+fn deterministic_uuid(key: &str) -> Uuid {
+    use std::hash::{Hash, Hasher};
+    let mut h1 = std::collections::hash_map::DefaultHasher::new();
+    key.hash(&mut h1);
+    let u1 = h1.finish();
+    let mut h2 = std::collections::hash_map::DefaultHasher::new();
+    (key, "salt_kant_rel").hash(&mut h2);
+    let u2 = h2.finish();
+    let mut bytes = [0u8; 16];
+    bytes[0..8].copy_from_slice(&u1.to_be_bytes());
+    bytes[8..16].copy_from_slice(&u2.to_be_bytes());
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    Uuid::from_bytes(bytes)
+}
+
 /// Gemmer et ModelProject i dekomponeret format under `.kant/`.
 pub fn save_decomposed(project: &ModelProject, root_path: &Path) -> Result<(), StorageError> {
     // 1. Fail-closed validering
@@ -183,22 +199,6 @@ pub fn save_decomposed(project: &ModelProject, root_path: &Path) -> Result<(), S
         atomic_write_file(&file_path, &json)?;
     }
     cleanup_stale_files(&classes_dir, &active_class_ids)?;
-
-    fn deterministic_uuid(key: &str) -> Uuid {
-        use std::hash::{Hash, Hasher};
-        let mut h1 = std::collections::hash_map::DefaultHasher::new();
-        key.hash(&mut h1);
-        let u1 = h1.finish();
-        let mut h2 = std::collections::hash_map::DefaultHasher::new();
-        (key, "salt_kant_rel").hash(&mut h2);
-        let u2 = h2.finish();
-        let mut bytes = [0u8; 16];
-        bytes[0..8].copy_from_slice(&u1.to_be_bytes());
-        bytes[8..16].copy_from_slice(&u2.to_be_bytes());
-        bytes[6] = (bytes[6] & 0x0f) | 0x40;
-        bytes[8] = (bytes[8] & 0x3f) | 0x80;
-        Uuid::from_bytes(bytes)
-    }
 
     // 5. relations/<uuid>.json
     let mut active_relation_ids = HashSet::new();
@@ -409,4 +409,47 @@ pub fn load_decomposed(root_path: &Path) -> Result<ModelProject, StorageError> {
     }
 
     Ok(project)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_to_deterministic_json_sorts_keys_and_appends_newline() {
+        let val = json!({
+            "zebra": 1,
+            "apple": 2,
+            "nested": {
+                "banana": true,
+                "aardvark": "test"
+            }
+        });
+
+        let json_str = to_deterministic_json(&val).unwrap();
+        assert!(json_str.ends_with('\n'), "Skal have afsluttende newline");
+
+        // "apple" skal komme før "nested", og "nested" før "zebra"
+        let pos_apple = json_str.find("\"apple\"").unwrap();
+        let pos_nested = json_str.find("\"nested\"").unwrap();
+        let pos_zebra = json_str.find("\"zebra\"").unwrap();
+        assert!(pos_apple < pos_nested);
+        assert!(pos_nested < pos_zebra);
+
+        // "aardvark" skal komme før "banana"
+        let pos_aardvark = json_str.find("\"aardvark\"").unwrap();
+        let pos_banana = json_str.find("\"banana\"").unwrap();
+        assert!(pos_aardvark < pos_banana);
+    }
+
+    #[test]
+    fn test_deterministic_uuid_stability() {
+        let u1 = deterministic_uuid("test_key_1");
+        let u2 = deterministic_uuid("test_key_1");
+        let u3 = deterministic_uuid("test_key_2");
+
+        assert_eq!(u1, u2, "Samme nøgle skal producere identisk UUID");
+        assert_ne!(u1, u3, "Forskellige nøgler skal producere forskellige UUIDs");
+    }
 }
