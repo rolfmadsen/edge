@@ -149,6 +149,62 @@ For API-specifikation og yderligere tekniske detaljer henvises til [crates/kant-
 
 ---
 
+## 🌿 Git Model-Integration & Asynkront Samarbejde
+
+Kant har en indbygget, førsteklasses Git-integration designet specifikt til forretningsarkitekter og modelleringsfolk ([ADR 011](docs/adr/011-decomposed-model-persistence-and-git-integration.md)). Formålet er at opnå samme høje brugervenlighed og konfliktimmunitet som coArchi-pluginet til Archi – helt uden teknisk Git-jargon, rå terminalkommandoer eller uforståelige merge-konflikter (`<<<<<<< HEAD`).
+
+### 1. Dekomponeret Modelformat (`.kant/`)
+Når en model versionsstyres, gemmes den i et dekomponeret katalogformat:
+- `.kant/metadata.json`: Overordnede modelmetadata (navn, version, ansvarlig myndighed mv.).
+- `.kant/concepts/<uuid>.json`: Én fil pr. forretningsbegreb.
+- `.kant/classes/<uuid>.json`: Én fil pr. informationsklasse.
+- `.kant/relations/<uuid>.json`: Én fil pr. relation eller association.
+- `.kant/diagrams/<uuid>.json`: Én fil pr. diagramvisning og canvas-layout.
+
+**Fordele:**
+- **95 % færre konflikter:** Fordi hvert begreb og hver klasse bor i sin egen fil, kan flere arkitekter arbejde uafhængigt i samme model uden nogensinde at ramme de samme linjer i Git.
+- **Deterministisk serialisering:** Alle JSON-nøgler og relationer skrives i ensartet alfabetisk orden med pæn formatering. Det eliminerer "støj-ændringer" i versionshistorikken.
+
+---
+
+### 2. Arbejdsgange i Brugergrænsefladen (`Filer ▾`)
+
+Samtlige versionsstyringsfunktioner er tilgængelige direkte under menuen **`Filer ▾`** i topbaren:
+
+#### A. Klon en eksisterende model fra Git
+Hvis din organisation allerede har et model-repository på GitHub, GitLab eller Azure DevOps:
+1. Gå til **`Filer ▾`** → **`📦 Klon model fra Git...`**.
+2. Indtast repositoryets URL (f.eks. `https://github.com/organisation/fda-model.git`).
+3. Vælg en lokal destinationsmappe på din maskine.
+4. Klik **Klon og åbn model**. Kant henter arkivet, konfigurerer automatisk forbindelsen og åbner modellen direkte på lærredet.
+
+#### B. Forbind en lokal model til et centralt fjernlager
+Hvis du har oprettet en model lokalt og vil dele den med kolleger:
+1. Opret et **nyt tomt repository** på GitHub, GitLab eller Azure DevOps (uden README eller licens).
+2. I Kant: Gå til **`Filer ▾`** → **`🌐 Git-forbindelse & Fjernlager...`**.
+3. Indtast URL'en på det tomme repository samt dit **Git Brugernavn (`user.name`)** og **Git E-mail (`user.email`)**.
+4. Klik **Gem forbindelse**. Kant opretter automatisk det lokale Git-arkiv, hvis det ikke allerede findes, og kobler det til fjernlageret.
+
+#### C. Udgiv modelændringer
+Når du har lavet ændringer i begreber, klasser eller diagrammer:
+1. Gå til **`Filer ▾`** → **`🚀 Udgiv modelændringer...`** (eller klik på status-badget i topbaren).
+2. Dialogen viser en automatisk opsummering af dine ændringer i letforståelige domænehændelser (🟢 *Oprettet*, 🟡 *Opdateret*, 🔴 *Fjernet*).
+3. Tilføj en valgfri versionsnote til dine kolleger og klik **Bekræft og udgiv**.
+
+#### D. Hent seneste ændringer & Semantisk 3-vejs fletning
+Når kolleger har udgivet ændringer til det fælles repository:
+1. Vælg **`Filer ▾`** → **`📥 Hent seneste ændringer`**.
+2. Kant henter opdateringerne og udfører en intelligent **semantisk 3-vejs model fletning** i hukommelsen:
+   - Ikke-modstridende ændringer flettes automatisk sammen.
+   - Hvis to personer har ændret det samme felt på samme begreb samtidigt (f.eks. forskellig ordlyd i definitionen), åbner Kant en overskuelig dialog (**Visuel Konflikthåndtering**), hvor du med ét klik kan vælge, om lokal version eller serverens version skal gælde.
+   - Der skrives aldrig rå Git-konfliktmarkører til disk.
+
+#### E. Modelhistorik & Tidslinje ("Time Travel" Audit)
+- Vælg **`Filer ▾`** → **`⏳ Modelhistorik & Tidslinje...`** for at se hele modellens historik præsenteret som en visuel tidslinje over hvem der har ændret hvad og hvornår.
+- Du kan også inspicere historikken for et specifikt begreb eller en specifik informationsklasse baseret på elementets unikke UUID.
+
+---
+
 ## 📄 Licens
 
 Dette projekt er licenseret under de vilkår, der fremgår af [LICENSE](LICENSE).
