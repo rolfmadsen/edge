@@ -6105,3 +6105,30 @@ fn test_task_052_recent_models_and_decomposed_path_resolution() {
     let _ = std::fs::remove_dir_all(&temp_root);
 }
 
+#[test]
+fn test_task_053_windows_git_candidates_and_pathbuf_resolution() {
+    use kant::features::git::GitService;
+    use std::path::PathBuf;
+
+    // 1. Uden LOCALAPPDATA skal standard Program Files stier returneres
+    let candidates_default = GitService::windows_git_candidates(None);
+    assert!(
+        candidates_default.contains(&PathBuf::from(r"C:\Program Files\Git\cmd\git.exe")),
+        "skal indeholde 64-bit Program Files sti"
+    );
+    assert!(
+        candidates_default.contains(&PathBuf::from(r"C:\Program Files (x86)\Git\cmd\git.exe")),
+        "skal indeholde 32-bit Program Files (x86) sti"
+    );
+    assert_eq!(candidates_default.len(), 2);
+
+    // 2. Med LOCALAPPDATA skal brugerens lokale sti tilføjes
+    let mock_local_appdata = r"C:\Users\Developer\AppData\Local";
+    let candidates_with_local = GitService::windows_git_candidates(Some(mock_local_appdata));
+    assert_eq!(candidates_with_local.len(), 3);
+    assert_eq!(
+        candidates_with_local[2],
+        PathBuf::from(mock_local_appdata).join(r"Programs\Git\cmd\git.exe"),
+        "skal tilføje lokal appdata kandidat"
+    );
+}
