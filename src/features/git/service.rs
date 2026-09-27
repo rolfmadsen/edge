@@ -2,7 +2,7 @@ use crate::features::git::events::{ChangeAction, DomainChangeEvent, DomainEventM
 use crate::features::model::storage::ProjectStorage;
 use crate::features::model::ModelProject;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use uuid::Uuid;
 
@@ -98,14 +98,8 @@ impl GitService {
         // 3. Fallbacks for Windows (Standard Git for Windows installationer)
         #[cfg(target_os = "windows")]
         {
-            let mut candidates = vec![
-                PathBuf::from(r"C:\Program Files\Git\cmd\git.exe"),
-                PathBuf::from(r"C:\Program Files (x86)\Git\cmd\git.exe"),
-            ];
-            if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
-                candidates.push(PathBuf::from(local_app_data).join(r"Programs\Git\cmd\git.exe"));
-            }
-            for candidate in candidates {
+            let local_app_data = std::env::var("LOCALAPPDATA").ok();
+            for candidate in Self::windows_git_candidates(local_app_data.as_deref()) {
                 if candidate.exists() {
                     return candidate.into_os_string();
                 }
@@ -124,6 +118,19 @@ impl GitService {
         }
 
         "git".into()
+    }
+
+    /// Returnerer kandidatstier for Git på Windows (Standard installationsmapper + eventuel LocalAppData).
+    /// Metoden er tilgængelig og testbar på alle platforme for at forhindre regressionsfejl i CI.
+    pub fn windows_git_candidates(local_app_data: Option<&str>) -> Vec<PathBuf> {
+        let mut candidates = vec![
+            PathBuf::from(r"C:\Program Files\Git\cmd\git.exe"),
+            PathBuf::from(r"C:\Program Files (x86)\Git\cmd\git.exe"),
+        ];
+        if let Some(lad) = local_app_data {
+            candidates.push(PathBuf::from(lad).join(r"Programs\Git\cmd\git.exe"));
+        }
+        candidates
     }
 
     /// Tjekker om git eksekverbare fil er tilgængelig i PATH eller standardstier.
