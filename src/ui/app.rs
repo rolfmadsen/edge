@@ -958,27 +958,27 @@ impl App {
     pub fn git_status_badge_text(&self) -> String {
         match &self.git_sync_status {
             RepoSyncStatus::Synced => "Synkroniseret".to_string(),
-            RepoSyncStatus::PendingChanges => "Lokale ændringer".to_string(),
+            RepoSyncStatus::PendingChanges => "Lokale ændringer • Commit og send".to_string(),
             RepoSyncStatus::UnpublishedCommits(n) => {
                 if *n == 0 {
                     "Synkroniseret".to_string()
                 } else if *n == 1 {
-                    "1 udgivet lokalt".to_string()
+                    "1 ændring klar til server (Push)".to_string()
                 } else {
-                    format!("{} udgivet lokalt", n)
+                    format!("{} ændringer klar til server (Push)", n)
                 }
             }
             RepoSyncStatus::IncomingCommits(n) => {
                 if *n == 1 {
-                    "1 ny på server".to_string()
+                    "1 ny på server • Hent (Pull)".to_string()
                 } else {
-                    format!("{} nye på server", n)
+                    format!("{} nye på server • Hent (Pull)", n)
                 }
             }
             RepoSyncStatus::Diverged { local, remote } => {
                 format!("Afvigelse ({} lokal, {} server)", local, remote)
             }
-            RepoSyncStatus::Uninitialized => "Lokal model".to_string(),
+            RepoSyncStatus::Uninitialized => "Lokal model • Kobl til Git".to_string(),
         }
     }
 
@@ -5546,22 +5546,29 @@ impl App {
                             .size(10)
                             .color(ThemeColors::TEXT_MUTED),
                         Space::new().height(2),
-                        menu_item(
-                            "🌐",
-                            "Git-forbindelse & Fjernlager...",
-                            Message::OpenGitConnectionModal,
-                        ),
                         menu_item("📦", "Klon model fra Git...", Message::OpenGitCloneModal,),
+                        menu_item("📥", "Hent ændringer (Pull)", Message::PullModel,),
+                        menu_item(
+                            "🚀",
+                            "Commit og send ændringer (pull, add & push)...",
+                            Message::OpenPublishModal,
+                        ),
+                        Space::new().height(4),
+                        make_separator(),
+                        Space::new().height(4),
                         menu_item(
                             "⏳",
                             "Modelhistorik & Tidslinje...",
                             Message::OpenModelHistoryModal,
                         ),
-                        menu_item("🚀", "Udgiv modelændringer...", Message::OpenPublishModal,),
-                        menu_item("📥", "Hent seneste ændringer", Message::PullModel,),
+                        menu_item(
+                            "⚙️",
+                            "Git indstillinger...",
+                            Message::OpenGitConnectionModal,
+                        ),
                     ]
                     .spacing(2)
-                    .width(Length::Fixed(260.0)),
+                    .width(Length::Fixed(350.0)),
                 ),
                 MenuType::Help => (
                     216.0,
@@ -5910,7 +5917,7 @@ impl App {
 
     fn view_publish_modal<'a>(&self, modal: &'a PublishModalState) -> Element<'a, Message> {
         let title_row = row![
-            text("🚀 Udgiv Model (Versionsstyring)")
+            text("🚀 Commit og send ændringer (pull, add & push)")
                 .size(17)
                 .color(ThemeColors::SLATE_900),
             Space::new().width(Length::Fill),
@@ -5931,12 +5938,12 @@ impl App {
 
         let subtitle_text = if is_clean_with_unpushed {
             format!(
-                "Du har {} modelændring{} udgivet lokalt, som mangler at blive overført til det fælles fjernlager.",
+                "Du har {} modelændring{} committet lokalt, som er klar til at blive sendt til serveren (push).",
                 unpushed_count,
                 if unpushed_count == 1 { "" } else { "er" }
             )
         } else {
-            "Gem og udgiv dine modelændringer til det delte repository.".to_string()
+            "Gemmer dine modelændringer lokalt (commit) og synkroniserer sikkert med serveren (pull, add & push).".to_string()
         };
         let subtitle = text(subtitle_text).size(12).color(ThemeColors::TEXT_MUTED);
 
@@ -6002,10 +6009,10 @@ impl App {
         } else {
             Some(
                 column![
-                    text("Versionsnote / Besked til kolleger")
+                    text("Versionsnote / Commit-besked")
                         .size(12)
                         .color(ThemeColors::SLATE_700),
-                    text_input("Beskriv ændringerne i modellen...", &modal.message)
+                    text_input("Beskriv ændringerne i modellen (fx Tilføjet Virksomhed og CVR)...", &modal.message)
                         .style(modern_input_style)
                         .on_input(Message::UpdatePublishMessage)
                         .padding(8)
@@ -6016,9 +6023,9 @@ impl App {
         };
 
         let primary_button_label = if is_clean_with_unpushed {
-            "Send til fjernlager"
+            "Send til server (Push)"
         } else {
-            "Udgiv model"
+            "Commit og send ændringer"
         };
 
         let footer_buttons = if is_completely_synced {
@@ -6143,7 +6150,7 @@ impl App {
                     .size(12)
                     .color(ThemeColors::SLATE_600),
                     Space::new().height(12),
-                    button(text("🚀 Udgiv modelændringer nu...").size(12))
+                    button(text("🚀 Commit og send ændringer nu...").size(12))
                         .style(primary_button_style)
                         .on_press(Message::OpenPublishModal)
                         .padding([6, 14]),
@@ -6422,7 +6429,7 @@ impl App {
         modal: &'a GitConnectionModalState,
     ) -> Element<'a, Message> {
         let title_row = row![
-            text("🌐 Git-forbindelse & Fjernlager")
+            text("⚙️ Git indstillinger")
                 .size(17)
                 .color(ThemeColors::SLATE_900),
             Space::new().width(Length::Fill),
@@ -6433,7 +6440,7 @@ impl App {
         ]
         .align_y(Alignment::Center);
 
-        let subtitle = text("Forbind denne model til et centralt Git-fjernlager (fx GitLab, Gitea, GitHub eller intern Git-server).")
+        let subtitle = text("Konfigurer Git-serverens adresse (URL), din adgangsnøgle (token) samt din forfatterprofil til versionsstyring.")
             .size(12)
             .color(ThemeColors::TEXT_MUTED);
 
@@ -6562,7 +6569,7 @@ impl App {
                 .padding([6, 14]),
         );
         actions = actions.push(
-            button(text("Gem forbindelse").size(12))
+            button(text("Gem indstillinger").size(12))
                 .style(primary_button_style)
                 .on_press(Message::SaveGitConnection)
                 .padding([6, 16]),
