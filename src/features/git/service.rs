@@ -74,7 +74,7 @@ impl GitService {
         }
     }
 
-    fn run_git_with_env(
+    pub fn run_git_with_env(
         repo_dir: &Path,
         args: &[&str],
         envs: &[(&str, &str)],
@@ -105,7 +105,7 @@ impl GitService {
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
     }
 
-    fn run_git(repo_dir: &Path, args: &[&str]) -> Result<String, GitError> {
+    pub fn run_git(repo_dir: &Path, args: &[&str]) -> Result<String, GitError> {
         Self::run_git_with_env(repo_dir, args, &[])
     }
 

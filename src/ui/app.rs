@@ -1,5 +1,8 @@
 use crate::features::concept_model::{NodeId, RelationKind};
 use crate::features::concepts::{BelongsToDomain, Concept, ConceptValidator, ValidationError};
+use crate::features::git::{
+    ChangeAction, DomainChangeEvent, DomainEventMapper, GitService, RepoSyncStatus,
+};
 use crate::features::information_model::{
     Attribute, InformationClass, Multiplicity, PrimitiveType,
 };
@@ -25,6 +28,25 @@ use iced::{Alignment, Element, Length, Point, Subscription, Task};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use uuid::Uuid;
+
+#[derive(Debug, Clone)]
+pub struct PublishModalState {
+    pub message: String,
+    pub preview_events: Vec<DomainChangeEvent>,
+    pub is_publishing: bool,
+    pub error: Option<String>,
+}
+
+impl PublishModalState {
+    pub fn new(message: String, preview_events: Vec<DomainChangeEvent>) -> Self {
+        Self {
+            message,
+            preview_events,
+            is_publishing: false,
+            error: None,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeOption {
@@ -473,6 +495,15 @@ pub enum Message {
     UpdateMetadataField(MetadataField, String),
     UpdateMetadataStatus(ModelStatus),
 
+    // Git & Versionsstyring (Task 047)
+    RefreshGitStatus,
+    OpenPublishModal,
+    ClosePublishModal,
+    UpdatePublishMessage(String),
+    ConfirmPublish,
+    InitGitRepository,
+    PullModel,
+
     // Statusbar / Eksterne links (Task 018)
     OpenModelRules,
 
@@ -643,6 +674,8 @@ pub struct App {
     collab_connection_status: crate::features::collab::ConnectionStatus,
     collab_seq: std::sync::atomic::AtomicU64,
     collab_last_seen_seq: u64,
+    git_sync_status: RepoSyncStatus,
+    publish_modal: Option<PublishModalState>,
 }
 
 impl Default for App {
@@ -658,6 +691,17 @@ impl App {
     }
 
     pub fn new_with_path(path: Option<PathBuf>) -> Self {
+        let git_sync_status = if let Some(p) = &path {
+            let dir = if p.is_dir() {
+                p.as_path()
+            } else {
+                p.parent().unwrap_or(std::path::Path::new("."))
+            };
+            GitService::get_sync_status(dir).unwrap_or(RepoSyncStatus::Uninitialized)
+        } else {
+            RepoSyncStatus::Uninitialized
+        };
+
         if let Some(p) = &path {
             if p.exists() {
                 if let Ok(mut proj) = ProjectStorage::load(p) {
@@ -706,6 +750,8 @@ impl App {
                             crate::features::collab::ConnectionStatus::Disconnected,
                         collab_seq: std::sync::atomic::AtomicU64::new(0),
                         collab_last_seen_seq: 0,
+                        git_sync_status: git_sync_status.clone(),
+                        publish_modal: None,
                     };
                 }
             }
@@ -758,6 +804,43 @@ impl App {
             collab_connection_status: crate::features::collab::ConnectionStatus::Disconnected,
             collab_seq: std::sync::atomic::AtomicU64::new(0),
             collab_last_seen_seq: 0,
+            git_sync_status,
+            publish_modal: None,
+        }
+    }
+
+    pub fn git_sync_status(&self) -> &RepoSyncStatus {
+        &self.git_sync_status
+    }
+
+    pub fn publish_modal(&self) -> Option<&PublishModalState> {
+        self.publish_modal.as_ref()
+    }
+
+    pub fn git_status_badge_text(&self) -> String {
+        match &self.git_sync_status {
+            RepoSyncStatus::Synced => "Synkroniseret".to_string(),
+            RepoSyncStatus::PendingChanges => "Lokale ændringer".to_string(),
+            RepoSyncStatus::UnpublishedCommits(n) => {
+                if *n == 0 {
+                    "Synkroniseret".to_string()
+                } else if *n == 1 {
+                    "1 klar til udgivelse".to_string()
+                } else {
+                    format!("{} klar til udgivelse", n)
+                }
+            }
+            RepoSyncStatus::IncomingCommits(n) => {
+                if *n == 1 {
+                    "1 ny på server".to_string()
+                } else {
+                    format!("{} nye på server", n)
+                }
+            }
+            RepoSyncStatus::Diverged { local, remote } => {
+                format!("Afvigelse ({} lokal, {} server)", local, remote)
+            }
+            RepoSyncStatus::Uninitialized => "Lokal model".to_string(),
         }
     }
 
@@ -1658,6 +1741,123 @@ impl App {
             Message::CloseMetadataModal => {
                 self.metadata_modal = None;
             }
+            Message::RefreshGitStatus => {
+                if let Some(path) = &self.current_file_path {
+                    let dir = if path.is_dir() {
+                        path.as_path()
+                    } else {
+                        path.parent().unwrap_or(std::path::Path::new("."))
+                    };
+                    if let Ok(st) = GitService::get_sync_status(dir) {
+                        self.git_sync_status = st;
+                    }
+                }
+            }
+            Message::OpenPublishModal => {
+                if let Some(path) = &self.current_file_path {
+                    let dir = if path.is_dir() {
+                        path.as_path()
+                    } else {
+                        path.parent().unwrap_or(std::path::Path::new("."))
+                    };
+                    let _ = ProjectStorage::save_to_directory(&self.project, dir);
+
+                    let mut preview_events = Vec::new();
+                    if let Ok(status_out) = GitService::run_git(dir, &["status", "--porcelain"]) {
+                        for line in status_out.lines() {
+                            let line = line.trim();
+                            if line.is_empty() {
+                                continue;
+                            }
+                            let status_code = line.chars().take(2).collect::<String>();
+                            let file_path = line[2..].trim();
+                            let action = if status_code.contains('D') {
+                                ChangeAction::Deleted
+                            } else if status_code.contains('A') || status_code.contains('?') {
+                                ChangeAction::Added
+                            } else {
+                                ChangeAction::Modified
+                            };
+                            let content = match action {
+                                ChangeAction::Deleted => GitService::run_git(
+                                    dir,
+                                    &["show", &format!("HEAD:{}", file_path)],
+                                )
+                                .ok(),
+                                _ => std::fs::read_to_string(dir.join(file_path)).ok(),
+                            };
+                            if let Some(ev) = DomainEventMapper::map_file_change(
+                                action,
+                                file_path,
+                                content.as_deref(),
+                            ) {
+                                preview_events.push(ev);
+                            }
+                        }
+                    }
+
+                    let summary = DomainEventMapper::generate_commit_summary(&preview_events);
+                    let default_msg = if summary.trim().is_empty() {
+                        "Opdatering af model".to_string()
+                    } else {
+                        summary
+                    };
+                    self.publish_modal = Some(PublishModalState::new(default_msg, preview_events));
+                }
+            }
+            Message::ClosePublishModal => {
+                self.publish_modal = None;
+            }
+            Message::UpdatePublishMessage(msg) => {
+                if let Some(modal) = &mut self.publish_modal {
+                    modal.message = msg;
+                }
+            }
+            Message::ConfirmPublish => {
+                if let Some(modal) = self.publish_modal.take() {
+                    if let Some(path) = &self.current_file_path {
+                        let dir = if path.is_dir() {
+                            path.as_path()
+                        } else {
+                            path.parent().unwrap_or(std::path::Path::new("."))
+                        };
+                        let _ = GitService::publish_model(dir, &self.project, &modal.message);
+                        if let Ok(st) = GitService::get_sync_status(dir) {
+                            self.git_sync_status = st;
+                        }
+                    }
+                }
+            }
+            Message::InitGitRepository => {
+                if let Some(path) = &self.current_file_path {
+                    let dir = if path.is_dir() {
+                        path.as_path()
+                    } else {
+                        path.parent().unwrap_or(std::path::Path::new("."))
+                    };
+                    let _ = GitService::init_repository(dir);
+                    if let Ok(st) = GitService::get_sync_status(dir) {
+                        self.git_sync_status = st;
+                    }
+                }
+            }
+            Message::PullModel => {
+                if let Some(path) = &self.current_file_path {
+                    let dir = if path.is_dir() {
+                        path.as_path()
+                    } else {
+                        path.parent().unwrap_or(std::path::Path::new("."))
+                    };
+                    let _ = GitService::pull_model(dir, "origin", "main");
+                    if let Ok(p) = ProjectStorage::load(dir) {
+                        self.project = p;
+                    }
+                    if let Ok(st) = GitService::get_sync_status(dir) {
+                        self.git_sync_status = st;
+                    }
+                }
+            }
+
             Message::SaveMetadataModal => {
                 if let Some(state) = self.metadata_modal.take() {
                     let meta = self.project.metadata_mut();
@@ -3743,6 +3943,8 @@ impl App {
 
         let header_right = row![
             collab_header_badge,
+            Space::new().width(6),
+            self.view_git_status_badge(),
             Space::new().width(8),
             text(self.project.metadata().name())
                 .size(12)
@@ -3768,6 +3970,11 @@ impl App {
         .width(Length::Fill);
 
         // 2. Modale dialoger (Stack Overlay)
+        let maybe_publish_modal: Option<Element<Message>> = self
+            .publish_modal
+            .as_ref()
+            .map(|modal| self.view_publish_modal(modal));
+
         let maybe_metadata_modal: Option<Element<Message>> =
             self.metadata_modal.as_ref().map(|meta_state| {
                 let title_row = row![
@@ -4974,7 +5181,9 @@ impl App {
             .height(Length::Fill)
             .into();
 
-        if let Some(modal) = maybe_metadata_modal {
+        if let Some(modal) = maybe_publish_modal {
+            stack![base_layout, modal].into()
+        } else if let Some(modal) = maybe_metadata_modal {
             stack![base_layout, modal].into()
         } else if let Some(modal) = maybe_start_session_modal {
             stack![base_layout, modal].into()
@@ -4993,6 +5202,191 @@ impl App {
         } else {
             base_layout
         }
+    }
+
+    fn view_git_status_badge(&self) -> Element<'_, Message> {
+        let (dot_color, bg_color) = match &self.git_sync_status {
+            RepoSyncStatus::Synced => (
+                iced::Color::from_rgb(0.06, 0.72, 0.44), // emerald green
+                iced::Color::from_rgb(0.92, 0.98, 0.94),
+            ),
+            RepoSyncStatus::PendingChanges => (
+                iced::Color::from_rgb(0.92, 0.60, 0.05), // amber
+                iced::Color::from_rgb(1.0, 0.98, 0.88),
+            ),
+            RepoSyncStatus::UnpublishedCommits(n) if *n > 0 => (
+                iced::Color::from_rgb(0.20, 0.50, 0.95), // blue
+                iced::Color::from_rgb(0.92, 0.95, 1.0),
+            ),
+            RepoSyncStatus::IncomingCommits(_) => (
+                iced::Color::from_rgb(0.55, 0.35, 0.95), // purple
+                iced::Color::from_rgb(0.95, 0.92, 1.0),
+            ),
+            RepoSyncStatus::Diverged { .. } => (
+                iced::Color::from_rgb(0.92, 0.25, 0.25), // red
+                iced::Color::from_rgb(1.0, 0.92, 0.92),
+            ),
+            _ => (
+                iced::Color::from_rgb(0.55, 0.60, 0.68), // slate
+                iced::Color::from_rgb(0.95, 0.95, 0.96),
+            ),
+        };
+
+        let badge_text = self.git_status_badge_text();
+        let is_uninit = matches!(self.git_sync_status, RepoSyncStatus::Uninitialized);
+
+        let content = row![
+            text("●").size(10).color(dot_color),
+            Space::new().width(4),
+            text(badge_text).size(11).color(ThemeColors::SLATE_800),
+        ]
+        .align_y(Alignment::Center);
+
+        let click_msg = if is_uninit {
+            Message::InitGitRepository
+        } else {
+            Message::OpenPublishModal
+        };
+
+        button(content)
+            .on_press(click_msg)
+            .style(move |_theme, status| {
+                let hover_bg = match status {
+                    button::Status::Hovered => iced::Color { a: 0.8, ..bg_color },
+                    _ => bg_color,
+                };
+                button::Style {
+                    background: Some(iced::Background::Color(hover_bg)),
+                    text_color: ThemeColors::SLATE_800,
+                    border: iced::Border {
+                        color: dot_color,
+                        width: 1.0,
+                        radius: 12.0.into(),
+                    },
+                    shadow: iced::Shadow::default(),
+                    ..Default::default()
+                }
+            })
+            .padding([3, 10])
+            .into()
+    }
+
+    fn view_publish_modal<'a>(&self, modal: &'a PublishModalState) -> Element<'a, Message> {
+        let title_row = row![
+            text("🚀 Udgiv Model (Versionsstyring)")
+                .size(17)
+                .color(ThemeColors::SLATE_900),
+            Space::new().width(Length::Fill),
+            button(text("✕").size(13))
+                .style(secondary_button_style)
+                .on_press(Message::ClosePublishModal)
+                .padding([3, 7]),
+        ]
+        .align_y(Alignment::Center);
+
+        let subtitle = text("Gem og udgiv dine modelændringer til det delte repository.")
+            .size(12)
+            .color(ThemeColors::TEXT_MUTED);
+
+        let mut changes_list = column![].spacing(6);
+        if modal.preview_events.is_empty() {
+            changes_list = changes_list.push(
+                text("Der er ingen udestående ændringer i modellen.")
+                    .size(12)
+                    .color(ThemeColors::SLATE_500),
+            );
+        } else {
+            for event in &modal.preview_events {
+                let (badge, color) = match event.action {
+                    ChangeAction::Added => ("🟢 Oprettet", iced::Color::from_rgb(0.06, 0.72, 0.44)),
+                    ChangeAction::Modified => {
+                        ("🟡 Opdateret", iced::Color::from_rgb(0.92, 0.60, 0.05))
+                    }
+                    ChangeAction::Deleted => {
+                        ("🔴 Fjernet", iced::Color::from_rgb(0.92, 0.25, 0.25))
+                    }
+                };
+                let event_row = row![
+                    text(badge).size(11).color(color),
+                    Space::new().width(6),
+                    text(format!("{}: {}", event.entity_type, event.entity_name))
+                        .size(12)
+                        .color(ThemeColors::SLATE_800),
+                ]
+                .align_y(Alignment::Center);
+                changes_list = changes_list.push(event_row);
+            }
+        }
+
+        let changes_box = container(changes_list)
+            .style(|_| container::Style {
+                background: Some(iced::Background::Color(iced::Color::from_rgb(
+                    0.98, 0.98, 0.99,
+                ))),
+                border: iced::Border {
+                    color: ThemeColors::SURFACE_BORDER,
+                    width: 1.0,
+                    radius: 8.0.into(),
+                },
+                ..Default::default()
+            })
+            .padding(10)
+            .width(Length::Fill);
+
+        let message_field = column![
+            text("Versionsnote / Besked til kolleger")
+                .size(12)
+                .color(ThemeColors::SLATE_700),
+            text_input("Beskriv ændringerne i modellen...", &modal.message)
+                .style(modern_input_style)
+                .on_input(Message::UpdatePublishMessage)
+                .padding(8)
+                .width(Length::Fill),
+        ]
+        .spacing(4);
+
+        let footer_buttons = row![
+            button(text("Hent seneste"))
+                .style(secondary_button_style)
+                .on_press(Message::PullModel),
+            Space::new().width(Length::Fill),
+            button(text("Annuller"))
+                .style(secondary_button_style)
+                .on_press(Message::ClosePublishModal),
+            Space::new().width(8),
+            button(text("Udgiv model"))
+                .style(primary_button_style)
+                .on_press(Message::ConfirmPublish),
+        ]
+        .align_y(Alignment::Center);
+
+        let dialog_content = column![
+            title_row,
+            subtitle,
+            Space::new().height(8),
+            text("Oversigt over ændringer:")
+                .size(12)
+                .color(ThemeColors::SLATE_700),
+            changes_box,
+            Space::new().height(8),
+            message_field,
+            Space::new().height(12),
+            footer_buttons,
+        ]
+        .spacing(8)
+        .width(480);
+
+        let dialog_card = container(dialog_content)
+            .style(modal_card_style)
+            .padding(20);
+
+        container(dialog_card)
+            .style(modal_backdrop_style)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .into()
     }
 }
 
