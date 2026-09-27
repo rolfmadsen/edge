@@ -4,15 +4,14 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "047-git-ui-integration-topbar-status-and-publish-dialogs",
-    "task_title": "Task 047: Git UI Integration: Topbar Status & Udgiv/Hent Dialoger",
-    "task_digest": "6b81c914529a8c14f305f884177d612e0988da76c6d0429f5f02bc60c33a771b",
+    "task_id": "048-model-graph-timeline-element-history-and-visual-conflict-resolver",
+    "task_title": "Task 048: Model Graph Tidslinje, Element-Historik & Visuel Konflikthåndtering",
+    "task_digest": "7c92da1562098c25f416f995288e723e1099eb87d7e1530af6f1ce71d44b882c",
     "acceptance_criteria": [
-      "AC1 - Topbar Status Badge: Topbaren i appen gengiver en visuel status-pill baseret på RepoSyncStatus.",
-      "AC2 - Udgiv Model Modal: Dialog med automatisk ændringsoversigt (domænehændelser) og mulighed for tilpasset note.",
-      "AC3 - Udgivelse E2E Workflow: Bekræftelse i dialogen kalder GitService::publish_model, opdaterer topbarens status og lukker modalen.",
-      "AC4 - Initialisering fra UI: Hvis modellen ikke er versionsstyret, tilbyder UI en knap til at aktivere versionsstyring.",
-      "AC5 - Verifikation via Accepttest: Test i tests/acceptance.rs validerer UI-appens håndtering af statusopdateringer, modal-åbning og udgivelsesbeskeder."
+      "AC1 - Modelhistorik Tidslinje: Appen kan åbne modelhistorikken (Message::OpenModelHistoryModal) og vise seneste versioner som domænehændelser.",
+      "AC2 - Element-specifik Historik: Appen kan hente og vise historik specifikt filtreret på et begrebs eller en klasses UUID (Message::OpenElementHistoryModal(Uuid)).",
+      "AC3 - Visuel Konfliktløser Modal: Ved modstridende felter kan appen præsentere ModelConflict i en dialog (Message::OpenConflictResolverModal) og lade brugeren vælge vinder-værdi (Message::ResolveConflict(...)).",
+      "AC4 - Verifikation via Accepttest: Test i tests/acceptance.rs beviser at tidslinje, element-historik og konfliktløsning fungerer i appens state maskine."
     ],
     "unresolved_criteria": []
   },
@@ -20,15 +19,15 @@
     "manifest_version": "1.0",
     "vcs": {
       "type": "git",
-      "head": "34f8f57",
-      "commit": "34f8f57",
+      "head": "1857362",
+      "commit": "1857362",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-27T16:34:20Z",
-    "finished_at": "2026-09-27T16:34:40Z",
-    "total_duration_seconds": 20.0,
+    "started_at": "2026-09-27T16:39:00Z",
+    "finished_at": "2026-09-27T16:40:40Z",
+    "total_duration_seconds": 100.0,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -57,7 +56,7 @@
       "name": "tests",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 5.2,
+      "duration_seconds": 5.5,
       "optional": false,
       "passed": true
     }

@@ -1,19 +1,18 @@
 # Verification Report
  
-**Task ID**: `047-git-ui-integration-topbar-status-and-publish-dialogs`  
-**Task Title**: Task 047: Git UI Integration: Topbar Status & Udgiv/Hent Dialoger  
+**Task ID**: `048-model-graph-timeline-element-history-and-visual-conflict-resolver`  
+**Task Title**: Task 048: Model Graph Tidslinje, Element-Historik & Visuel Konflikthåndtering  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Timestamp**: `2026-09-27T16:35:00Z`  
-**Head**: `34f8f57`  
+**Timestamp**: `2026-09-27T16:40:00Z`  
+**Head**: `1857362`  
  
 ## Acceptance Criteria
  
-- [x] **AC1 - Topbar Status Badge**: Topbaren i appen gengiver en visuel status-pill baseret på `RepoSyncStatus` (Synkroniseret, Lokale ændringer, Klar til udgivelse).
-- [x] **AC2 - Udgiv Model Modal**: Dialog med automatisk ændringsoversigt (domænehændelser) og mulighed for tilpasset note.
-- [x] **AC3 - Udgivelse E2E Workflow**: Bekræftelse i dialogen kalder `GitService::publish_model`, opdaterer topbarens status og lukker modalen.
-- [x] **AC4 - Initialisering fra UI**: Hvis modellen ikke er versionsstyret, tilbyder UI en knap til "Aktivér versionsstyring", der kalder `GitService::init_repository`.
-- [x] **AC5 - Verifikation via Accepttest**: Test i `tests/acceptance.rs` validerer UI-appens håndtering af statusopdateringer, modal-åbning og udgivelsesbeskeder.
+- [x] **AC1 - Modelhistorik Tidslinje**: Appen kan åbne modelhistorikken (`Message::OpenModelHistoryModal`) og vise seneste versioner som domænehændelser.
+- [x] **AC2 - Element-specifik Historik**: Appen kan hente og vise historik specifikt filtreret på et begrebs eller en klasses UUID (`Message::OpenElementHistoryModal(Uuid)`).
+- [x] **AC3 - Visuel Konfliktløser Modal**: Ved modstridende felter kan appen præsentere `ModelConflict` i en dialog (`Message::OpenConflictResolverModal`) og lade brugeren vælge vinder-værdi (`Message::ResolveConflict(...)`).
+- [x] **AC4 - Verifikation via Accepttest**: Test i `tests/acceptance.rs` beviser at tidslinje, element-historik og konfliktløsning fungerer i appens state maskine.
  
 ---
  
@@ -23,7 +22,7 @@
 |---|---|---|---|
 | `fmt` (`cargo fmt --check`) | `PASSED` | `0` | Formatteret jf. standarder |
 | `lint` (`cargo clippy --all-targets`) | `PASSED` | `0` | 0 advarsler |
-| `tests` (`cargo test --workspace`) | `PASSED` | `0` | 103/103 tests passed (33 unit, 59 acceptance, 4 proptests, 7 relay tests) |
+| `tests` (`cargo test --workspace`) | `PASSED` | `0` | 104/104 tests passed (33 unit, 60 acceptance, 4 proptests, 7 relay tests) |
 | `check` (`cargo check --workspace`) | `PASSED` | `0` | Fuld workspace kompilering uden fejl |
  
 ---

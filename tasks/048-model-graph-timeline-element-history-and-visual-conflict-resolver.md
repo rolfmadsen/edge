@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 048: Model Graph Tidslinje, Element-Historik & Visuel Konflikthåndtering"
 description: "Visuel tidslinje for modelhistorik, element-specifik revisionshistorik (Time Travel audit) og brugervenlig visuel konfliktløsning ved 3-vejs modstridende feltændringer"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-27T16:35:00Z" }
 tags: [git, timeline, model-graph, element-history, conflict-resolver, audit, time-travel]
 ---
 
 # Task 048: Model Graph Tidslinje, Element-Historik & Visuel Konflikthåndtering
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🚀 `NEW FEATURE`  
 **Oprettet**: `2026-09-27`  
 **Scope**: `src/ui/app.rs`, `src/features/git/`, `src/features/model/merge.rs`, `tests/acceptance.rs`
@@ -33,10 +33,10 @@ Fuldende den førsteklasses Git-modelintegration i Edge (Kant) med domæneorient
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Modelhistorik Tidslinje**: Appen kan åbne modelhistorikken (`Message::OpenModelHistoryModal`) og vise seneste versioner som domænehændelser.
-- [ ] **AC2 - Element-specifik Historik**: Appen kan hente og vise historik specifikt filtreret på et begrebs eller en klasses UUID (`Message::OpenElementHistoryModal(Uuid)`).
-- [ ] **AC3 - Visuel Konfliktløser Modal**: Ved modstridende felter kan appen præsentere `ModelConflict` i en dialog (`Message::OpenConflictResolverModal`) og lade brugeren vælge vinder-værdi (`Message::ResolveConflict(...)`).
-- [ ] **AC4 - Verifikation via Accepttest**: Test i `tests/acceptance.rs` beviser at tidslinje, element-historik og konfliktløsning fungerer i appens state maskine.
+- [x] **AC1 - Modelhistorik Tidslinje**: Appen kan åbne modelhistorikken (`Message::OpenModelHistoryModal`) og vise seneste versioner som domænehændelser.
+- [x] **AC2 - Element-specifik Historik**: Appen kan hente og vise historik specifikt filtreret på et begrebs eller en klasses UUID (`Message::OpenElementHistoryModal(Uuid)`).
+- [x] **AC3 - Visuel Konfliktløser Modal**: Ved modstridende felter kan appen præsentere `ModelConflict` i en dialog (`Message::OpenConflictResolverModal`) og lade brugeren vælge vinder-værdi (`Message::ResolveConflict(...)`).
+- [x] **AC4 - Verifikation via Accepttest**: Test i `tests/acceptance.rs` beviser at tidslinje, element-historik og konfliktløsning fungerer i appens state maskine.
 
 ---
 
@@ -48,6 +48,7 @@ Fuldende den førsteklasses Git-modelintegration i Edge (Kant) med domæneorient
 
 ## 📝 Revisions
 - 2026-09-27: Oprettet opgavepakke Task 048 for afslutning af Git model-integrationen.
+- 2026-09-27: Implementeret tidslinjemodal, element-historik og visuel konfliktløser; verificeret med 100% grøn testsuite.
 
 ---
 
