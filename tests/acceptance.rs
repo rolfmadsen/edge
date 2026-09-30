@@ -6446,3 +6446,155 @@ fn test_fda_uml_stereotypes_and_concept_canvas_relations() {
     assert_eq!(all_rels.len(), 3);
     assert!(all_rels.contains(&RelationKind::Composition));
 }
+
+#[test]
+fn test_fda_regler_20_21_22_aristotle_definition_linter() {
+    use kant::features::concepts::{
+        BelongsToDomain, Concept, ConceptValidator, DefinitionIssueKind, DefinitionLinter,
+    };
+
+    // 1. Aristoteles analyse (definitio per genus et differentiam)
+    let analysis1 = DefinitionLinter::analyze_aristotle("køretøj der drives frem ved pedalkraft");
+    assert_eq!(analysis1.genus_proximum.as_deref(), Some("køretøj"));
+    assert_eq!(
+        analysis1.differentia_specifica.as_deref(),
+        Some("drives frem ved pedalkraft")
+    );
+
+    let analysis2 = DefinitionLinter::analyze_aristotle("person som er passager på et transportmiddel");
+    assert_eq!(analysis2.genus_proximum.as_deref(), Some("person"));
+    assert_eq!(
+        analysis2.differentia_specifica.as_deref(),
+        Some("er passager på et transportmiddel")
+    );
+
+    // 2. Formateringsfejl (Regel 20: lille begyndelsesbogstav og intet afsluttende punktum)
+    let c_capital = Concept::new(
+        "cykel",
+        "Køretøj der drives frem ved pedalkraft",
+        BelongsToDomain::Yes,
+    );
+    let issues_cap = DefinitionLinter::lint(&c_capital);
+    assert!(
+        issues_cap
+            .iter()
+            .any(|i| i.kind == DefinitionIssueKind::CapitalizedFirstLetter),
+        "Definition med stort begyndelsesbogstav skal give advarsel"
+    );
+
+    let c_period = Concept::new(
+        "cykel",
+        "køretøj der drives frem ved pedalkraft.",
+        BelongsToDomain::Yes,
+    );
+    let issues_per = DefinitionLinter::lint(&c_period);
+    assert!(
+        issues_per
+            .iter()
+            .any(|i| i.kind == DefinitionIssueKind::TrailingPeriod),
+        "Definition med afsluttende punktum skal give advarsel"
+    );
+
+    // 3. Forbudte fyldfraser / indledninger (Regel 20)
+    for phrase_def in &[
+        "er et køretøj der drives frem ved pedalkraft",
+        "defineres som et køretøj der drives frem ved pedalkraft",
+        "betyder transportmiddel med pedaler",
+        "henvisning til køretøj der drives frem ved pedalkraft",
+        "angivelse af køretøjets art",
+    ] {
+        let c_phrase = Concept::new("cykel", *phrase_def, BelongsToDomain::Yes);
+        let issues = DefinitionLinter::lint(&c_phrase);
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.kind == DefinitionIssueKind::ForbiddenPrefixPhrase),
+            "Definition startende med fyldfrase '{}' skal give advarsel",
+            phrase_def
+        );
+    }
+
+    // 4. Cirkularitetsdetektering (Regel 20)
+    let mut c_circ = Concept::new(
+        "cykel",
+        "to-hjulet cykel der drives frem ved pedalkraft",
+        BelongsToDomain::Yes,
+    );
+    let issues_circ = DefinitionLinter::lint(&c_circ);
+    assert!(
+        issues_circ
+            .iter()
+            .any(|i| i.kind == DefinitionIssueKind::CircularTermReference),
+        "Definition der indeholder foretrukken term skal give cirkularitetsadvarsel"
+    );
+
+    // Cirkulær i forhold til accepteret synonym
+    c_circ.set_definition("to-hjulet velocipede for personer");
+    c_circ.set_accepted_term(Some("velocipede".to_string()));
+    let issues_syn = DefinitionLinter::lint(&c_circ);
+    assert!(
+        issues_syn
+            .iter()
+            .any(|i| i.kind == DefinitionIssueKind::CircularAcceptedTermReference),
+        "Definition der indeholder accepteret term (synonym) skal give advarsel"
+    );
+
+    // 5. Vage forbeholdsord (Regler 20 & 21)
+    for vague_def in &[
+        "køretøj der typisk har to hjul",
+        "køretøj der normalt anvendes til personbefordring",
+        "køretøj der ofte er udstyret med pedaler",
+        "køretøj der som regel har kædetræk",
+    ] {
+        let c_vague = Concept::new("cykel", *vague_def, BelongsToDomain::Yes);
+        let issues = DefinitionLinter::lint(&c_vague);
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.kind == DefinitionIssueKind::VagueWord),
+            "Definition med forbeholdsord '{}' skal give advarsel",
+            vague_def
+        );
+    }
+
+    // 6. Negative definitioner (Regel 20)
+    for neg_def in &[
+        "ikke-motoriseret køretøj med to hjul",
+        "cykel der ikke er beregnet til voksne",
+    ] {
+        let c_neg = Concept::new("børnecykel", *neg_def, BelongsToDomain::Yes);
+        let issues = DefinitionLinter::lint(&c_neg);
+        assert!(
+            issues
+                .iter()
+                .any(|i| i.kind == DefinitionIssueKind::NegativeDefinition),
+            "Negativ definition '{}' skal give advarsel",
+            neg_def
+        );
+    }
+
+    // 7. En fuldstændig FDA-kompatibel definition giver 0 advarsler
+    let valid_c = Concept::new(
+        "cykel",
+        "køretøj der drives frem ved pedalkraft",
+        BelongsToDomain::Yes,
+    );
+    let clean_issues = DefinitionLinter::lint(&valid_c);
+    assert!(
+        clean_issues.is_empty(),
+        "FDA-korrekt definition skal ikke give nogen advarsler, fandt: {:?}",
+        clean_issues
+    );
+
+    // 8. Advarsler er vejledende og blokerer ikke for ConceptValidator (AC5)
+    let dirty_c = Concept::new(
+        "cykel",
+        "Cykel er et køretøj der typisk drives frem ved pedalkraft.",
+        BelongsToDomain::Yes,
+    );
+    assert!(
+        ConceptValidator::validate(&dirty_c).is_ok(),
+        "Linter-advarsler må IKKE blokere for validering og lagring af eksisterende begreber"
+    );
+}
+
