@@ -6780,7 +6780,9 @@ fn test_task_059_export_engine_svg_csv_and_report() {
         "Færdselsloven § 2, stk. 1".to_string(),
         "Bekendtgørelse om registrering af køretøjer § 10".to_string(),
     ]);
-    metadata.set_version_notes(Some("Opdateret med enumeration for drivkraft og SVG/CSV eksportstøtte.".to_string()));
+    metadata.set_version_notes(Some(
+        "Opdateret med enumeration for drivkraft og SVG/CSV eksportstøtte.".to_string(),
+    ));
 
     let mut project = ModelProject::new(metadata);
 
@@ -6797,7 +6799,9 @@ fn test_task_059_export_engine_svg_csv_and_report() {
     c1.set_application_note(Some("Anvendes i Motorregistret.".to_string()));
     c1.set_legal_source(Some("Færdselsloven § 2, stk. 1".to_string()));
     c1.set_source(Some("Retsinformation".to_string()));
-    c1.set_identifier(Some("https://data.gov.dk/model/core/vehicle/Koeretoej".to_string()));
+    c1.set_identifier(Some(
+        "https://data.gov.dk/model/core/vehicle/Koeretoej".to_string(),
+    ));
     c1.set_derived_from(Some("https://schema.org/Vehicle".to_string()));
 
     let mut c2 = Concept::new(
@@ -6806,7 +6810,9 @@ fn test_task_059_export_engine_svg_csv_and_report() {
         BelongsToDomain::Yes,
     );
     c2.set_example(Some("Sedan, stationcar".to_string()));
-    c2.set_identifier(Some("https://data.gov.dk/model/core/vehicle/Personbil".to_string()));
+    c2.set_identifier(Some(
+        "https://data.gov.dk/model/core/vehicle/Personbil".to_string(),
+    ));
 
     let mut c3 = Concept::new(
         "Registreringsattest",
@@ -6814,7 +6820,9 @@ fn test_task_059_export_engine_svg_csv_and_report() {
         BelongsToDomain::No,
     );
     // RFC-4180 test med citationstegn og kommaer i kommentaren
-    c3.set_comment(Some("Bemærk: Dokumentet indeholder \"stelnummer\", modelkode og ejerdata.".to_string()));
+    c3.set_comment(Some(
+        "Bemærk: Dokumentet indeholder \"stelnummer\", modelkode og ejerdata.".to_string(),
+    ));
 
     project.concepts_mut().push(c1.clone());
     project.concepts_mut().push(c2.clone());
@@ -6823,14 +6831,21 @@ fn test_task_059_export_engine_svg_csv_and_report() {
     // 3. Tilføj noder og relationer i begrebsgrafen
     let n1 = project.concept_graph_mut().add_node(&c1);
     let n2 = project.concept_graph_mut().add_node(&c2);
-    project.concept_graph_mut().add_relation(n2, n1, RelationKind::Generalization);
+    project
+        .concept_graph_mut()
+        .add_relation(n2, n1, RelationKind::Generalization);
 
     // 4. Byg Informationsmodel med klasser, attributter og enumerationer
     let enum_id = uuid::Uuid::new_v4();
     let fuel_enum = InformationEnumeration::new_with_id(
         enum_id,
         "DrivkraftType",
-        vec!["benzin".to_string(), "diesel".to_string(), "el".to_string(), "brint".to_string()],
+        vec![
+            "benzin".to_string(),
+            "diesel".to_string(),
+            "el".to_string(),
+            "brint".to_string(),
+        ],
     );
     project.information_model_mut().add_enumeration(fuel_enum);
 
@@ -6842,36 +6857,86 @@ fn test_task_059_export_engine_svg_csv_and_report() {
     ));
     personbil_class.add_attribute(Attribute::new(
         "drivkraft",
-        InformationDataType::Enumeration { enumeration_id: enum_id },
+        InformationDataType::Enumeration {
+            enumeration_id: enum_id,
+        },
         Multiplicity::zero_or_one(),
     ));
     let class_id = personbil_class.id();
     project.information_model_mut().add_class(personbil_class);
-    project.information_graph_mut().add_node_at(class_id, 100.0, 100.0, 2);
+    project
+        .information_graph_mut()
+        .add_node_at(class_id, 100.0, 100.0, 2);
 
     // === AC1: Standardiseret Vektor-SVG Eksport ===
     let concept_svg = export_concept_model_svg(project.concept_graph(), project.concepts());
-    assert!(concept_svg.starts_with("<svg "), "Begrebsmodel SVG skal starte med <svg");
-    assert!(concept_svg.ends_with("</svg>"), "Begrebsmodel SVG skal slutte med </svg>");
-    assert!(concept_svg.contains("xmlns=\"http://www.w3.org/2000/svg\""), "SVG skal have XML namespace");
-    assert!(concept_svg.contains("viewBox="), "SVG skal have afpasset viewBox");
-    assert!(concept_svg.contains("Køretøj"), "SVG skal indeholde nodetekst 'Køretøj'");
-    assert!(concept_svg.contains("Personbil"), "SVG skal indeholde nodetekst 'Personbil'");
+    assert!(
+        concept_svg.starts_with("<svg "),
+        "Begrebsmodel SVG skal starte med <svg"
+    );
+    assert!(
+        concept_svg.ends_with("</svg>"),
+        "Begrebsmodel SVG skal slutte med </svg>"
+    );
+    assert!(
+        concept_svg.contains("xmlns=\"http://www.w3.org/2000/svg\""),
+        "SVG skal have XML namespace"
+    );
+    assert!(
+        concept_svg.contains("viewBox="),
+        "SVG skal have afpasset viewBox"
+    );
+    assert!(
+        concept_svg.contains("Køretøj"),
+        "SVG skal indeholde nodetekst 'Køretøj'"
+    );
+    assert!(
+        concept_svg.contains("Personbil"),
+        "SVG skal indeholde nodetekst 'Personbil'"
+    );
     // SVG Generaliseringspil (lukket hvid trekant)
-    assert!(concept_svg.contains("<polygon") || concept_svg.contains("<path"), "SVG skal indeholde relationer");
+    assert!(
+        concept_svg.contains("<polygon") || concept_svg.contains("<path"),
+        "SVG skal indeholde relationer"
+    );
 
-    let info_svg = export_information_model_svg(project.information_graph(), project.information_model());
-    assert!(info_svg.starts_with("<svg "), "Informationsmodel SVG skal starte med <svg");
-    assert!(info_svg.ends_with("</svg>"), "Informationsmodel SVG skal slutte med </svg>");
-    assert!(info_svg.contains("Personbil"), "Informationsmodel SVG skal have klassen Personbil");
-    assert!(info_svg.contains("stelnummer"), "Informationsmodel SVG skal have attributten stelnummer");
-    assert!(info_svg.contains("«enumeration»"), "Informationsmodel SVG skal have «enumeration» stereotype");
-    assert!(info_svg.contains("DrivkraftType"), "Informationsmodel SVG skal vise DrivkraftType");
+    let info_svg =
+        export_information_model_svg(project.information_graph(), project.information_model());
+    assert!(
+        info_svg.starts_with("<svg "),
+        "Informationsmodel SVG skal starte med <svg"
+    );
+    assert!(
+        info_svg.ends_with("</svg>"),
+        "Informationsmodel SVG skal slutte med </svg>"
+    );
+    assert!(
+        info_svg.contains("Personbil"),
+        "Informationsmodel SVG skal have klassen Personbil"
+    );
+    assert!(
+        info_svg.contains("stelnummer"),
+        "Informationsmodel SVG skal have attributten stelnummer"
+    );
+    assert!(
+        info_svg.contains("«enumeration»"),
+        "Informationsmodel SVG skal have «enumeration» stereotype"
+    );
+    assert!(
+        info_svg.contains("DrivkraftType"),
+        "Informationsmodel SVG skal vise DrivkraftType"
+    );
 
     // === AC2: RFC-4180 CSV-eksport af begrebsliste med UTF-8 BOM ===
     let csv_data = export_concepts_to_csv(project.concepts());
-    assert!(csv_data.starts_with('\u{FEFF}'), "CSV skal starte med UTF-8 BOM for Excel-kompatibilitet");
-    let header_line = csv_data.lines().next().expect("CSV skal have en overskriftslinje");
+    assert!(
+        csv_data.starts_with('\u{FEFF}'),
+        "CSV skal starte med UTF-8 BOM for Excel-kompatibilitet"
+    );
+    let header_line = csv_data
+        .lines()
+        .next()
+        .expect("CSV skal have en overskriftslinje");
     assert!(
         header_line.contains("Foretrukken term")
             && header_line.contains("Accepteret term")
@@ -6882,7 +6947,10 @@ fn test_task_059_export_engine_svg_csv_and_report() {
         "CSV overskrift skal indeholde samtlige 12 FDA standardkolonner jf. Bilag D/E"
     );
     assert!(csv_data.contains("Køretøj"), "CSV skal indeholde 'Køretøj'");
-    assert!(csv_data.contains("Transportmiddel"), "CSV skal indeholde 'Transportmiddel'");
+    assert!(
+        csv_data.contains("Transportmiddel"),
+        "CSV skal indeholde 'Transportmiddel'"
+    );
     // Test RFC-4180 escaping af citationstegn: "stelnummer" -> ""stelnummer""
     assert!(
         csv_data.contains("\"\"stelnummer\"\""),
@@ -6891,18 +6959,48 @@ fn test_task_059_export_engine_svg_csv_and_report() {
 
     // === AC3: Samlet Modelrapport (Markdown & HTML) ===
     let md_report = export_model_report_markdown(&project);
-    assert!(md_report.contains("# Køretøjsmodellen"), "Markdown rapport skal have modelnavn som H1");
-    assert!(md_report.contains("## Indholdsfortegnelse"), "Markdown rapport skal have indholdsfortegnelse");
-    assert!(md_report.contains("Tabel D: Modelmetadata") || md_report.contains("Modelmetadata"), "Rapport skal have Tabel D");
-    assert!(md_report.contains("Motorstyrelsen"), "Rapport skal indeholde ansvarlig organisation");
-    assert!(md_report.contains("Færdselsloven § 2, stk. 1"), "Rapport skal indeholde lovgrundlag");
-    assert!(md_report.contains("Personbil"), "Rapport skal liste begreber og klasser");
+    assert!(
+        md_report.contains("# Køretøjsmodellen"),
+        "Markdown rapport skal have modelnavn som H1"
+    );
+    assert!(
+        md_report.contains("## Indholdsfortegnelse"),
+        "Markdown rapport skal have indholdsfortegnelse"
+    );
+    assert!(
+        md_report.contains("Tabel D: Modelmetadata") || md_report.contains("Modelmetadata"),
+        "Rapport skal have Tabel D"
+    );
+    assert!(
+        md_report.contains("Motorstyrelsen"),
+        "Rapport skal indeholde ansvarlig organisation"
+    );
+    assert!(
+        md_report.contains("Færdselsloven § 2, stk. 1"),
+        "Rapport skal indeholde lovgrundlag"
+    );
+    assert!(
+        md_report.contains("Personbil"),
+        "Rapport skal liste begreber og klasser"
+    );
 
     let html_report = export_model_report_html(&project);
-    assert!(html_report.contains("<!DOCTYPE html>"), "HTML rapport skal være gyldigt HTML5 dokument");
-    assert!(html_report.contains("<title>Køretøjsmodellen</title>"), "HTML rapport skal have korrekt titel");
-    assert!(html_report.contains("charset=\"utf-8\""), "HTML rapport skal specificere utf-8 tegnsæt");
-    assert!(html_report.contains("Motorstyrelsen"), "HTML rapport skal indeholde modelmetadata");
+    assert!(
+        html_report.contains("<!DOCTYPE html>"),
+        "HTML rapport skal være gyldigt HTML5 dokument"
+    );
+    assert!(
+        html_report.contains("<title>Køretøjsmodellen</title>"),
+        "HTML rapport skal have korrekt titel"
+    );
+    assert!(
+        html_report.contains("charset=\"utf-8\""),
+        "HTML rapport skal specificere utf-8 tegnsæt"
+    );
+    assert!(
+        html_report.contains("Motorstyrelsen"),
+        "HTML rapport skal indeholde modelmetadata"
+    );
 
     // === AC4 & AC5: UI Message Dispatch Flow ===
     let mut app = App::new_with_path(None);
@@ -6911,4 +7009,3 @@ fn test_task_059_export_engine_svg_csv_and_report() {
     let _ = app.update(Message::ToggleMenu(kant::ui::app::MenuType::Export));
     assert_eq!(app.active_menu(), Some(kant::ui::app::MenuType::Export));
 }
-

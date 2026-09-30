@@ -1,5 +1,7 @@
 use crate::features::concepts::BelongsToDomain;
-use crate::features::export::svg::{export_concept_model_svg, export_information_model_svg, xml_escape};
+use crate::features::export::svg::{
+    export_concept_model_svg, export_information_model_svg, xml_escape,
+};
 use crate::features::model::ModelProject;
 
 /// Eksporterer en samlet officiel FDA indleveringsrapport i Markdown format.
@@ -19,7 +21,9 @@ pub fn export_model_report_markdown(project: &ModelProject) -> String {
     out.push_str("2. [Lovgrundlag & Juridiske Kilder](#2-lovgrundlag--juridiske-kilder)\n");
     out.push_str("3. [Begrebskatalog (Bilag D & E)](#3-begrebskatalog-bilag-d--e)\n");
     out.push_str("4. [Begrebsmodel & Relationer](#4-begrebsmodel--relationer)\n");
-    out.push_str("5. [Informationsmodel & Datastrukturer](#5-informationsmodel--datastrukturer)\n\n");
+    out.push_str(
+        "5. [Informationsmodel & Datastrukturer](#5-informationsmodel--datastrukturer)\n\n",
+    );
 
     // Sektion 1: Tabel D Modelmetadata
     out.push_str("## 1. Tabel D: Modelmetadata\n\n");
@@ -28,17 +32,26 @@ pub fn export_model_report_markdown(project: &ModelProject) -> String {
     out.push_str(&format!("| **Modelnavn** | {} |\n", meta.name()));
     out.push_str(&format!("| **Beskrivelse** | {} |\n", meta.description()));
     out.push_str(&format!("| **Identifikator (URI)** | `{}` |\n", meta.uri()));
-    out.push_str(&format!("| **Ansvarlig organisation** | {} |\n", meta.responsible_org()));
+    out.push_str(&format!(
+        "| **Ansvarlig organisation** | {} |\n",
+        meta.responsible_org()
+    ));
     out.push_str(&format!("| **Emneområde** | {} |\n", meta.domain_area()));
     out.push_str(&format!("| **Version** | {} |\n", meta.version()));
     out.push_str(&format!("| **Modelstatus** | {} |\n", meta.model_status()));
-    out.push_str(&format!("| **Godkendelsesstatus** | {} |\n", meta.approval_status()));
+    out.push_str(&format!(
+        "| **Godkendelsesstatus** | {} |\n",
+        meta.approval_status()
+    ));
     if let Some(approver) = meta.approved_by() {
         out.push_str(&format!("| **Godkendt af** | {} |\n", approver));
     }
     out.push_str(&format!("| **Modelomfang** | {} |\n", meta.model_scope()));
     out.push_str(&format!("| **Sprog** | {} |\n", meta.language()));
-    out.push_str(&format!("| **Sidst ændret** | {} |\n", meta.date_modified()));
+    out.push_str(&format!(
+        "| **Sidst ændret** | {} |\n",
+        meta.date_modified()
+    ));
     if let Some(notes) = meta.version_notes() {
         out.push_str(&format!("| **Versionsnoter** | {} |\n", notes));
     }
@@ -113,17 +126,32 @@ pub fn export_model_report_markdown(project: &ModelProject) -> String {
     // Sektion 4: Begrebsmodel & Relationer
     out.push_str("## 4. Begrebsmodel & Relationer\n\n");
     let cg = project.concept_graph();
-    out.push_str(&format!("- Antal begrebsnoder på lærredet: **{}**\n", cg.node_count()));
+    out.push_str(&format!(
+        "- Antal begrebsnoder på lærredet: **{}**\n",
+        cg.node_count()
+    ));
     out.push_str(&format!("- Antal relationer: **{}**\n\n", cg.edge_count()));
 
     if !cg.edges().is_empty() {
         out.push_str("| Kilde (Fra) | Relationstype | Mål (Til) | Label |\n");
         out.push_str("| :--- | :--- | :--- | :--- |\n");
         for edge in cg.edges() {
-            let from_name = cg.find_node(edge.from()).map(|n| n.label()).unwrap_or("Ukendt");
-            let to_name = cg.find_node(edge.to()).map(|n| n.label()).unwrap_or("Ukendt");
+            let from_name = cg
+                .find_node(edge.from())
+                .map(|n| n.label())
+                .unwrap_or("Ukendt");
+            let to_name = cg
+                .find_node(edge.to())
+                .map(|n| n.label())
+                .unwrap_or("Ukendt");
             let label = edge.label().unwrap_or("-");
-            out.push_str(&format!("| {} | {} | {} | {} |\n", from_name, edge.kind(), to_name, label));
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                from_name,
+                edge.kind(),
+                to_name,
+                label
+            ));
         }
         out.push('\n');
     }
@@ -131,12 +159,25 @@ pub fn export_model_report_markdown(project: &ModelProject) -> String {
     // Sektion 5: Informationsmodel & Datastrukturer
     out.push_str("## 5. Informationsmodel & Datastrukturer\n\n");
     let im = project.information_model();
-    out.push_str(&format!("- Antal informationsklasser: **{}**\n", im.classes().len()));
-    out.push_str(&format!("- Antal enumerationer: **{}**\n", im.enumerations().len()));
-    out.push_str(&format!("- Antal strukturerede datatyper: **{}**\n\n", im.structured_types().len()));
+    out.push_str(&format!(
+        "- Antal informationsklasser: **{}**\n",
+        im.classes().len()
+    ));
+    out.push_str(&format!(
+        "- Antal enumerationer: **{}**\n",
+        im.enumerations().len()
+    ));
+    out.push_str(&format!(
+        "- Antal strukturerede datatyper: **{}**\n\n",
+        im.structured_types().len()
+    ));
 
     for class in im.classes() {
-        let stereo = if class.is_abstract() { "«abstrakt klasse» " } else { "" };
+        let stereo = if class.is_abstract() {
+            "«abstrakt klasse» "
+        } else {
+            ""
+        };
         out.push_str(&format!("### {}{}\n\n", stereo, class.name()));
         if let Some(desc) = class.description() {
             out.push_str(&format!("{}\n\n", desc));
@@ -204,7 +245,8 @@ pub fn export_model_report_markdown(project: &ModelProject) -> String {
 pub fn export_model_report_html(project: &ModelProject) -> String {
     let meta = project.metadata();
     let concept_svg = export_concept_model_svg(project.concept_graph(), project.concepts());
-    let info_svg = export_information_model_svg(project.information_graph(), project.information_model());
+    let info_svg =
+        export_information_model_svg(project.information_graph(), project.information_model());
 
     let mut out = String::new();
     out.push_str("<!DOCTYPE html>\n<html lang=\"da\">\n<head>\n");
@@ -250,20 +292,28 @@ pub fn export_model_report_html(project: &ModelProject) -> String {
     out.push_str("    .toc { background: var(--slate-100); border-radius: 8px; padding: 20px 30px; margin-bottom: 40px; }\n");
     out.push_str("    .toc ul { margin: 8px 0 0 0; padding-left: 20px; }\n");
     out.push_str("    .toc li { margin-bottom: 6px; }\n");
-    out.push_str("    .toc a { color: var(--primary); text-decoration: none; font-weight: 500; }\n");
+    out.push_str(
+        "    .toc a { color: var(--primary); text-decoration: none; font-weight: 500; }\n",
+    );
     out.push_str("    .toc a:hover { text-decoration: underline; }\n");
     out.push_str("    table { width: 100%; border-collapse: collapse; margin: 16px 0 28px 0; font-size: 0.95rem; }\n");
     out.push_str("    th, td { border: 1px solid var(--slate-200); padding: 10px 14px; text-align: left; }\n");
-    out.push_str("    th { background: var(--slate-100); color: var(--slate-700); font-weight: 600; }\n");
+    out.push_str(
+        "    th { background: var(--slate-100); color: var(--slate-700); font-weight: 600; }\n",
+    );
     out.push_str("    tr:nth-child(even) { background-color: #FAFCFE; }\n");
     out.push_str("    .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.85rem; font-weight: 600; }\n");
-    out.push_str("    .badge-primary { background: var(--primary-light); color: var(--primary); }\n");
+    out.push_str(
+        "    .badge-primary { background: var(--primary-light); color: var(--primary); }\n",
+    );
     out.push_str("    .diagram-card { border: 1px solid var(--slate-200); border-radius: 8px; overflow: hidden; margin: 20px 0; background: #FFF; text-align: center; padding: 16px; }\n");
     out.push_str("    .diagram-card svg { max-width: 100%; height: auto; }\n");
     out.push_str("    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; background: var(--slate-100); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }\n");
     out.push_str("    @media print {\n");
     out.push_str("      body { background: #FFF; padding: 0; }\n");
-    out.push_str("      .report-container { box-shadow: none; padding: 0; width: 100%; max-width: 100%; }\n");
+    out.push_str(
+        "      .report-container { box-shadow: none; padding: 0; width: 100%; max-width: 100%; }\n",
+    );
     out.push_str("      h2 { page-break-before: always; }\n");
     out.push_str("    }\n");
     out.push_str("  </style>\n");
@@ -273,7 +323,10 @@ pub fn export_model_report_html(project: &ModelProject) -> String {
     // Hovedoverskrift
     out.push_str(&format!("    <h1>{}</h1>\n", xml_escape(meta.name())));
     if !meta.description().is_empty() {
-        out.push_str(&format!("    <p class=\"lead-description\">{}</p>\n", xml_escape(meta.description())));
+        out.push_str(&format!(
+            "    <p class=\"lead-description\">{}</p>\n",
+            xml_escape(meta.description())
+        ));
     }
 
     // Indholdsfortegnelse
@@ -281,8 +334,12 @@ pub fn export_model_report_html(project: &ModelProject) -> String {
     out.push_str("      <strong>Indholdsfortegnelse</strong>\n");
     out.push_str("      <ul>\n");
     out.push_str("        <li><a href=\"#sec-metadata\">1. Tabel D: Modelmetadata</a></li>\n");
-    out.push_str("        <li><a href=\"#sec-legal\">2. Lovgrundlag &amp; Juridiske Kilder</a></li>\n");
-    out.push_str("        <li><a href=\"#sec-concepts\">3. Begrebskatalog (Bilag D &amp; E)</a></li>\n");
+    out.push_str(
+        "        <li><a href=\"#sec-legal\">2. Lovgrundlag &amp; Juridiske Kilder</a></li>\n",
+    );
+    out.push_str(
+        "        <li><a href=\"#sec-concepts\">3. Begrebskatalog (Bilag D &amp; E)</a></li>\n",
+    );
     out.push_str("        <li><a href=\"#sec-concept-model\">4. Begrebsmodel (Diagram)</a></li>\n");
     out.push_str("        <li><a href=\"#sec-info-model\">5. Informationsmodel (UML Diagram &amp; Klasser)</a></li>\n");
     out.push_str("      </ul>\n");
@@ -291,35 +348,78 @@ pub fn export_model_report_html(project: &ModelProject) -> String {
     // Sektion 1: Metadata
     out.push_str("    <h2 id=\"sec-metadata\">1. Tabel D: Modelmetadata</h2>\n");
     out.push_str("    <table>\n");
-    out.push_str("      <thead><tr><th style=\"width: 30%;\">Metadatafelt</th><th>Værdi</th></tr></thead>\n");
+    out.push_str(
+        "      <thead><tr><th style=\"width: 30%;\">Metadatafelt</th><th>Værdi</th></tr></thead>\n",
+    );
     out.push_str("      <tbody>\n");
-    out.push_str(&format!("        <tr><td><strong>Modelnavn</strong></td><td>{}</td></tr>\n", xml_escape(meta.name())));
-    out.push_str(&format!("        <tr><td><strong>Beskrivelse</strong></td><td>{}</td></tr>\n", xml_escape(meta.description())));
-    out.push_str(&format!("        <tr><td><strong>Identifikator (URI)</strong></td><td><code>{}</code></td></tr>\n", xml_escape(meta.uri())));
-    out.push_str(&format!("        <tr><td><strong>Ansvarlig organisation</strong></td><td>{}</td></tr>\n", xml_escape(meta.responsible_org())));
-    out.push_str(&format!("        <tr><td><strong>Emneområde</strong></td><td>{}</td></tr>\n", xml_escape(meta.domain_area())));
+    out.push_str(&format!(
+        "        <tr><td><strong>Modelnavn</strong></td><td>{}</td></tr>\n",
+        xml_escape(meta.name())
+    ));
+    out.push_str(&format!(
+        "        <tr><td><strong>Beskrivelse</strong></td><td>{}</td></tr>\n",
+        xml_escape(meta.description())
+    ));
+    out.push_str(&format!(
+        "        <tr><td><strong>Identifikator (URI)</strong></td><td><code>{}</code></td></tr>\n",
+        xml_escape(meta.uri())
+    ));
+    out.push_str(&format!(
+        "        <tr><td><strong>Ansvarlig organisation</strong></td><td>{}</td></tr>\n",
+        xml_escape(meta.responsible_org())
+    ));
+    out.push_str(&format!(
+        "        <tr><td><strong>Emneområde</strong></td><td>{}</td></tr>\n",
+        xml_escape(meta.domain_area())
+    ));
     out.push_str(&format!("        <tr><td><strong>Version</strong></td><td><span class=\"badge badge-primary\">{}</span></td></tr>\n", xml_escape(meta.version())));
-    out.push_str(&format!("        <tr><td><strong>Modelstatus</strong></td><td>{}</td></tr>\n", xml_escape(&meta.model_status().to_string())));
-    out.push_str(&format!("        <tr><td><strong>Godkendelsesstatus</strong></td><td>{}</td></tr>\n", xml_escape(&meta.approval_status().to_string())));
+    out.push_str(&format!(
+        "        <tr><td><strong>Modelstatus</strong></td><td>{}</td></tr>\n",
+        xml_escape(&meta.model_status().to_string())
+    ));
+    out.push_str(&format!(
+        "        <tr><td><strong>Godkendelsesstatus</strong></td><td>{}</td></tr>\n",
+        xml_escape(&meta.approval_status().to_string())
+    ));
     if let Some(appr) = meta.approved_by() {
-        out.push_str(&format!("        <tr><td><strong>Godkendt af</strong></td><td>{}</td></tr>\n", xml_escape(appr)));
+        out.push_str(&format!(
+            "        <tr><td><strong>Godkendt af</strong></td><td>{}</td></tr>\n",
+            xml_escape(appr)
+        ));
     }
-    out.push_str(&format!("        <tr><td><strong>Modelomfang</strong></td><td>{}</td></tr>\n", xml_escape(&meta.model_scope().to_string())));
-    out.push_str(&format!("        <tr><td><strong>Sprog</strong></td><td>{}</td></tr>\n", xml_escape(meta.language())));
-    out.push_str(&format!("        <tr><td><strong>Sidst ændret</strong></td><td>{}</td></tr>\n", xml_escape(meta.date_modified())));
+    out.push_str(&format!(
+        "        <tr><td><strong>Modelomfang</strong></td><td>{}</td></tr>\n",
+        xml_escape(&meta.model_scope().to_string())
+    ));
+    out.push_str(&format!(
+        "        <tr><td><strong>Sprog</strong></td><td>{}</td></tr>\n",
+        xml_escape(meta.language())
+    ));
+    out.push_str(&format!(
+        "        <tr><td><strong>Sidst ændret</strong></td><td>{}</td></tr>\n",
+        xml_escape(meta.date_modified())
+    ));
     if let Some(notes) = meta.version_notes() {
-        out.push_str(&format!("        <tr><td><strong>Versionsnoter</strong></td><td>{}</td></tr>\n", xml_escape(notes)));
+        out.push_str(&format!(
+            "        <tr><td><strong>Versionsnoter</strong></td><td>{}</td></tr>\n",
+            xml_escape(notes)
+        ));
     }
     out.push_str("      </tbody>\n    </table>\n");
 
     // Sektion 2: Lovgrundlag
     out.push_str("    <h2 id=\"sec-legal\">2. Lovgrundlag &amp; Juridiske Kilder</h2>\n");
     if meta.legal_sources().is_empty() {
-        out.push_str("    <p><em>Ingen specifikke juridiske kilder angivet for denne model.</em></p>\n");
+        out.push_str(
+            "    <p><em>Ingen specifikke juridiske kilder angivet for denne model.</em></p>\n",
+        );
     } else {
         out.push_str("    <ul>\n");
         for ls in meta.legal_sources() {
-            out.push_str(&format!("      <li>⚖️ <strong>{}</strong></li>\n", xml_escape(ls)));
+            out.push_str(&format!(
+                "      <li>⚖️ <strong>{}</strong></li>\n",
+                xml_escape(ls)
+            ));
         }
         out.push_str("    </ul>\n");
     }
@@ -327,30 +427,57 @@ pub fn export_model_report_html(project: &ModelProject) -> String {
     // Sektion 3: Begrebskatalog
     out.push_str("    <h2 id=\"sec-concepts\">3. Begrebskatalog (Bilag D &amp; E)</h2>\n");
     for c in project.concepts() {
-        out.push_str(&format!("    <h3>{}</h3>\n", xml_escape(c.preferred_term())));
-        out.push_str(&format!("    <p><strong>Definition:</strong> {}</p>\n", xml_escape(c.definition())));
+        out.push_str(&format!(
+            "    <h3>{}</h3>\n",
+            xml_escape(c.preferred_term())
+        ));
+        out.push_str(&format!(
+            "    <p><strong>Definition:</strong> {}</p>\n",
+            xml_escape(c.definition())
+        ));
 
         out.push_str("    <table>\n      <tbody>\n");
         if let Some(acc) = c.accepted_term() {
-            out.push_str(&format!("        <tr><td style=\"width: 30%;\">Accepteret term</td><td>{}</td></tr>\n", xml_escape(acc)));
+            out.push_str(&format!(
+                "        <tr><td style=\"width: 30%;\">Accepteret term</td><td>{}</td></tr>\n",
+                xml_escape(acc)
+            ));
         }
         if let Some(dep) = c.deprecated_term() {
-            out.push_str(&format!("        <tr><td>Frarådet term</td><td>{}</td></tr>\n", xml_escape(dep)));
+            out.push_str(&format!(
+                "        <tr><td>Frarådet term</td><td>{}</td></tr>\n",
+                xml_escape(dep)
+            ));
         }
         if let Some(ex) = c.example() {
-            out.push_str(&format!("        <tr><td>Eksempel</td><td>{}</td></tr>\n", xml_escape(ex)));
+            out.push_str(&format!(
+                "        <tr><td>Eksempel</td><td>{}</td></tr>\n",
+                xml_escape(ex)
+            ));
         }
         if let Some(com) = c.comment() {
-            out.push_str(&format!("        <tr><td>Kommentar</td><td>{}</td></tr>\n", xml_escape(com)));
+            out.push_str(&format!(
+                "        <tr><td>Kommentar</td><td>{}</td></tr>\n",
+                xml_escape(com)
+            ));
         }
         if let Some(app) = c.application_note() {
-            out.push_str(&format!("        <tr><td>Anvendelsesnote</td><td>{}</td></tr>\n", xml_escape(app)));
+            out.push_str(&format!(
+                "        <tr><td>Anvendelsesnote</td><td>{}</td></tr>\n",
+                xml_escape(app)
+            ));
         }
         if let Some(ls) = c.legal_source() {
-            out.push_str(&format!("        <tr><td>Juridisk kilde</td><td>{}</td></tr>\n", xml_escape(ls)));
+            out.push_str(&format!(
+                "        <tr><td>Juridisk kilde</td><td>{}</td></tr>\n",
+                xml_escape(ls)
+            ));
         }
         if let Some(id) = c.identifier() {
-            out.push_str(&format!("        <tr><td>Identifikator</td><td><code>{}</code></td></tr>\n", xml_escape(id)));
+            out.push_str(&format!(
+                "        <tr><td>Identifikator</td><td><code>{}</code></td></tr>\n",
+                xml_escape(id)
+            ));
         }
         out.push_str("      </tbody>\n    </table>\n");
     }
@@ -399,4 +526,3 @@ mod tests {
         assert!(html.contains("<title>Testmodel</title>"));
     }
 }
-

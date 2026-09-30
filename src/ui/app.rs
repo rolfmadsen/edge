@@ -3197,9 +3197,7 @@ impl App {
                         ExportKind::ModelReportMarkdown => {
                             export_model_report_markdown(&self.project)
                         }
-                        ExportKind::ModelReportHtml => {
-                            export_model_report_html(&self.project)
-                        }
+                        ExportKind::ModelReportHtml => export_model_report_html(&self.project),
                     };
 
                     if let Err(err) = std::fs::write(&path, content) {

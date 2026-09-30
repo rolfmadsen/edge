@@ -5,7 +5,8 @@ use crate::features::concepts::{BelongsToDomain, Concept};
 /// Hvis feltet indeholder citationstegn (`"`), komma (`,`) eller linjeskift (`\r`, `\n`),
 /// omsluttes feltet med citationstegn, og alle interne citationstegn dubleres (`""`).
 pub fn escape_rfc4180(field: &str) -> String {
-    let needs_quotes = field.contains('"') || field.contains(',') || field.contains('\r') || field.contains('\n');
+    let needs_quotes =
+        field.contains('"') || field.contains(',') || field.contains('\r') || field.contains('\n');
     if needs_quotes {
         let mut escaped = String::with_capacity(field.len() + 10);
         escaped.push('"');
@@ -105,7 +106,10 @@ mod tests {
     fn test_rfc4180_escaping() {
         assert_eq!(escape_rfc4180("Enkelt"), "Enkelt");
         assert_eq!(escape_rfc4180("Med, komma"), "\"Med, komma\"");
-        assert_eq!(escape_rfc4180("Med \"gåseøjne\""), "\"Med \"\"gåseøjne\"\"\"");
+        assert_eq!(
+            escape_rfc4180("Med \"gåseøjne\""),
+            "\"Med \"\"gåseøjne\"\"\""
+        );
         assert_eq!(escape_rfc4180("Linje1\nLinje2"), "\"Linje1\nLinje2\"");
     }
 }

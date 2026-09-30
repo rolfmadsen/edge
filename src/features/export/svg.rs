@@ -66,7 +66,9 @@ pub fn export_concept_model_svg(graph: &ConceptGraph, _concepts: &[Concept]) -> 
 
     // Styling og definitioner
     svg.push_str("  <defs>\n");
-    svg.push_str("    <filter id=\"drop-shadow\" x=\"-10%\" y=\"-10%\" width=\"130%\" height=\"130%\">\n");
+    svg.push_str(
+        "    <filter id=\"drop-shadow\" x=\"-10%\" y=\"-10%\" width=\"130%\" height=\"130%\">\n",
+    );
     svg.push_str("      <feDropShadow dx=\"0\" dy=\"2\" stdDeviation=\"3\" flood-opacity=\"0.08\" flood-color=\"#0F172A\" />\n");
     svg.push_str("    </filter>\n");
     svg.push_str("  </defs>\n");
@@ -157,10 +159,7 @@ pub fn export_concept_model_svg(graph: &ConceptGraph, _concepts: &[Concept]) -> 
         let cx = node.x() + (node.width() / 2.0);
         let cy = node.y() + (node.height() / 2.0);
 
-        svg.push_str(&format!(
-            "  <g id=\"node-{}\">\n",
-            node.id()
-        ));
+        svg.push_str(&format!("  <g id=\"node-{}\">\n", node.id()));
         svg.push_str(&format!(
             "    <rect x=\"{:.1}\" y=\"{:.1}\" width=\"{:.1}\" height=\"{:.1}\" rx=\"8\" ry=\"8\" fill=\"{}\" stroke=\"{}\" stroke-width=\"1.2\" filter=\"url(#drop-shadow)\" />\n",
             node.x(), node.y(), node.width(), node.height(), fill_color, border_color
@@ -254,7 +253,9 @@ pub fn export_information_model_svg(graph: &ClassGraph, model: &InformationModel
 
     // Styling og filter
     svg.push_str("  <defs>\n");
-    svg.push_str("    <filter id=\"class-shadow\" x=\"-10%\" y=\"-10%\" width=\"130%\" height=\"130%\">\n");
+    svg.push_str(
+        "    <filter id=\"class-shadow\" x=\"-10%\" y=\"-10%\" width=\"130%\" height=\"130%\">\n",
+    );
     svg.push_str("      <feDropShadow dx=\"0\" dy=\"2\" stdDeviation=\"3\" flood-opacity=\"0.08\" flood-color=\"#0F172A\" />\n");
     svg.push_str("    </filter>\n");
     svg.push_str("  </defs>\n");
@@ -332,7 +333,10 @@ pub fn export_information_model_svg(graph: &ClassGraph, model: &InformationModel
         }
 
         // Multiplicitet hvis matchet med oprindelig edge
-        if let Some(orig) = edges.iter().find(|e| e.from() == routed.from && e.to() == routed.to) {
+        if let Some(orig) = edges
+            .iter()
+            .find(|e| e.from() == routed.from && e.to() == routed.to)
+        {
             if let Some(sm) = orig.source_multiplicity() {
                 if let Some(first_pt) = routed.points.first() {
                     svg.push_str(&format!(
@@ -366,7 +370,11 @@ pub fn export_information_model_svg(graph: &ClassGraph, model: &InformationModel
         if let Some(class_obj) = model.get_class(entity_id) {
             let is_abstract = class_obj.is_abstract();
             let is_borrowed = !class_obj.is_local();
-            let stereotype = if is_abstract { "«abstrakt klasse»" } else { "«klasse»" };
+            let stereotype = if is_abstract {
+                "«abstrakt klasse»"
+            } else {
+                "«klasse»"
+            };
             let (fill_color, border_color) = if is_borrowed {
                 ("#E8F2FB", "#94B8D1") // Blå (indlånt)
             } else {
@@ -384,7 +392,11 @@ pub fn export_information_model_svg(graph: &ClassGraph, model: &InformationModel
                 "    <text x=\"{:.1}\" y=\"{:.1}\" font-family=\"system-ui, -apple-system, sans-serif\" font-size=\"10.5\" fill=\"#475569\" text-anchor=\"middle\">{}</text>\n",
                 cx, d_node.y() + 16.0, stereotype
             ));
-            let font_style = if is_abstract { " font-style=\"italic\"" } else { "" };
+            let font_style = if is_abstract {
+                " font-style=\"italic\""
+            } else {
+                ""
+            };
             svg.push_str(&format!(
                 "    <text x=\"{:.1}\" y=\"{:.1}\" font-family=\"system-ui, -apple-system, sans-serif\" font-size=\"13.5\" font-weight=\"bold\" fill=\"#0F172A\" text-anchor=\"middle\"{}>{}</text>\n",
                 cx, d_node.y() + 34.0, font_style, xml_escape(class_obj.name())
@@ -508,7 +520,10 @@ mod tests {
     #[test]
     fn test_xml_escaping() {
         assert_eq!(xml_escape("Normale ord"), "Normale ord");
-        assert_eq!(xml_escape("A & B < C > 'D' \"E\""), "A &amp; B &lt; C &gt; &apos;D&apos; &quot;E&quot;");
+        assert_eq!(
+            xml_escape("A & B < C > 'D' \"E\""),
+            "A &amp; B &lt; C &gt; &apos;D&apos; &quot;E&quot;"
+        );
     }
 
     #[test]
@@ -527,4 +542,3 @@ mod tests {
         assert!(info_svg.contains("viewBox=\"0.0 0.0 900.0 650.0\""));
     }
 }
-
