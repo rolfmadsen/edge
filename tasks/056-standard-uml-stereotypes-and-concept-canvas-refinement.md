@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 056: Standard UML Stereotypes & Concept Canvas Refinement"
 description: "Opdatering af UML-rendering til den officielle FDA stereotype «Concept», fjernelse af uofficielle badges og opstramning af begrebsrelationer"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-30T21:46:00Z" }
 tags: [fda, uml, stereotype, concept-model, canvas, rendering]
 ---
 
 # Task 056: Standard UML Stereotypes & Concept Canvas Refinement
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🔄 ENHANCEMENT`
 **Oprettet**: `2026-09-30`
 
@@ -26,11 +26,11 @@ Ensrette Kants visuelle UML-udtryk med de fællesoffentlige modelregler (FDA v2.
    - Forberede linter for `UpperCamelCase` på informationsklasser og `lowerCamelCase` på attributter og associationsnavne.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Stereotype «Concept» på Diagramlærred**: Samtlige begrebskasser og informationsklasser renderer med den officielle stereotype `«Concept»` i stedet for `«lokalt begreb»` eller `«Klasse»`.
-- [ ] **AC2 - Ren Begrebsmodel Toolbar**: Værktøjslinjen og relation-vælgeren på Begrebsmodel-fanen tillader kun Generalisering og Association (Komposition er deaktiveret/skjult).
-- [ ] **AC3 - Visuel Adskillelse Uden Uofficielle Badges**: Forskellen mellem lokalt og fremmed begreb vises entydigt via sand vs. blå baggrund og border, uden tekstmæssig badge-støj.
-- [ ] **AC4 - Bevaret Komposition i Informationsmodellen**: Komposition forbliver fuldt funktionsdygtig i Informationsmodel-fanen jf. FDA Tabel B.
-- [ ] **AC5 - Regressionstests & Canvas Render Verifikation**: Alle eksisterende acceptancetests og canvas rendering-tests forbliver grønne.
+- [x] **AC1 - Stereotype «Concept» på Diagramlærred**: Samtlige begrebskasser og informationsklasser renderer med den officielle stereotype `«Concept»` i stedet for `«lokalt begreb»` eller `«Klasse»`.
+- [x] **AC2 - Ren Begrebsmodel Toolbar**: Værktøjslinjen og relation-vælgeren på Begrebsmodel-fanen tillader kun Generalisering og Association (Komposition er deaktiveret/skjult).
+- [x] **AC3 - Visuel Adskillelse Uden Uofficielle Badges**: Forskellen mellem lokalt og fremmed begreb vises entydigt via sand vs. blå baggrund og border, uden tekstmæssig badge-støj.
+- [x] **AC4 - Bevaret Komposition i Informationsmodellen**: Komposition forbliver fuldt funktionsdygtig i Informationsmodel-fanen jf. FDA Tabel B.
+- [x] **AC5 - Regressionstests & Canvas Render Verifikation**: Alle eksisterende acceptancetests og canvas rendering-tests forbliver grønne.
 
 ## 🚫 Must NOT
 - Må IKKE ødelægge gemte diagrammer eller relationer i eksisterende projekter.
@@ -38,6 +38,7 @@ Ensrette Kants visuelle UML-udtryk med de fællesoffentlige modelregler (FDA v2.
 
 ## 📝 Revisions
 - 2026-09-30: Oprettet opgavepakke til oprydning i UML-stereotyper og overholdelse af Tabel A/B.
+- 2026-09-30: Fuldført implementering af «Concept» stereotype og opstramning af relationer til begrebsmodellen. Markeret DONE.
 
 ## 🧪 Verifikation
 - `cargo check --workspace`
