@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 054: Windows 11 Rendering Optimization & Git Async Performance"
 description: "Eliminering af sort vinduesbaggrund og opstartsfrys på Windows 11 samt asynkron afvikling af Git-operationer og caching af git-binæren"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-30T20:46:00Z" }
 tags: [windows, rendering, wgpu, git, performance, async, iced]
 ---
 
 # Task 054: Windows 11 Rendering Optimization & Git Async Performance
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🐛 BUG FIX`
 **Oprettet**: `2026-09-30`
 
@@ -21,10 +21,10 @@ Løse identificerede Windows 11 rendering- og responstidsfejl samt optimere Git-
 4. **Asynkron Git Udgivelse & Push**: Omlægge `Message::ConfirmPublish` fra synkron blokering af Iced UI-hovedtråden til asynkron afvikling via `Task::perform`, med aktiv fremskridtsvisning undervejs.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Git Binary & Installation Caching**: `GitService::is_git_installed()` og `GitService::resolve_git_binary()` benytter `OnceLock`, så gentagne kald ikke udfører unødige subprocess spawns.
-- [ ] **AC2 - WGPU Root Style & Window Configuration**: `src/main.rs` er konfigureret med `.style(...)` indeholdende `ThemeColors::SURFACE_BG`, og `iced::window::Settings` definerer `size: (1280, 800)` og `min_size: (800, 600)` for at forhindre sorte swapchain-blink ved Aero Snap/maksimering.
-- [ ] **AC3 - Hurtig Opstart Uden Synkron Git Blokering**: `App::new_with_path()` udfører ikke synkront tjek af remote sync-status på hovedtråden under boot.
-- [ ] **AC4 - Asynkron Publish/Pull/Push Workflow**: `ConfirmPublish` afvikles via asynkron Iced `Task::perform(..., Message::PublishCompleted)` så UI forbliver responsivt ved 60 fps under netværks- og Git-operationer.
+- [x] **AC1 - Git Binary & Installation Caching**: `GitService::is_git_installed()` og `GitService::resolve_git_binary()` benytter `OnceLock`, så gentagne kald ikke udfører unødige subprocess spawns.
+- [x] **AC2 - WGPU Root Style & Window Configuration**: `src/main.rs` er konfigureret med `.style(...)` indeholdende `ThemeColors::SURFACE_BG`, og `iced::window::Settings` definerer `size: (1280, 800)` og `min_size: (800, 600)` for at forhindre sorte swapchain-blink ved Aero Snap/maksimering.
+- [x] **AC3 - Hurtig Opstart Uden Synkron Git Blokering**: `App::new_with_path()` udfører ikke synkront tjek af remote sync-status på hovedtråden under boot.
+- [x] **AC4 - Asynkron Publish/Pull/Push Workflow**: `ConfirmPublish` afvikles via asynkron Iced `Task::perform(..., Message::PublishCompleted)` så UI forbliver responsivt ved 60 fps under netværks- og Git-operationer.
 
 ## 🚫 Must NOT
 - Zero-Daemon invariant: Må IKKE efterlade hængende baggrundsprocesser.
@@ -34,6 +34,7 @@ Løse identificerede Windows 11 rendering- og responstidsfejl samt optimere Git-
 
 ## 📝 Revisions
 - 2026-09-30: Oprettet opgavepakke efter diagnosticering af Git-kald og Windows 11 DWM resize stalls.
+- 2026-09-30: Implementeret OnceLock caching i GitService, .style og window settings i main.rs, asynkron Publish-workflow i app.rs. Verificeret med xGauntlet.
 
 ## 🧪 Verifikation
 - `cargo check --workspace`

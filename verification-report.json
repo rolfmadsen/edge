@@ -4,38 +4,38 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "053-windows-ci-git-service-pathbuf",
-    "task_title": "Task 053: Fix Windows CI Compilation and Git Service PathBuf Resolution",
-    "task_digest": "ae7e7bc2b40f8ae4121ee7834d4763e7741e07ae3c4df2e295811ef1cbc9dd69",
+    "task_id": "054-windows-rendering-and-git-async-performance",
+    "task_title": "Task 054: Windows 11 Rendering Optimization & Git Async Performance",
+    "task_digest": "8307b7b7e192dce6060cbc7afce05a8e2c44d9bdbe7cd35acc5567a4707a51c7",
     "acceptance_criteria": [
-      "**AC1 - Cross-Platform Windows Git Kandidater**: `GitService::windows_git_candidates(local_app_data: Option<&str>) -> Vec<std::path::PathBuf>` er defineret og kompileres på alle styresystemer, hvilket forhindrer skjulte platformsspecifikke typefejl.",
-      "**AC2 - Windows CI Kompilation**: `src/features/git/service.rs` kompilerer fejlfrit for `cfg(target_os = \"windows\")` uden manglende `PathBuf` typefejl.",
-      "**AC3 - Kandidat Test Verifikation**: Test verificerer at `windows_git_candidates(None)` returnerer `Program Files` og `Program Files (x86)` kandidater, og `windows_git_candidates(Some(...))` tilføjer `%LOCALAPPDATA%` stien.",
-      "**AC4 - Nul Advarsler & Bevaret Cross-Platform Adfærd**: Ingen `unused_imports` eller clippy-fejl på Linux/macOS, og fuld bagudkompatibilitet for eksisterende git integration."
+      "**AC1 - Git Binary & Installation Caching**: `GitService::is_git_installed()` og `GitService::resolve_git_binary()` benytter `OnceLock`, så gentagne kald ikke udfører unødige subprocess spawns.",
+      "**AC2 - WGPU Root Style & Window Configuration**: `src/main.rs` er konfigureret med `.style(...)` indeholdende `ThemeColors::SURFACE_BG`, og `iced::window::Settings` definerer `size: (1280, 800)` og `min_size: (800, 600)` for at forhindre sorte swapchain-blink ved Aero Snap/maksimering.",
+      "**AC3 - Hurtig Opstart Uden Synkron Git Blokering**: `App::new_with_path()` udfører ikke synkront tjek af remote sync-status på hovedtråden under boot.",
+      "**AC4 - Asynkron Publish/Pull/Push Workflow**: `ConfirmPublish` afvikles via asynkron Iced `Task::perform(..., Message::PublishCompleted)` så UI forbliver responsivt ved 60 fps under netværks- og Git-operationer."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "a93825b662f5c1a3af668d70456aba82b52112977b30a876814e0b45e3af1754",
-    "source_manifest_digest_pre": "9555d89dce9faac5de12422e4440d03573d54a5b03bea15b65264f4125542763",
-    "source_manifest_digest_post": "9555d89dce9faac5de12422e4440d03573d54a5b03bea15b65264f4125542763",
-    "config_digest": "e05d8855af4eed4bcd3d3ae949b20adda7318f08b4e0d9af42905ffbea4be603",
-    "task_digest": "ae7e7bc2b40f8ae4121ee7834d4763e7741e07ae3c4df2e295811ef1cbc9dd69",
+    "source_content_digest": "37ad80911b9da661c463a12026901ac1a57c3f78fcd937849c15ba4adc7a7eb2",
+    "source_manifest_digest_pre": "4c05490d9c58c9a533929a3e88e9ac11abdeb085fac1b7f50b9cabbcab7ba18b",
+    "source_manifest_digest_post": "4c05490d9c58c9a533929a3e88e9ac11abdeb085fac1b7f50b9cabbcab7ba18b",
+    "config_digest": "3778040c80355e208269709a400508741f327ed3c32f1915cb3bc8f38205ed76",
+    "task_digest": "8307b7b7e192dce6060cbc7afce05a8e2c44d9bdbe7cd35acc5567a4707a51c7",
     "policy_digest": "4836d142dd44955485248ae58447bac43f4742bb721c940905fedbc5750aaece",
     "check_definitions_digest": "dd50656a3cb4808ad5a7096762f6729b2503e0d6f90c203a5819983ef61167c2",
-    "included_files_count": 115,
+    "included_files_count": 116,
     "vcs": {
       "type": "git",
-      "head": "8b7a192",
-      "commit": "8b7a192",
+      "head": "521923d",
+      "commit": "521923d",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-27T21:20:34Z",
-    "finished_at": "2026-09-27T21:20:39Z",
-    "total_duration_seconds": 4.688572344,
+    "started_at": "2026-09-30T19:08:39Z",
+    "finished_at": "2026-09-30T19:08:43Z",
+    "total_duration_seconds": 4.511676388,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -48,7 +48,7 @@
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.01935734,
+      "duration_seconds": 0.032077973,
       "optional": false,
       "passed": true,
       "log_digest": "504e592a26126a7dddbea2671c00c49781c8d760137ce1acecc87c0c520a2248"
@@ -57,37 +57,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.656522474,
+      "duration_seconds": 0.73482953,
       "optional": true,
       "passed": true,
-      "log_digest": "64b39b10c95fb497ede61e2dd6785b7684d8d53e62352ac05c7f326502885f4d"
+      "log_digest": "23cfc47023ef0a83960004f3763e1bfc0015ab72b15320ec6c373b65736aa3ea"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.54511539,
+      "duration_seconds": 0.550593444,
       "optional": true,
       "passed": true,
-      "log_digest": "0235ee497b85276a0674277094c75db8047e2aee2a037d805c171f8781fb6c44"
+      "log_digest": "877c99272dbcebaf29ed793c37d054401ab04066c34724a8ada5ed6210b000d6"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 2.911361342,
+      "duration_seconds": 2.6148901799999997,
       "optional": false,
       "passed": true,
-      "log_digest": "2c41d7b0a769de1c75f746fae64b2fc8350aca66050c088277b56cc134a81141"
+      "log_digest": "de61422079ad24e92b085b8e786d83d1a9f47c4b2be02d3eda9095e43a394fc7"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.533271171,
+      "duration_seconds": 0.554699263,
       "optional": false,
       "passed": true,
-      "log_digest": "89aff892591dabb81fa372878a0a6d941c417d729847a8c9d1ee1fdc124f99ab"
+      "log_digest": "a8ad45f1abf764bc22843c6aa39b79a7e9f096be6a195ef1e63daf42e3a3a1b5"
     }
   ],
   "diagnostics": []
