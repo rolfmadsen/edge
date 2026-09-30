@@ -4,38 +4,39 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "054-windows-rendering-and-git-async-performance",
-    "task_title": "Task 054: Windows 11 Rendering Optimization & Git Async Performance",
-    "task_digest": "8307b7b7e192dce6060cbc7afce05a8e2c44d9bdbe7cd35acc5567a4707a51c7",
+    "task_id": "060-machine-readable-model-interchange-xmi-and-rdf",
+    "task_title": "Task 060: Machine-Readable Model Interchange: XMI & RDF/Turtle",
+    "task_digest": "7bad2637f1d85dc422d6917640d6fb0dcc9fb25b379ad8840a80d98824780bde",
     "acceptance_criteria": [
-      "**AC1 - Git Binary & Installation Caching**: `GitService::is_git_installed()` og `GitService::resolve_git_binary()` benytter `OnceLock`, så gentagne kald ikke udfører unødige subprocess spawns.",
-      "**AC2 - WGPU Root Style & Window Configuration**: `src/main.rs` er konfigureret med `.style(...)` indeholdende `ThemeColors::SURFACE_BG`, og `iced::window::Settings` definerer `size: (1280, 800)` og `min_size: (800, 600)` for at forhindre sorte swapchain-blink ved Aero Snap/maksimering.",
-      "**AC3 - Hurtig Opstart Uden Synkron Git Blokering**: `App::new_with_path()` udfører ikke synkront tjek af remote sync-status på hovedtråden under boot.",
-      "**AC4 - Asynkron Publish/Pull/Push Workflow**: `ConfirmPublish` afvikles via asynkron Iced `Task::perform(..., Message::PublishCompleted)` så UI forbliver responsivt ved 60 fps under netværks- og Git-operationer."
+      "**AC1 - UML 2.5 / XMI 2.1 Eksport til Enterprise Architect**: Implementere serialisering af `InformationModel` og `ModelMetadata` til valid OMG UML 2.1/2.5 XMI (`.xmi`), der kan importeres direkte i Sparx Enterprise Architect med klasser, attributter, standard primitive datatyper, multipliciteter, generaliseringer, associationer, kompositioner, stereotyper og tagged values.",
+      "**AC2 - W3C SKOS RDF/Turtle Eksport af Begrebsliste**: Implementere serialisering af begreber (`Concept`), metadata og semantiske relationer (generaliseringer som `skos:broader`/`narrower`, associationer som `skos:related`) til valid W3C RDF Turtle (`.skos.ttl`) struktureret som et `skos:ConceptScheme` med `skos:prefLabel`, `skos:altLabel`, `skos:definition`, `skos:scopeNote`, og kildeangivelser.",
+      "**AC3 - W3C SHACL / OWL RDF/Turtle Eksport af Informationsmodel**: Implementere serialisering af klasser og relationer til W3C SHACL Shapes og OWL Ontology (`.shacl.ttl`), hvor hver informationsklasse modelleres som `owl:Class` og `sh:NodeShape` med tilhørende `sh:property` shapes for attributter, korrekte `xsd:` datatyper, `sh:minCount`/`sh:maxCount` multiplicitetsrestriktioner samt `sh:in` begrænsninger for enumerations.",
+      "**AC4 - UI Eksport Integration**: Udvide topbar-menuen \"Eksporter\" med en dedikeret sektion for maskinlæsbare formater: `Enterprise Architect (XMI 2.1)...`, `Begrebsliste (W3C SKOS Turtle)...` og `Informationsmodel (W3C SHACL/OWL Turtle)...` forbundet med native `rfd` fildialoger.",
+      "**AC5 - Validations Test Suite**: Etablere automatiseret testsuite i `tests/acceptance.rs`, der headless beviser syntaktisk validitet, korrekt escaping og fuld semantisk overensstemmelse for samtlige tre maskinlæsbare formater."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "2803320ed7b224edaabe11bd42ebeaa2ccc182f42a5cf51e5f0eb975f954ef9c",
-    "source_manifest_digest_pre": "74865ae7e7d12ef6614fe3de3197cedbc3341a85b96f9e8f5c1d950af370a81a",
-    "source_manifest_digest_post": "74865ae7e7d12ef6614fe3de3197cedbc3341a85b96f9e8f5c1d950af370a81a",
+    "source_content_digest": "9c269d2ab3c888358d272ebe0943e3df21c1c34483ed5d45255f808b70d0cf62",
+    "source_manifest_digest_pre": "d15b396982846f51321da224a0200e4991890e406cd9ee64835878684e222d80",
+    "source_manifest_digest_post": "d15b396982846f51321da224a0200e4991890e406cd9ee64835878684e222d80",
     "config_digest": "bcde25427dcd6c5d1d8ed2321b52d2879f8319f2f61b06e1fa02310ced054748",
-    "task_digest": "8307b7b7e192dce6060cbc7afce05a8e2c44d9bdbe7cd35acc5567a4707a51c7",
-    "policy_digest": "4836d142dd44955485248ae58447bac43f4742bb721c940905fedbc5750aaece",
+    "task_digest": "7bad2637f1d85dc422d6917640d6fb0dcc9fb25b379ad8840a80d98824780bde",
+    "policy_digest": "96d954059370ce35e099f7b7cac13760593d16c72f780e3ba5f99af5edc06603",
     "check_definitions_digest": "dd50656a3cb4808ad5a7096762f6729b2503e0d6f90c203a5819983ef61167c2",
-    "included_files_count": 116,
+    "included_files_count": 131,
     "vcs": {
       "type": "git",
-      "head": "d37aa59",
-      "commit": "d37aa59",
+      "head": "3e88bee",
+      "commit": "3e88bee",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-09-30T19:19:17Z",
-    "finished_at": "2026-09-30T19:19:21Z",
-    "total_duration_seconds": 3.560158674,
+    "started_at": "2026-09-30T20:55:05Z",
+    "finished_at": "2026-09-30T20:55:10Z",
+    "total_duration_seconds": 4.803681242,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -48,7 +49,7 @@
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.031189884,
+      "duration_seconds": 0.036150264,
       "optional": false,
       "passed": true,
       "log_digest": "504e592a26126a7dddbea2671c00c49781c8d760137ce1acecc87c0c520a2248"
@@ -57,37 +58,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 1.747042811,
+      "duration_seconds": 0.745036163,
       "optional": true,
       "passed": true,
-      "log_digest": "b28a17d45c5d540e5f85029a335c8e528bba28160f19e255ac0aa41f7787117e"
+      "log_digest": "5745b39ed91b4b0ae360695013ce76d260e3d0084db4e8db7030e82fd31f2f6b"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.168583956,
+      "duration_seconds": 0.615893044,
       "optional": true,
       "passed": true,
-      "log_digest": "f0788aa36d1c86b6ccdfb7f4042a5574102d82061c046422a2d42e008a1e4710"
+      "log_digest": "9b346f4970f5769c66a59ec07d29de1fed5567488f023c066c4906bf6de1f7db"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 1.081125959,
+      "duration_seconds": 2.830719635,
       "optional": false,
       "passed": true,
-      "log_digest": "4ab37e1f6440204749a4b130d075ff093dd4bbdbf0408f1e59244f90e2a7369b"
+      "log_digest": "32779b59531e44c196ff2442ac608e3dd8687d323a0fdfb789ce3330bde10481"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.511259199,
+      "duration_seconds": 0.535109018,
       "optional": false,
       "passed": true,
-      "log_digest": "04a2b8e252584a6852ac1fc872c23efe68b39ce759cb472723748b0177557162"
+      "log_digest": "ce75c76c933c0295b5e08cd25adcbb2938f19a8100e71527fa4b049202692ec6"
     }
   ],
   "diagnostics": []
