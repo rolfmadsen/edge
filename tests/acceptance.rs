@@ -6598,3 +6598,156 @@ fn test_fda_regler_20_21_22_aristotle_definition_linter() {
         "Linter-advarsler må IKKE blokere for validering og lagring af eksisterende begreber"
     );
 }
+
+#[test]
+fn test_fda_controlled_vocabularies_enumerations_and_datatypes() {
+    use kant::features::concept_model::RelationKind;
+    use kant::features::information_model::{
+        Attribute, InformationClass, InformationDataType, InformationEnumeration,
+        InformationModel, Multiplicity, PrimitiveType, StructuredDataType,
+    };
+    use kant::ui::diagram_canvas::{datatype_keyword_text, enumeration_keyword_text};
+    use kant::ui::theme::ThemeColors;
+    use uuid::Uuid;
+
+    let mut model = InformationModel::new();
+
+    // 1. Opret enumeration for DrivkraftType med lowerCamelCase værdier jf. FDA Tabel B
+    let enum_values = vec![
+        "pedalkraft".to_string(),
+        "elmotor".to_string(),
+        "forbraendingsmotor".to_string(),
+    ];
+    let mut drivkraft_enum = InformationEnumeration::new("DrivkraftType", enum_values.clone());
+    drivkraft_enum.set_definition(Some(
+        "kontrolleret udfaldsrum over mulige fremdriftsformer for køretøjer".to_string(),
+    ));
+    assert_eq!(drivkraft_enum.name(), "DrivkraftType");
+    assert_eq!(drivkraft_enum.values(), &enum_values);
+    let drivkraft_id = model.add_enumeration(drivkraft_enum);
+    assert_eq!(model.enumerations().len(), 1);
+    assert_eq!(
+        model.get_enumeration(drivkraft_id).map(|e| e.name()),
+        Some("DrivkraftType")
+    );
+
+    // 2. Opret struktureret datatype for Stelnummer (Figur 5.18 i FDA vejledning)
+    let mut stelnummer_dt = StructuredDataType::new("Stelnummer");
+    stelnummer_dt.set_definition(Some(
+        "sammensat identifikator for et køretøjs bærende stel".to_string(),
+    ));
+    stelnummer_dt.add_attribute(Attribute::new(
+        "fabrikantmaerke",
+        PrimitiveType::CharacterString,
+        Multiplicity::exactly_one(),
+    ));
+    stelnummer_dt.add_attribute(Attribute::new(
+        "serienummer",
+        PrimitiveType::Integer,
+        Multiplicity::exactly_one(),
+    ));
+    stelnummer_dt.add_attribute(Attribute::new(
+        "aarstalsmaerke",
+        PrimitiveType::CharacterString,
+        Multiplicity::exactly_one(),
+    ));
+    assert_eq!(stelnummer_dt.name(), "Stelnummer");
+    assert_eq!(stelnummer_dt.attributes().len(), 3);
+    let stelnummer_id = model.add_structured_type(stelnummer_dt);
+    assert_eq!(model.structured_types().len(), 1);
+    assert_eq!(
+        model.get_structured_type(stelnummer_id).map(|dt| dt.name()),
+        Some("Stelnummer")
+    );
+
+    // 3. Opret klasse Cykel med attributter der refererer hhv. primitive, enum og struktureret type
+    let mut cykel_class = InformationClass::new("Cykel");
+    // Primitiv type via backward-compatible constructor
+    cykel_class.add_attribute(Attribute::new(
+        "antalHjul",
+        PrimitiveType::Integer,
+        Multiplicity::exactly_one(),
+    ));
+    // Enumeration reference
+    cykel_class.add_attribute(Attribute::new(
+        "drivkraft",
+        InformationDataType::Enumeration {
+            enumeration_id: drivkraft_id,
+        },
+        Multiplicity::exactly_one(),
+    ));
+    // Struktureret datatype reference
+    cykel_class.add_attribute(Attribute::new(
+        "rammenummer",
+        InformationDataType::Structured {
+            structured_id: stelnummer_id,
+        },
+        Multiplicity::exactly_one(),
+    ));
+
+    assert_eq!(cykel_class.attributes().len(), 3);
+    assert_eq!(
+        cykel_class.attributes()[0].data_type(),
+        &InformationDataType::Primitive(PrimitiveType::Integer)
+    );
+    assert_eq!(
+        cykel_class.attributes()[1].data_type(),
+        &InformationDataType::Enumeration {
+            enumeration_id: drivkraft_id
+        }
+    );
+    assert_eq!(
+        cykel_class.attributes()[2].data_type(),
+        &InformationDataType::Structured {
+            structured_id: stelnummer_id
+        }
+    );
+    model.add_class(cykel_class);
+
+    // 4. Dependency-relation (RelationKind::Dependency) for UML diagram lærred
+    assert!(RelationKind::ALL.contains(&RelationKind::Dependency));
+    assert!(RelationKind::Dependency.is_dependency());
+    assert!(!RelationKind::Association.is_dependency());
+    // Begrebsmodellen (Tabel A) må STADIG KUN have Generalization og Association
+    assert!(!RelationKind::CONCEPT_RELATIONS.contains(&RelationKind::Dependency));
+
+    // 5. UML Keywords & FDA-farver jf. Kapitel 5.2 & 5.5
+    assert_eq!(enumeration_keyword_text(), "«enumeration»");
+    assert_eq!(datatype_keyword_text(), "«dataType»");
+    assert_eq!(ThemeColors::FDA_ENUM_GREEN, iced::Color::from_rgb(0.910, 0.992, 0.890));
+    assert_eq!(ThemeColors::FDA_DATA_TYPE_YELLOW, iced::Color::from_rgb(0.984, 0.976, 0.776));
+
+    // 6. Roundtrip serialisering & backward compatibility
+    let json = serde_json::to_string_pretty(&model).expect("InformationModel skal kunne serialiseres");
+    let deserialized: InformationModel =
+        serde_json::from_str(&json).expect("InformationModel skal kunne deserialiseres");
+    assert_eq!(model, deserialized);
+
+    // Ældre JSON format med kun "classes" skal kunne indlæses med tomme enumerations og datatypes
+    let legacy_json = r#"{
+        "classes": [
+            {
+                "id": "11111111-1111-1111-1111-111111111111",
+                "name": "Køretøj",
+                "attributes": [
+                    {
+                        "id": "22222222-2222-2222-2222-222222222222",
+                        "name": "registreringsnummer",
+                        "data_type": "CharacterString",
+                        "multiplicity": { "lower": 1, "upper": 1 }
+                    }
+                ]
+            }
+        ]
+    }"#;
+    let legacy_model: InformationModel =
+        serde_json::from_str(legacy_json).expect("Legacy InformationModel JSON skal deserialiseres");
+    assert_eq!(legacy_model.classes().len(), 1);
+    assert!(legacy_model.enumerations().is_empty());
+    assert!(legacy_model.structured_types().is_empty());
+    assert_eq!(
+        legacy_model.classes()[0].attributes()[0].data_type(),
+        &InformationDataType::Primitive(PrimitiveType::CharacterString)
+    );
+}
+
