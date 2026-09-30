@@ -13,4 +13,5 @@
 | [ADR 009](009-rebranding-from-edge-to-kant.md) | Rebranding fra Edge til Kant og Filendelsesstyring | `accepted` | 2026-09-20 |
 | [ADR 010](010-cross-platform-native-dialogs-and-os-packaging.md) | Native Cross-Platform Fildialoger (rfd), Windows Ressource-Indlejring og Rendering Optimering | `accepted` | 2026-09-21 |
 | [ADR 011](011-decomposed-model-persistence-and-git-integration.md) | Dekomponeret Model-Persistens (.kant) og Semantisk Git Model-Integration | `accepted` | 2026-09-27 |
+| [ADR 012](012-machine-readable-model-interchange.md) | Maskinlæsbar Modeludveksling via OMG UML 2.5 / XMI 2.1 og W3C SKOS/SHACL RDF | `accepted` | 2026-09-30 |
 

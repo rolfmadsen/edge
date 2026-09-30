@@ -71,3 +71,15 @@ _Avoid_: Datamodel, entitetsdiagram.
 En UML-baseret model, der beriger begreber med forretningsregler, klassestrukturer, attributter med standard primitive datatyper og multipliciteter.
 _Avoid_: Fysisk databasemodel, skema.
 
+**XMI (XML Metadata Interchange)**:
+En standardiseret OMG XML-modeludvekslingsrepræsentation, der overfører UML-klasser, attributter, datatyper, relationer og stereotyper tapsfrit til modelleringsværktøjer som Sparx Enterprise Architect.
+_Avoid_: Proprietært værktøjsformat, flad XML.
+
+**SKOS (Simple Knowledge Organization System)**:
+En W3C standardiseret RDF-datamodel, der repræsenterer kontrollerede begrebsordbøger og tesaurer med sproglige præfikser, definitioner og semantiske relationer (broader, narrower, related).
+_Avoid_: Rå ordliste, uformel taksonomi.
+
+**SHACL (Shapes Constraint Language)**:
+Et W3C standardiseret sprog til validering af grafbaserede datastrukturer, der udtrykker strukturelle krav og restriktioner (NodeShapes og PropertyShapes med kardinaliteter og datatyper) over RDF-grafer.
+_Avoid_: Uvalideret RDF-skema, uformelle dataregler.
+
