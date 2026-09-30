@@ -34,7 +34,7 @@ pub fn export_to_xmi_2_1(project: &ModelProject) -> String {
 
     out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
     out.push_str("<xmi:XMI xmi:version=\"2.1\" xmlns:uml=\"http://schema.omg.org/spec/UML/2.1\" xmlns:xmi=\"http://schema.omg.org/spec/XMI/2.1\">\n");
-    out.push_str("  <xmi:Documentation exporter=\"Kant\" exporterVersion=\"0.3.2\"/>\n");
+    out.push_str("  <xmi:Documentation exporter=\"Kant\" exporterVersion=\"0.4.0\"/>\n");
 
     let model_slug = sanitize_identifier(&meta.name().replace(' ', "_").to_lowercase());
     let model_id = format!("model_{}", model_slug);
