@@ -6423,3 +6423,27 @@ fn test_fda_tabel_d_metadata_and_backward_compatibility() {
         "Gammelt enkeltstående legal_source felt skal migreres til legal_sources listen"
     );
 }
+
+#[test]
+fn test_fda_uml_stereotypes_and_concept_canvas_relations() {
+    use kant::features::concept_model::RelationKind;
+    use kant::ui::diagram_canvas::{concept_stereotype_text, uml_class_stereotype_text};
+
+    // 1. Stereotype på begrebslærred og UML-lærred skal være «Concept» jf. FDA Regel 03
+    assert_eq!(concept_stereotype_text(), "«Concept»");
+    assert_eq!(uml_class_stereotype_text(false), "«Concept»");
+    assert_eq!(uml_class_stereotype_text(true), "«Concept» {abstract}");
+
+    // 2. Begrebsrelationer (Tabel A) må kun indeholde Generalisering og Association
+    let concept_rels = RelationKind::CONCEPT_RELATIONS;
+    assert_eq!(concept_rels.len(), 2);
+    assert!(concept_rels.contains(&RelationKind::Generalization));
+    assert!(concept_rels.contains(&RelationKind::Association));
+    assert!(!concept_rels.contains(&RelationKind::Composition));
+
+    // 3. Informationsmodeller (Tabel B) skal fortsat understøtte Komposition
+    let all_rels = RelationKind::ALL;
+    assert_eq!(all_rels.len(), 3);
+    assert!(all_rels.contains(&RelationKind::Composition));
+}
+
