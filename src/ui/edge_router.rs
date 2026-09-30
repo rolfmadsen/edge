@@ -512,8 +512,10 @@ impl EdgeRouter {
         let start_pt = Self::port_point(from_node, assign.from_side, assign.from_slot_offset);
         let end_pt = Self::port_point(to_node, assign.to_side, assign.to_slot_offset);
 
-        // Beregn pilehoved
-        let arrow_head = if assign.kind == RelationKind::Generalization {
+        // Beregn pilehoved (Generalisering trekant eller Dependency åben pil)
+        let arrow_head = if assign.kind == RelationKind::Generalization
+            || assign.kind == RelationKind::Dependency
+        {
             Some(Self::compute_arrow_head(end_pt, assign.to_side))
         } else {
             None

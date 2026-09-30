@@ -9,13 +9,22 @@ pub enum RelationKind {
     Generalization,
     Association,
     Composition,
+    Dependency,
 }
 
 impl RelationKind {
-    pub const ALL: &'static [RelationKind] =
-        &[Self::Generalization, Self::Association, Self::Composition];
+    pub const ALL: &'static [RelationKind] = &[
+        Self::Generalization,
+        Self::Association,
+        Self::Composition,
+        Self::Dependency,
+    ];
     pub const CONCEPT_RELATIONS: &'static [RelationKind] =
         &[Self::Generalization, Self::Association];
+
+    pub fn is_dependency(self) -> bool {
+        matches!(self, Self::Dependency)
+    }
 }
 
 impl std::fmt::Display for RelationKind {
@@ -24,6 +33,7 @@ impl std::fmt::Display for RelationKind {
             Self::Generalization => write!(f, "Generalisering (UML trekant)"),
             Self::Association => write!(f, "Association (UML linje)"),
             Self::Composition => write!(f, "Komposition"),
+            Self::Dependency => write!(f, "Dependency (stiplet pil)"),
         }
     }
 }

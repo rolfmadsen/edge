@@ -674,6 +674,9 @@ pub fn view<'a>(
                                 RelationKind::Composition => {
                                     format!("{} ◆── {}", from_name, to_name)
                                 }
+                                RelationKind::Dependency => {
+                                    format!("{} ⤏ {}", from_name, to_name)
+                                }
                             };
 
                             let edge_from = edge.from();

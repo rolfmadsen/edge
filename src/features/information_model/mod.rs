@@ -130,10 +130,210 @@ pub fn is_lower_camel_case(s: &str) -> bool {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum InformationDataType {
+    Primitive(PrimitiveType),
+    Enumeration { enumeration_id: Uuid },
+    Structured { structured_id: Uuid },
+}
+
+impl From<PrimitiveType> for InformationDataType {
+    fn from(p: PrimitiveType) -> Self {
+        Self::Primitive(p)
+    }
+}
+
+impl Default for InformationDataType {
+    fn default() -> Self {
+        Self::Primitive(PrimitiveType::CharacterString)
+    }
+}
+
+impl PartialEq<PrimitiveType> for InformationDataType {
+    fn eq(&self, other: &PrimitiveType) -> bool {
+        match self {
+            Self::Primitive(p) => p == other,
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<InformationDataType> for PrimitiveType {
+    fn eq(&self, other: &InformationDataType) -> bool {
+        other == self
+    }
+}
+
+impl PartialEq<PrimitiveType> for &InformationDataType {
+    fn eq(&self, other: &PrimitiveType) -> bool {
+        *self == other
+    }
+}
+
+impl PartialEq<&InformationDataType> for PrimitiveType {
+    fn eq(&self, other: &&InformationDataType) -> bool {
+        *other == self
+    }
+}
+
+impl InformationDataType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Primitive(p) => p.as_str(),
+            Self::Enumeration { .. } => "«enumeration»",
+            Self::Structured { .. } => "«dataType»",
+        }
+    }
+
+    pub fn display_name(&self, model: &InformationModel) -> String {
+        match self {
+            Self::Primitive(p) => p.as_str().to_string(),
+            Self::Enumeration { enumeration_id } => model
+                .get_enumeration(*enumeration_id)
+                .map(|e| e.name().to_string())
+                .unwrap_or_else(|| "«enumeration»".to_string()),
+            Self::Structured { structured_id } => model
+                .get_structured_type(*structured_id)
+                .map(|dt| dt.name().to_string())
+                .unwrap_or_else(|| "«dataType»".to_string()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InformationEnumeration {
+    id: Uuid,
+    name: String,
+    #[serde(default)]
+    definition: Option<String>,
+    #[serde(default)]
+    values: Vec<String>,
+}
+
+impl InformationEnumeration {
+    pub fn new(name: impl Into<String>, values: Vec<String>) -> Self {
+        Self::new_with_id(Uuid::new_v4(), name, values)
+    }
+
+    pub fn new_with_id(id: Uuid, name: impl Into<String>, values: Vec<String>) -> Self {
+        Self {
+            id,
+            name: name.into(),
+            definition: None,
+            values,
+        }
+    }
+
+    pub fn id(&self) -> Uuid {
+        self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn set_name(&mut self, name: impl Into<String>) {
+        self.name = name.into();
+    }
+
+    pub fn definition(&self) -> Option<&str> {
+        self.definition.as_deref()
+    }
+
+    pub fn set_definition(&mut self, definition: Option<String>) {
+        self.definition = definition;
+    }
+
+    pub fn values(&self) -> &[String] {
+        &self.values
+    }
+
+    pub fn values_mut(&mut self) -> &mut Vec<String> {
+        &mut self.values
+    }
+
+    pub fn add_value(&mut self, val: impl Into<String>) {
+        let v = val.into();
+        if !self.values.contains(&v) {
+            self.values.push(v);
+        }
+    }
+
+    pub fn remove_value(&mut self, val: &str) {
+        self.values.retain(|v| v != val);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StructuredDataType {
+    id: Uuid,
+    name: String,
+    #[serde(default)]
+    definition: Option<String>,
+    #[serde(default)]
+    attributes: Vec<Attribute>,
+}
+
+impl StructuredDataType {
+    pub fn new(name: impl Into<String>) -> Self {
+        Self::new_with_id(Uuid::new_v4(), name)
+    }
+
+    pub fn new_with_id(id: Uuid, name: impl Into<String>) -> Self {
+        Self {
+            id,
+            name: name.into(),
+            definition: None,
+            attributes: Vec::new(),
+        }
+    }
+
+    pub fn id(&self) -> Uuid {
+        self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn set_name(&mut self, name: impl Into<String>) {
+        self.name = name.into();
+    }
+
+    pub fn definition(&self) -> Option<&str> {
+        self.definition.as_deref()
+    }
+
+    pub fn set_definition(&mut self, definition: Option<String>) {
+        self.definition = definition;
+    }
+
+    pub fn attributes(&self) -> &[Attribute] {
+        &self.attributes
+    }
+
+    pub fn attributes_mut(&mut self) -> &mut Vec<Attribute> {
+        &mut self.attributes
+    }
+
+    pub fn add_attribute(&mut self, attribute: Attribute) {
+        self.attributes.push(attribute);
+    }
+
+    pub fn remove_attribute(&mut self, attr_id: Uuid) -> Option<Attribute> {
+        if let Some(pos) = self.attributes.iter().position(|a| a.id() == attr_id) {
+            Some(self.attributes.remove(pos))
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Attribute {
     id: Uuid,
     name: String,
-    data_type: PrimitiveType,
+    data_type: InformationDataType,
     multiplicity: Multiplicity,
     #[serde(default)]
     concept_ids: Vec<Uuid>,
@@ -142,13 +342,13 @@ pub struct Attribute {
 impl Attribute {
     pub fn new(
         name: impl Into<String>,
-        data_type: PrimitiveType,
+        data_type: impl Into<InformationDataType>,
         multiplicity: Multiplicity,
     ) -> Self {
         Self {
             id: Uuid::new_v4(),
             name: name.into(),
-            data_type,
+            data_type: data_type.into(),
             multiplicity,
             concept_ids: Vec::new(),
         }
@@ -171,12 +371,19 @@ impl Attribute {
         self.name = name.into();
     }
 
-    pub fn data_type(&self) -> PrimitiveType {
-        self.data_type
+    pub fn data_type(&self) -> &InformationDataType {
+        &self.data_type
     }
 
-    pub fn set_data_type(&mut self, data_type: PrimitiveType) {
-        self.data_type = data_type;
+    pub fn set_data_type(&mut self, data_type: impl Into<InformationDataType>) {
+        self.data_type = data_type.into();
+    }
+
+    pub fn primitive_type(&self) -> Option<PrimitiveType> {
+        match self.data_type {
+            InformationDataType::Primitive(p) => Some(p),
+            _ => None,
+        }
     }
 
     pub fn multiplicity(&self) -> Multiplicity {
@@ -354,12 +561,18 @@ impl InformationClass {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct InformationModel {
     classes: Vec<InformationClass>,
+    #[serde(default)]
+    enumerations: Vec<InformationEnumeration>,
+    #[serde(default)]
+    structured_types: Vec<StructuredDataType>,
 }
 
 impl InformationModel {
     pub fn new() -> Self {
         Self {
             classes: Vec::new(),
+            enumerations: Vec::new(),
+            structured_types: Vec::new(),
         }
     }
 
@@ -393,6 +606,66 @@ impl InformationModel {
     pub fn remove_class(&mut self, id: Uuid) -> Option<InformationClass> {
         if let Some(pos) = self.classes.iter().position(|c| c.id() == id) {
             Some(self.classes.remove(pos))
+        } else {
+            None
+        }
+    }
+
+    pub fn enumerations(&self) -> &[InformationEnumeration] {
+        &self.enumerations
+    }
+
+    pub fn enumerations_mut(&mut self) -> &mut Vec<InformationEnumeration> {
+        &mut self.enumerations
+    }
+
+    pub fn get_enumeration(&self, id: Uuid) -> Option<&InformationEnumeration> {
+        self.enumerations.iter().find(|e| e.id() == id)
+    }
+
+    pub fn get_enumeration_mut(&mut self, id: Uuid) -> Option<&mut InformationEnumeration> {
+        self.enumerations.iter_mut().find(|e| e.id() == id)
+    }
+
+    pub fn add_enumeration(&mut self, enumeration: InformationEnumeration) -> Uuid {
+        let id = enumeration.id();
+        self.enumerations.push(enumeration);
+        id
+    }
+
+    pub fn remove_enumeration(&mut self, id: Uuid) -> Option<InformationEnumeration> {
+        if let Some(pos) = self.enumerations.iter().position(|e| e.id() == id) {
+            Some(self.enumerations.remove(pos))
+        } else {
+            None
+        }
+    }
+
+    pub fn structured_types(&self) -> &[StructuredDataType] {
+        &self.structured_types
+    }
+
+    pub fn structured_types_mut(&mut self) -> &mut Vec<StructuredDataType> {
+        &mut self.structured_types
+    }
+
+    pub fn get_structured_type(&self, id: Uuid) -> Option<&StructuredDataType> {
+        self.structured_types.iter().find(|dt| dt.id() == id)
+    }
+
+    pub fn get_structured_type_mut(&mut self, id: Uuid) -> Option<&mut StructuredDataType> {
+        self.structured_types.iter_mut().find(|dt| dt.id() == id)
+    }
+
+    pub fn add_structured_type(&mut self, structured_type: StructuredDataType) -> Uuid {
+        let id = structured_type.id();
+        self.structured_types.push(structured_type);
+        id
+    }
+
+    pub fn remove_structured_type(&mut self, id: Uuid) -> Option<StructuredDataType> {
+        if let Some(pos) = self.structured_types.iter().position(|dt| dt.id() == id) {
+            Some(self.structured_types.remove(pos))
         } else {
             None
         }

@@ -6441,10 +6441,11 @@ fn test_fda_uml_stereotypes_and_concept_canvas_relations() {
     assert!(concept_rels.contains(&RelationKind::Association));
     assert!(!concept_rels.contains(&RelationKind::Composition));
 
-    // 3. Informationsmodeller (Tabel B) skal fortsat understøtte Komposition
+    // 3. Informationsmodeller (Tabel B) skal fortsat understøtte Komposition og Dependency
     let all_rels = RelationKind::ALL;
-    assert_eq!(all_rels.len(), 3);
+    assert_eq!(all_rels.len(), 4);
     assert!(all_rels.contains(&RelationKind::Composition));
+    assert!(all_rels.contains(&RelationKind::Dependency));
 }
 
 #[test]
@@ -6603,12 +6604,11 @@ fn test_fda_regler_20_21_22_aristotle_definition_linter() {
 fn test_fda_controlled_vocabularies_enumerations_and_datatypes() {
     use kant::features::concept_model::RelationKind;
     use kant::features::information_model::{
-        Attribute, InformationClass, InformationDataType, InformationEnumeration,
-        InformationModel, Multiplicity, PrimitiveType, StructuredDataType,
+        Attribute, InformationClass, InformationDataType, InformationEnumeration, InformationModel,
+        Multiplicity, PrimitiveType, StructuredDataType,
     };
     use kant::ui::diagram_canvas::{datatype_keyword_text, enumeration_keyword_text};
     use kant::ui::theme::ThemeColors;
-    use uuid::Uuid;
 
     let mut model = InformationModel::new();
 
@@ -6714,11 +6714,18 @@ fn test_fda_controlled_vocabularies_enumerations_and_datatypes() {
     // 5. UML Keywords & FDA-farver jf. Kapitel 5.2 & 5.5
     assert_eq!(enumeration_keyword_text(), "«enumeration»");
     assert_eq!(datatype_keyword_text(), "«dataType»");
-    assert_eq!(ThemeColors::FDA_ENUM_GREEN, iced::Color::from_rgb(0.910, 0.992, 0.890));
-    assert_eq!(ThemeColors::FDA_DATA_TYPE_YELLOW, iced::Color::from_rgb(0.984, 0.976, 0.776));
+    assert_eq!(
+        ThemeColors::FDA_ENUM_GREEN,
+        iced::Color::from_rgb(0.910, 0.992, 0.890)
+    );
+    assert_eq!(
+        ThemeColors::FDA_DATA_TYPE_YELLOW,
+        iced::Color::from_rgb(0.984, 0.976, 0.776)
+    );
 
     // 6. Roundtrip serialisering & backward compatibility
-    let json = serde_json::to_string_pretty(&model).expect("InformationModel skal kunne serialiseres");
+    let json =
+        serde_json::to_string_pretty(&model).expect("InformationModel skal kunne serialiseres");
     let deserialized: InformationModel =
         serde_json::from_str(&json).expect("InformationModel skal kunne deserialiseres");
     assert_eq!(model, deserialized);
@@ -6740,8 +6747,8 @@ fn test_fda_controlled_vocabularies_enumerations_and_datatypes() {
             }
         ]
     }"#;
-    let legacy_model: InformationModel =
-        serde_json::from_str(legacy_json).expect("Legacy InformationModel JSON skal deserialiseres");
+    let legacy_model: InformationModel = serde_json::from_str(legacy_json)
+        .expect("Legacy InformationModel JSON skal deserialiseres");
     assert_eq!(legacy_model.classes().len(), 1);
     assert!(legacy_model.enumerations().is_empty());
     assert!(legacy_model.structured_types().is_empty());
@@ -6750,4 +6757,3 @@ fn test_fda_controlled_vocabularies_enumerations_and_datatypes() {
         &InformationDataType::Primitive(PrimitiveType::CharacterString)
     );
 }
-

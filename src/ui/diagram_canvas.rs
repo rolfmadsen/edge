@@ -984,12 +984,22 @@ where
                 }
             });
 
-            frame.stroke(
-                &path,
+            let stroke = if routed.kind == RelationKind::Dependency {
+                Stroke {
+                    style: iced::widget::canvas::stroke::Style::Solid(edge_color),
+                    width: edge_width,
+                    line_dash: iced::widget::canvas::stroke::LineDash {
+                        segments: &[6.0, 4.0],
+                        offset: 0,
+                    },
+                    ..Default::default()
+                }
+            } else {
                 Stroke::default()
                     .with_color(edge_color)
-                    .with_width(edge_width),
-            );
+                    .with_width(edge_width)
+            };
+            frame.stroke(&path, stroke);
         }
 
         // 4. Tegn noder via pluggable node-rendering closure
@@ -1096,6 +1106,18 @@ where
                         Stroke::default()
                             .with_color(arrow_stroke_color)
                             .with_width(arrow_stroke_width),
+                    );
+                } else if routed.kind == RelationKind::Dependency {
+                    let open_arrow = Path::new(|b| {
+                        b.move_to(arrow.left);
+                        b.line_to(arrow.tip);
+                        b.line_to(arrow.right);
+                    });
+                    frame.stroke(
+                        &open_arrow,
+                        Stroke::default()
+                            .with_color(arrow_stroke_color)
+                            .with_width(arrow_stroke_width + 0.5),
                     );
                 }
             }
@@ -1401,6 +1423,175 @@ pub fn uml_class_stereotype_text(is_abstract: bool) -> String {
         "«Concept» {abstract}".to_string()
     } else {
         "«Concept»".to_string()
+    }
+}
+
+/// Officielt FDA UML keyword for enumerationer jf. Modelreglerne kapitel 5.2
+pub fn enumeration_keyword_text() -> &'static str {
+    "«enumeration»"
+}
+
+/// Officielt FDA UML keyword for strukturerede datatyper jf. Modelreglerne kapitel 5.5
+pub fn datatype_keyword_text() -> &'static str {
+    "«dataType»"
+}
+
+/// Rendering af UML Enumeration kasse (grøn jf. FDA Modelreglerne Kapitel 5.2 & 7.3)
+pub fn render_uml_enumeration_node(
+    frame: &mut Frame,
+    node: &ClassDiagramNode,
+    name: &str,
+    values: &[String],
+    is_selected: bool,
+    _viewport: CanvasViewport,
+) {
+    let top_left = Point::new(node.x(), node.y());
+    let size = Size::new(node.width(), node.height());
+    let radius = 6.0;
+
+    let shadow_path =
+        Path::rounded_rectangle(Point::new(node.x(), node.y() + 2.0), size, radius.into());
+    frame.fill(&shadow_path, Color::from_rgba(0.05, 0.1, 0.2, 0.07));
+
+    let node_path = Path::rounded_rectangle(top_left, size, radius.into());
+    frame.fill(&node_path, ThemeColors::FDA_ENUM_GREEN);
+
+    let (border_color, border_width) = if is_selected {
+        (ThemeColors::PRIMARY, 2.5)
+    } else {
+        (Color::from_rgb(0.60, 0.82, 0.60), 1.2)
+    };
+
+    frame.stroke(
+        &node_path,
+        Stroke::default()
+            .with_color(border_color)
+            .with_width(border_width),
+    );
+
+    // Header: «enumeration» + Name
+    let header_y = node.y() + 10.0;
+    frame.fill_text(Text {
+        content: enumeration_keyword_text().to_string(),
+        position: Point::new(node.x() + node.width() / 2.0, header_y),
+        color: ThemeColors::SLATE_600,
+        size: 11.0.into(),
+        align_x: iced::alignment::Horizontal::Center.into(),
+        ..Default::default()
+    });
+
+    frame.fill_text(Text {
+        content: name.to_string(),
+        position: Point::new(node.x() + node.width() / 2.0, header_y + 16.0),
+        color: ThemeColors::SLATE_900,
+        size: 14.0.into(),
+        align_x: iced::alignment::Horizontal::Center.into(),
+        ..Default::default()
+    });
+
+    let divider_y = node.y() + 48.0;
+    let divider = Path::line(
+        Point::new(node.x(), divider_y),
+        Point::new(node.x() + node.width(), divider_y),
+    );
+    frame.stroke(
+        &divider,
+        Stroke::default()
+            .with_color(Color::from_rgb(0.70, 0.88, 0.70))
+            .with_width(1.0),
+    );
+
+    // Values in lowerCamelCase
+    let mut val_y = divider_y + 8.0;
+    for val in values {
+        frame.fill_text(Text {
+            content: val.clone(),
+            position: Point::new(node.x() + 12.0, val_y),
+            color: ThemeColors::SLATE_800,
+            size: 12.0.into(),
+            ..Default::default()
+        });
+        val_y += 18.0;
+    }
+}
+
+/// Rendering af UML Datatype kasse (gul jf. FDA Modelreglerne Kapitel 5.5 & 7.3)
+pub fn render_uml_datatype_node(
+    frame: &mut Frame,
+    node: &ClassDiagramNode,
+    name: &str,
+    attributes: &[(String, String, String, bool)],
+    is_selected: bool,
+    _viewport: CanvasViewport,
+) {
+    let top_left = Point::new(node.x(), node.y());
+    let size = Size::new(node.width(), node.height());
+    let radius = 6.0;
+
+    let shadow_path =
+        Path::rounded_rectangle(Point::new(node.x(), node.y() + 2.0), size, radius.into());
+    frame.fill(&shadow_path, Color::from_rgba(0.05, 0.1, 0.2, 0.07));
+
+    let node_path = Path::rounded_rectangle(top_left, size, radius.into());
+    frame.fill(&node_path, ThemeColors::FDA_DATA_TYPE_YELLOW);
+
+    let (border_color, border_width) = if is_selected {
+        (ThemeColors::PRIMARY, 2.5)
+    } else {
+        (Color::from_rgb(0.85, 0.80, 0.50), 1.2)
+    };
+
+    frame.stroke(
+        &node_path,
+        Stroke::default()
+            .with_color(border_color)
+            .with_width(border_width),
+    );
+
+    // Header: «dataType» + Name
+    let header_y = node.y() + 10.0;
+    frame.fill_text(Text {
+        content: datatype_keyword_text().to_string(),
+        position: Point::new(node.x() + node.width() / 2.0, header_y),
+        color: ThemeColors::SLATE_600,
+        size: 11.0.into(),
+        align_x: iced::alignment::Horizontal::Center.into(),
+        ..Default::default()
+    });
+
+    frame.fill_text(Text {
+        content: name.to_string(),
+        position: Point::new(node.x() + node.width() / 2.0, header_y + 16.0),
+        color: ThemeColors::SLATE_900,
+        size: 14.0.into(),
+        align_x: iced::alignment::Horizontal::Center.into(),
+        ..Default::default()
+    });
+
+    let divider_y = node.y() + 48.0;
+    let divider = Path::line(
+        Point::new(node.x(), divider_y),
+        Point::new(node.x() + node.width(), divider_y),
+    );
+    frame.stroke(
+        &divider,
+        Stroke::default()
+            .with_color(Color::from_rgb(0.88, 0.84, 0.60))
+            .with_width(1.0),
+    );
+
+    // Attributes
+    let mut attr_y = divider_y + 8.0;
+    for (attr_name, attr_type, mult, _has_concept) in attributes {
+        let text_content = format!("{}: {} [{}]", attr_name, attr_type, mult);
+        frame.fill_text(Text {
+            content: text_content,
+            position: Point::new(node.x() + 12.0, attr_y),
+            color: ThemeColors::SLATE_800,
+            size: 12.0.into(),
+            ..Default::default()
+        });
+        attr_y += 18.0;
     }
 }
 

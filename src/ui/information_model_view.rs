@@ -561,7 +561,19 @@ pub fn view<'a>(
                         .on_press(Message::InfoUpdateEdgeKind(
                             from_id,
                             to_id,
-                            RelationKind::Composition
+                            RelationKind::Composition,
+                        ))
+                        .padding([4, 6]),
+                    button(text("Dependency").size(11))
+                        .style(if edge.kind() == RelationKind::Dependency {
+                            primary_button_style
+                        } else {
+                            secondary_button_style
+                        })
+                        .on_press(Message::InfoUpdateEdgeKind(
+                            from_id,
+                            to_id,
+                            RelationKind::Dependency,
                         ))
                         .padding([4, 6]),
                 ]
@@ -798,7 +810,9 @@ pub fn view<'a>(
             for attr in class.attributes() {
                 let attr_id = attr.id();
                 let name_val = attr.name().to_string();
-                let type_val = attr.data_type();
+                let type_val = attr
+                    .primitive_type()
+                    .unwrap_or(PrimitiveType::CharacterString);
                 let mult_val = attr.multiplicity();
 
                 let is_name_valid = is_lower_camel_case(&name_val);
@@ -985,6 +999,9 @@ pub fn view<'a>(
                         }
                         RelationKind::Composition => {
                             format!("{} ◆── {}", from_class, to_class)
+                        }
+                        RelationKind::Dependency => {
+                            format!("{} ⤏ {}", from_class, to_class)
                         }
                     };
 
