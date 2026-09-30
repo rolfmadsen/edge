@@ -2460,6 +2460,108 @@ fn test_metadata_modal_default_placeholders_allow_direct_typing() {
 }
 
 #[test]
+fn test_metadata_modal_fda_tabel_d_fields_roundtrip() {
+    use kant::features::model::{ApprovalStatus, ModelScope, ModelStatus};
+    use kant::ui::app::MetadataField;
+
+    let mut app = App::new_with_path(None);
+
+    let _ = app.update(Message::OpenMetadataModal);
+    assert!(app.metadata_modal().is_some());
+
+    let _ = app.update(Message::UpdateMetadataField(
+        MetadataField::Name,
+        "Bygninger og Adresser".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        MetadataField::Description,
+        "FDA kernemodel for geografiske enheder".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        MetadataField::Uri,
+        "https://data.gov.dk/model/core/building".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataStatus(ModelStatus::Completed));
+    let _ = app.update(Message::UpdateMetadataApprovalStatus(
+        ApprovalStatus::ApprovedWithRemarks,
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        MetadataField::ApprovedBy,
+        "FDA Modeludvalg".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataScope(ModelScope::ApplicationProfile));
+    let _ = app.update(Message::UpdateMetadataField(
+        MetadataField::DomainArea,
+        "BBR & Adresser".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        MetadataField::ResponsibleOrg,
+        "Klimadatastyrelsen".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        MetadataField::Version,
+        "1.2.0".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        MetadataField::Language,
+        "da".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        MetadataField::DateModified,
+        "2026-09-30".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        MetadataField::VersionNotes,
+        "Tilføjet etageadskillelse attribut".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        MetadataField::LegalSources,
+        "https://www.retsinformation.dk/eli/lta/2020/123, https://www.retsinformation.dk/eli/lta/2021/456".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        MetadataField::Source,
+        "INSPIRE Building 2D".to_string(),
+    ));
+    let _ = app.update(Message::UpdateMetadataField(
+        MetadataField::WasDerivedFrom,
+        "https://data.gov.dk/model/core/geodata".to_string(),
+    ));
+
+    let _ = app.update(Message::SaveMetadataModal);
+    assert!(app.metadata_modal().is_none());
+
+    let meta = app.project().metadata();
+    assert_eq!(meta.name(), "Bygninger og Adresser");
+    assert_eq!(meta.description(), "FDA kernemodel for geografiske enheder");
+    assert_eq!(meta.uri(), "https://data.gov.dk/model/core/building");
+    assert_eq!(meta.model_status(), ModelStatus::Completed);
+    assert_eq!(meta.approval_status(), ApprovalStatus::ApprovedWithRemarks);
+    assert_eq!(meta.approved_by(), Some("FDA Modeludvalg"));
+    assert_eq!(meta.model_scope(), ModelScope::ApplicationProfile);
+    assert_eq!(meta.domain_area(), "BBR & Adresser");
+    assert_eq!(meta.responsible_org(), "Klimadatastyrelsen");
+    assert_eq!(meta.version(), "1.2.0");
+    assert_eq!(meta.language(), "da");
+    assert_eq!(meta.date_modified(), "2026-09-30");
+    assert_eq!(
+        meta.version_notes(),
+        Some("Tilføjet etageadskillelse attribut")
+    );
+    assert_eq!(
+        meta.legal_sources(),
+        &[
+            "https://www.retsinformation.dk/eli/lta/2020/123".to_string(),
+            "https://www.retsinformation.dk/eli/lta/2021/456".to_string(),
+        ]
+    );
+    assert_eq!(meta.source(), Some("INSPIRE Building 2D"));
+    assert_eq!(
+        meta.was_derived_from(),
+        Some("https://data.gov.dk/model/core/geodata")
+    );
+}
+
+#[test]
 fn test_task018_footer_timestamp_and_model_rules_link() {
     // 1. Nyt projekt starter som Unsaved med "Nyt projekt" tekst
     let mut app = App::new_with_path(None);
@@ -6250,9 +6352,7 @@ fn test_fda_tabel_d_metadata_and_backward_compatibility() {
     meta.set_date_modified("2026-09-30");
     meta.set_version_notes(Some("Første officielle udgave af modellen".to_string()));
     meta.set_source(Some("ISO 4210 Cycles".to_string()));
-    meta.set_was_derived_from(Some(
-        "https://data.gov.dk/concept/core/vehicle".to_string(),
-    ));
+    meta.set_was_derived_from(Some("https://data.gov.dk/concept/core/vehicle".to_string()));
     meta.set_legal_sources(vec![
         "https://www.retsinformation.dk/eli/lta/2016/976".to_string(),
         "http://data.europa.eu/eli/reg/2013/168/oj".to_string(),
@@ -6323,4 +6423,3 @@ fn test_fda_tabel_d_metadata_and_backward_compatibility() {
         "Gammelt enkeltstående legal_source felt skal migreres til legal_sources listen"
     );
 }
-

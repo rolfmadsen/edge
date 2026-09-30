@@ -7,7 +7,9 @@ use crate::features::information_model::{
     Attribute, InformationClass, Multiplicity, PrimitiveType,
 };
 use crate::features::model::storage::ProjectStorage;
-use crate::features::model::{ModelMetadata, ModelProject, ModelStatus};
+use crate::features::model::{
+    ApprovalStatus, ModelMetadata, ModelProject, ModelScope, ModelStatus,
+};
 use crate::ui::concept_editor::ConceptEditorState;
 use crate::ui::concept_model_view;
 use crate::ui::concept_table;
@@ -214,6 +216,13 @@ pub enum MetadataField {
     ResponsibleOrg,
     Uri,
     Version,
+    ApprovedBy,
+    Language,
+    LegalSources,
+    Source,
+    WasDerivedFrom,
+    VersionNotes,
+    DateModified,
 }
 
 #[derive(Debug, Clone)]
@@ -221,10 +230,19 @@ pub struct ModelMetadataModalState {
     pub name: String,
     pub description: String,
     pub status: ModelStatus,
+    pub approval_status: ApprovalStatus,
+    pub approved_by: String,
+    pub model_scope: ModelScope,
+    pub language: String,
     pub domain_area: String,
     pub responsible_org: String,
     pub uri: String,
     pub version: String,
+    pub version_notes: String,
+    pub source: String,
+    pub was_derived_from: String,
+    pub legal_sources: String,
+    pub date_modified: String,
 }
 
 impl ModelMetadataModalState {
@@ -240,7 +258,11 @@ impl ModelMetadataModalState {
             } else {
                 meta.description().to_string()
             },
-            status: meta.status(),
+            status: meta.model_status(),
+            approval_status: meta.approval_status(),
+            approved_by: meta.approved_by().unwrap_or("").to_string(),
+            model_scope: meta.model_scope(),
+            language: meta.language().to_string(),
             domain_area: if meta.domain_area() == "Emneområde" {
                 String::new()
             } else {
@@ -261,6 +283,11 @@ impl ModelMetadataModalState {
             } else {
                 meta.version().to_string()
             },
+            version_notes: meta.version_notes().unwrap_or("").to_string(),
+            source: meta.source().unwrap_or("").to_string(),
+            was_derived_from: meta.was_derived_from().unwrap_or("").to_string(),
+            legal_sources: meta.legal_sources().join(", "),
+            date_modified: meta.date_modified().to_string(),
         }
     }
 }
@@ -583,12 +610,14 @@ pub enum Message {
     CloseMenu,
     ToggleLeftSidebar,
 
-    // Modelomslag & Metadata modal (Task 017)
+    // Modelomslag & Metadata modal (Task 017 & Task 055)
     OpenMetadataModal,
     CloseMetadataModal,
     SaveMetadataModal,
     UpdateMetadataField(MetadataField, String),
     UpdateMetadataStatus(ModelStatus),
+    UpdateMetadataApprovalStatus(ApprovalStatus),
+    UpdateMetadataScope(ModelScope),
 
     // Git & Versionsstyring (Task 047)
     RefreshGitStatus,
@@ -2709,11 +2738,48 @@ impl App {
                     };
                     meta.set_name(name);
                     meta.set_description(state.description);
-                    meta.set_status(state.status);
+                    meta.set_model_status(state.status);
+                    meta.set_approval_status(state.approval_status);
+                    meta.set_approved_by(if state.approved_by.trim().is_empty() {
+                        None
+                    } else {
+                        Some(state.approved_by.trim().to_string())
+                    });
+                    meta.set_model_scope(state.model_scope);
+                    meta.set_language(if state.language.trim().is_empty() {
+                        "da".to_string()
+                    } else {
+                        state.language.trim().to_string()
+                    });
                     meta.set_domain_area(state.domain_area);
                     meta.set_responsible_org(state.responsible_org);
                     meta.set_uri(state.uri);
                     meta.set_version(version);
+                    meta.set_version_notes(if state.version_notes.trim().is_empty() {
+                        None
+                    } else {
+                        Some(state.version_notes.trim().to_string())
+                    });
+                    meta.set_source(if state.source.trim().is_empty() {
+                        None
+                    } else {
+                        Some(state.source.trim().to_string())
+                    });
+                    meta.set_was_derived_from(if state.was_derived_from.trim().is_empty() {
+                        None
+                    } else {
+                        Some(state.was_derived_from.trim().to_string())
+                    });
+                    let legal_sources: Vec<String> = state
+                        .legal_sources
+                        .split(&[',', '\n'][..])
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect();
+                    meta.set_legal_sources(legal_sources);
+                    if !state.date_modified.trim().is_empty() {
+                        meta.set_date_modified(state.date_modified.trim());
+                    }
                     self.save_status = SaveStatus::Unsaved;
                 }
             }
@@ -2726,12 +2792,29 @@ impl App {
                         MetadataField::ResponsibleOrg => modal.responsible_org = val,
                         MetadataField::Uri => modal.uri = val,
                         MetadataField::Version => modal.version = val,
+                        MetadataField::ApprovedBy => modal.approved_by = val,
+                        MetadataField::Language => modal.language = val,
+                        MetadataField::LegalSources => modal.legal_sources = val,
+                        MetadataField::Source => modal.source = val,
+                        MetadataField::WasDerivedFrom => modal.was_derived_from = val,
+                        MetadataField::VersionNotes => modal.version_notes = val,
+                        MetadataField::DateModified => modal.date_modified = val,
                     }
                 }
             }
             Message::UpdateMetadataStatus(status) => {
                 if let Some(modal) = &mut self.metadata_modal {
                     modal.status = status;
+                }
+            }
+            Message::UpdateMetadataApprovalStatus(status) => {
+                if let Some(modal) = &mut self.metadata_modal {
+                    modal.approval_status = status;
+                }
+            }
+            Message::UpdateMetadataScope(scope) => {
+                if let Some(modal) = &mut self.metadata_modal {
+                    modal.model_scope = scope;
                 }
             }
             Message::NewProject => {
@@ -4870,7 +4953,7 @@ impl App {
         let maybe_metadata_modal: Option<Element<Message>> =
             self.metadata_modal.as_ref().map(|meta_state| {
                 let title_row = row![
-                    text("📋 Modelomslag & Metadata")
+                    text("📋 Modelomslag & Metadata (FDA Tabel D & E)")
                         .size(17)
                         .color(ThemeColors::SLATE_900),
                     Space::new().width(Length::Fill),
@@ -4899,7 +4982,9 @@ impl App {
 
                 // 2. Beskrivelse
                 let desc_field = column![
-                    text("Beskrivelse").size(12).color(ThemeColors::SLATE_700),
+                    text("Modelbeskrivelse")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
                     text_input(
                         "Formål og omfang jf. FDA Modelreglerne...",
                         &meta_state.description
@@ -4911,7 +4996,18 @@ impl App {
                 ]
                 .spacing(4);
 
-                // 3. Status picklist & Version
+                // 3. Model-URI
+                let uri_field = column![
+                    text("Model-URI *").size(12).color(ThemeColors::SLATE_700),
+                    text_input("https://data.gov.dk/model/core/...", &meta_state.uri)
+                        .style(modern_input_style)
+                        .on_input(|val| Message::UpdateMetadataField(MetadataField::Uri, val))
+                        .padding(8)
+                        .width(Length::Fill),
+                ]
+                .spacing(4);
+
+                // 4. Livscyklus & Godkendelse (Tabel D & E)
                 let status_pick = pick_list(
                     &ModelStatus::ALL[..],
                     Some(meta_state.status),
@@ -4921,26 +5017,65 @@ impl App {
                 .width(Length::Fill);
 
                 let status_field = column![
-                    text("Modelstatus").size(12).color(ThemeColors::SLATE_700),
+                    text("Modelstatus (Tabel E)")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
                     status_pick,
                 ]
                 .spacing(4)
                 .width(Length::FillPortion(1));
 
-                let version_field = column![
-                    text("Version").size(12).color(ThemeColors::SLATE_700),
-                    text_input("0.1.0", &meta_state.version)
+                let approval_pick = pick_list(
+                    &ApprovalStatus::ALL[..],
+                    Some(meta_state.approval_status),
+                    Message::UpdateMetadataApprovalStatus,
+                )
+                .padding(7)
+                .width(Length::Fill);
+
+                let approval_field = column![
+                    text("Godkendelsesstatus")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                    approval_pick,
+                ]
+                .spacing(4)
+                .width(Length::FillPortion(1));
+
+                let status_approval_row = row![status_field, approval_field].spacing(12);
+
+                let scope_pick = pick_list(
+                    &ModelScope::ALL[..],
+                    Some(meta_state.model_scope),
+                    Message::UpdateMetadataScope,
+                )
+                .padding(7)
+                .width(Length::Fill);
+
+                let scope_field = column![
+                    text("Modelomfang").size(12).color(ThemeColors::SLATE_700),
+                    scope_pick,
+                ]
+                .spacing(4)
+                .width(Length::FillPortion(1));
+
+                let approved_by_field = column![
+                    text("Godkendt af").size(12).color(ThemeColors::SLATE_700),
+                    text_input("f.eks. FDA Fagråd eller Styrelse", &meta_state.approved_by)
                         .style(modern_input_style)
-                        .on_input(|val| Message::UpdateMetadataField(MetadataField::Version, val))
+                        .on_input(|val| Message::UpdateMetadataField(
+                            MetadataField::ApprovedBy,
+                            val
+                        ))
                         .padding(8)
                         .width(Length::Fill),
                 ]
                 .spacing(4)
                 .width(Length::FillPortion(1));
 
-                let status_version_row = row![status_field, version_field].spacing(12);
+                let scope_approved_row = row![scope_field, approved_by_field].spacing(12);
 
-                // 4. Emneområde (§26) & Ansvarlig organisation
+                // 5. Ansvar & Versionering
                 let domain_field = column![
                     text("Emneområde (§26)")
                         .size(12)
@@ -4978,18 +5113,110 @@ impl App {
 
                 let domain_org_row = row![domain_field, org_field].spacing(12);
 
-                // 5. Model-URI
-                let uri_field = column![
-                    text("Model-URI").size(12).color(ThemeColors::SLATE_700),
-                    text_input("https://data.gov.dk/model/core/...", &meta_state.uri)
+                let version_field = column![
+                    text("Version").size(12).color(ThemeColors::SLATE_700),
+                    text_input("0.1.0", &meta_state.version)
                         .style(modern_input_style)
-                        .on_input(|val| Message::UpdateMetadataField(MetadataField::Uri, val))
+                        .on_input(|val| Message::UpdateMetadataField(MetadataField::Version, val))
                         .padding(8)
                         .width(Length::Fill),
                 ]
+                .spacing(4)
+                .width(Length::FillPortion(1));
+
+                let lang_field = column![
+                    text("Sprog").size(12).color(ThemeColors::SLATE_700),
+                    text_input("da", &meta_state.language)
+                        .style(modern_input_style)
+                        .on_input(|val| Message::UpdateMetadataField(MetadataField::Language, val))
+                        .padding(8)
+                        .width(Length::Fill),
+                ]
+                .spacing(4)
+                .width(Length::FillPortion(1));
+
+                let date_field = column![
+                    text("Senest ændret (ISO)")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                    text_input("YYYY-MM-DD", &meta_state.date_modified)
+                        .style(modern_input_style)
+                        .on_input(|val| Message::UpdateMetadataField(
+                            MetadataField::DateModified,
+                            val
+                        ))
+                        .padding(8)
+                        .width(Length::Fill),
+                ]
+                .spacing(4)
+                .width(Length::FillPortion(1));
+
+                let version_lang_row = row![version_field, lang_field, date_field].spacing(12);
+
+                let notes_field = column![
+                    text("Revisionsnote").size(12).color(ThemeColors::SLATE_700),
+                    text_input(
+                        "f.eks. Væsentlige ændringer i relationer efter offentlig høring",
+                        &meta_state.version_notes
+                    )
+                    .style(modern_input_style)
+                    .on_input(|val| Message::UpdateMetadataField(MetadataField::VersionNotes, val))
+                    .padding(8)
+                    .width(Length::Fill),
+                ]
                 .spacing(4);
 
-                // 6. Action knapper
+                // 6. Proveniens & Lovgrundlag
+                let legal_field = column![
+                    text("Lovgrundlag (ELI URI'er, kommasepareret)")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                    text_input(
+                        "https://www.retsinformation.dk/eli/lta/...",
+                        &meta_state.legal_sources
+                    )
+                    .style(modern_input_style)
+                    .on_input(|val| Message::UpdateMetadataField(MetadataField::LegalSources, val))
+                    .padding(8)
+                    .width(Length::Fill),
+                ]
+                .spacing(4);
+
+                let source_field = column![
+                    text("Kilde (ekstern standard)")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                    text_input("f.eks. ISO 19107 eller INSPIRE", &meta_state.source)
+                        .style(modern_input_style)
+                        .on_input(|val| Message::UpdateMetadataField(MetadataField::Source, val))
+                        .padding(8)
+                        .width(Length::Fill),
+                ]
+                .spacing(4)
+                .width(Length::FillPortion(1));
+
+                let derived_field = column![
+                    text("Udledt af (URI)")
+                        .size(12)
+                        .color(ThemeColors::SLATE_700),
+                    text_input(
+                        "https://data.gov.dk/model/core/...",
+                        &meta_state.was_derived_from
+                    )
+                    .style(modern_input_style)
+                    .on_input(|val| Message::UpdateMetadataField(
+                        MetadataField::WasDerivedFrom,
+                        val
+                    ))
+                    .padding(8)
+                    .width(Length::Fill),
+                ]
+                .spacing(4)
+                .width(Length::FillPortion(1));
+
+                let source_derived_row = row![source_field, derived_field].spacing(12);
+
+                // 7. Action knapper
                 let actions = row![
                     Space::new().width(Length::Fill),
                     button(text("Annuller").size(12))
@@ -5004,22 +5231,36 @@ impl App {
                 .spacing(8)
                 .align_y(Alignment::Center);
 
+                let form_col = column![
+                    name_field,
+                    desc_field,
+                    uri_field,
+                    status_approval_row,
+                    scope_approved_row,
+                    domain_org_row,
+                    version_lang_row,
+                    notes_field,
+                    legal_field,
+                    source_derived_row,
+                ]
+                .spacing(12);
+
+                let scrollable_form = scrollable(form_col).height(Length::Fixed(460.0));
+
                 let dialog_col = column![
                     title_row,
                     subtitle,
-                    name_field,
-                    desc_field,
-                    status_version_row,
-                    domain_org_row,
-                    uri_field,
+                    Space::new().height(4),
+                    scrollable_form,
+                    Space::new().height(4),
                     actions,
                 ]
-                .spacing(12);
+                .spacing(10);
 
                 let modal_card = container(dialog_col)
                     .style(modal_card_style)
                     .padding(24)
-                    .width(Length::Fixed(560.0));
+                    .width(Length::Fixed(640.0));
 
                 container(modal_card)
                     .style(modal_backdrop_style)
