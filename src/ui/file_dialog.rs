@@ -50,6 +50,25 @@ pub fn pick_file_to_save(default_name: Option<&str>) -> DialogResult {
     }
 }
 
+/// Åbner native filvælger til eksport af SVG, CSV eller modelrapporter
+pub fn pick_file_to_export(default_name: &str, filter_name: &str, extension: &str) -> DialogResult {
+    let dialog = rfd::FileDialog::new()
+        .set_title(format!("Eksporter {}", filter_name))
+        .add_filter(filter_name, &[extension])
+        .add_filter("Alle filer", &["*"])
+        .set_file_name(default_name);
+
+    match dialog.save_file() {
+        Some(mut path) => {
+            if path.extension().is_none() {
+                path.set_extension(extension);
+            }
+            DialogResult::Selected(path)
+        }
+        None => DialogResult::Cancelled,
+    }
+}
+
 /// Åbner native mappevælger til at vælge en destinationsmappe til f.eks. Git-kloning
 pub fn pick_folder() -> DialogResult {
     let dialog = rfd::FileDialog::new().set_title("Vælg mappe til model");

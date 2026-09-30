@@ -1,5 +1,9 @@
 use crate::features::concept_model::{NodeId, RelationKind};
 use crate::features::concepts::{BelongsToDomain, Concept, ConceptValidator, ValidationError};
+use crate::features::export::{
+    export_concept_model_svg, export_concepts_to_csv, export_information_model_svg,
+    export_model_report_html, export_model_report_markdown,
+};
 use crate::features::git::{
     ChangeAction, DomainChangeEvent, DomainEventMapper, GitService, PullResult, RepoSyncStatus,
 };
@@ -554,8 +558,17 @@ pub enum FileDialogMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExportKind {
+    DiagramSvg,
+    ConceptListCsv,
+    ModelReportMarkdown,
+    ModelReportHtml,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MenuType {
     File,
+    Export,
     Help,
     Collab,
 }
@@ -609,6 +622,13 @@ pub enum Message {
     ToggleMenu(MenuType),
     CloseMenu,
     ToggleLeftSidebar,
+
+    // Eksportmotor (Task 059)
+    ExportActiveDiagramSvgDialog,
+    ExportConceptListCsvDialog,
+    ExportModelReportMarkdownDialog,
+    ExportModelReportHtmlDialog,
+    ExportDialogCompleted(crate::ui::file_dialog::DialogResult, ExportKind),
 
     // Modelomslag & Metadata modal (Task 017 & Task 055)
     OpenMetadataModal,
@@ -3091,6 +3111,103 @@ impl App {
                 }
             }
 
+            // Eksportmotor (Task 059)
+            Message::ExportActiveDiagramSvgDialog => {
+                self.active_menu = None;
+                let sanitized_name = self.project.metadata().name().replace(' ', "_");
+                let default_name = match self.active_tab {
+                    Tab::InformationModel => format!("{}_informationsmodel.svg", sanitized_name),
+                    _ => format!("{}_begrebsmodel.svg", sanitized_name),
+                };
+                return Task::perform(
+                    async move {
+                        crate::ui::file_dialog::pick_file_to_export(
+                            &default_name,
+                            "SVG Vektordiagram (*.svg)",
+                            "svg",
+                        )
+                    },
+                    |res| Message::ExportDialogCompleted(res, ExportKind::DiagramSvg),
+                );
+            }
+            Message::ExportConceptListCsvDialog => {
+                self.active_menu = None;
+                let sanitized_name = self.project.metadata().name().replace(' ', "_");
+                let default_name = format!("{}_begrebsliste.csv", sanitized_name);
+                return Task::perform(
+                    async move {
+                        crate::ui::file_dialog::pick_file_to_export(
+                            &default_name,
+                            "CSV-regneark med UTF-8 BOM (*.csv)",
+                            "csv",
+                        )
+                    },
+                    |res| Message::ExportDialogCompleted(res, ExportKind::ConceptListCsv),
+                );
+            }
+            Message::ExportModelReportMarkdownDialog => {
+                self.active_menu = None;
+                let sanitized_name = self.project.metadata().name().replace(' ', "_");
+                let default_name = format!("{}_afleveringsrapport.md", sanitized_name);
+                return Task::perform(
+                    async move {
+                        crate::ui::file_dialog::pick_file_to_export(
+                            &default_name,
+                            "Markdown afleveringsrapport (*.md)",
+                            "md",
+                        )
+                    },
+                    |res| Message::ExportDialogCompleted(res, ExportKind::ModelReportMarkdown),
+                );
+            }
+            Message::ExportModelReportHtmlDialog => {
+                self.active_menu = None;
+                let sanitized_name = self.project.metadata().name().replace(' ', "_");
+                let default_name = format!("{}_afleveringsrapport.html", sanitized_name);
+                return Task::perform(
+                    async move {
+                        crate::ui::file_dialog::pick_file_to_export(
+                            &default_name,
+                            "HTML afleveringsrapport (*.html)",
+                            "html",
+                        )
+                    },
+                    |res| Message::ExportDialogCompleted(res, ExportKind::ModelReportHtml),
+                );
+            }
+            Message::ExportDialogCompleted(res, kind) => {
+                if let crate::ui::file_dialog::DialogResult::Selected(path) = res {
+                    let content = match kind {
+                        ExportKind::DiagramSvg => {
+                            if self.active_tab == Tab::InformationModel {
+                                export_information_model_svg(
+                                    self.project.information_graph(),
+                                    self.project.information_model(),
+                                )
+                            } else {
+                                export_concept_model_svg(
+                                    self.project.concept_graph(),
+                                    self.project.concepts(),
+                                )
+                            }
+                        }
+                        ExportKind::ConceptListCsv => {
+                            export_concepts_to_csv(self.project.concepts())
+                        }
+                        ExportKind::ModelReportMarkdown => {
+                            export_model_report_markdown(&self.project)
+                        }
+                        ExportKind::ModelReportHtml => {
+                            export_model_report_html(&self.project)
+                        }
+                    };
+
+                    if let Err(err) = std::fs::write(&path, content) {
+                        eprintln!("Fejl under skrivning af eksportfil {:?}: {}", path, err);
+                    }
+                }
+            }
+
             // Tastaturnavigation & genveje
             Message::FocusNext => {
                 return operation::focus_next();
@@ -4829,6 +4946,8 @@ impl App {
             Space::new().width(16),
             menu_button("Filer", MenuType::File),
             Space::new().width(4),
+            menu_button("Eksporter", MenuType::Export),
+            Space::new().width(4),
             menu_button("Hjælp", MenuType::Help),
             Space::new().width(4),
             menu_button("Samarbejde", MenuType::Collab),
@@ -6178,8 +6297,56 @@ impl App {
 
                     (136.0, file_col.width(Length::Fixed(360.0)))
                 }
+                MenuType::Export => {
+                    let svg_label = match self.active_tab {
+                        Tab::ConceptModel => "Vektor-SVG: Begrebsmodel...",
+                        Tab::InformationModel => "Vektor-SVG: Informationsmodel...",
+                        _ => "Vektor-SVG: Aktivt diagram...",
+                    };
+
+                    let export_col = column![
+                        text("VEKTOR-DIAGRAMMER (SVG)")
+                            .size(10)
+                            .color(ThemeColors::TEXT_MUTED),
+                        Space::new().height(2),
+                        menu_item("🖼️", svg_label, Message::ExportActiveDiagramSvgDialog),
+                        Space::new().height(4),
+                        make_separator(),
+                        Space::new().height(4),
+                        text("BEGREBSLISTE (TABEL)")
+                            .size(10)
+                            .color(ThemeColors::TEXT_MUTED),
+                        Space::new().height(2),
+                        menu_item(
+                            "📊",
+                            "Begrebsliste (CSV / Excel)...",
+                            Message::ExportConceptListCsvDialog,
+                        ),
+                        Space::new().height(4),
+                        make_separator(),
+                        Space::new().height(4),
+                        text("FDA AFLEVERINGSRAPPORT")
+                            .size(10)
+                            .color(ThemeColors::TEXT_MUTED),
+                        Space::new().height(2),
+                        menu_item(
+                            "📝",
+                            "Modelrapport (Markdown)...",
+                            Message::ExportModelReportMarkdownDialog,
+                        ),
+                        menu_item(
+                            "🌐",
+                            "Modelrapport (HTML)...",
+                            Message::ExportModelReportHtmlDialog,
+                        ),
+                    ]
+                    .spacing(2)
+                    .width(Length::Fixed(280.0));
+
+                    (212.0, export_col)
+                }
                 MenuType::Help => (
-                    216.0,
+                    310.0,
                     column![
                         text("DOKUMENTATION & HJÆLP")
                             .size(10)
@@ -6191,7 +6358,7 @@ impl App {
                     .width(Length::Fixed(220.0)),
                 ),
                 MenuType::Collab => (
-                    280.0,
+                    384.0,
                     column![
                         text("LIVE SAMARBEJDE (E2EE)")
                             .size(10)
