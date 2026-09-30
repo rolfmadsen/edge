@@ -14,6 +14,8 @@ pub enum RelationKind {
 impl RelationKind {
     pub const ALL: &'static [RelationKind] =
         &[Self::Generalization, Self::Association, Self::Composition];
+    pub const CONCEPT_RELATIONS: &'static [RelationKind] =
+        &[Self::Generalization, Self::Association];
 }
 
 impl std::fmt::Display for RelationKind {

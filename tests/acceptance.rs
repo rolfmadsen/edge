@@ -6446,4 +6446,3 @@ fn test_fda_uml_stereotypes_and_concept_canvas_relations() {
     assert_eq!(all_rels.len(), 3);
     assert!(all_rels.contains(&RelationKind::Composition));
 }
-

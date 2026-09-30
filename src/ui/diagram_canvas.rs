@@ -1367,11 +1367,7 @@ pub fn render_concept_node(
             .with_width(border_width),
     );
 
-    let badge_text = if node.is_local() {
-        "«lokalt begreb»"
-    } else {
-        "«fremmed begreb»"
-    };
+    let badge_text = concept_stereotype_text();
 
     frame.fill_text(Text {
         content: badge_text.to_string(),
@@ -1392,6 +1388,20 @@ pub fn render_concept_node(
         align_y: alignment::Vertical::Center,
         ..Default::default()
     });
+}
+
+/// Officiel FDA stereotype for begreber jf. Modelregel 03
+pub fn concept_stereotype_text() -> &'static str {
+    "«Concept»"
+}
+
+/// Officiel FDA stereotype for UML klasser jf. Modelregel 03
+pub fn uml_class_stereotype_text(is_abstract: bool) -> String {
+    if is_abstract {
+        "«Concept» {abstract}".to_string()
+    } else {
+        "«Concept»".to_string()
+    }
 }
 
 /// Afkorter en tekststreng pænt med ellipsis `...`, hvis den overstiger max_chars
@@ -1449,11 +1459,7 @@ pub fn render_uml_class_node(
             .with_width(border_width),
     );
 
-    let stereotype_text = if is_abstract {
-        "«Klasse» {abstract}".to_string()
-    } else {
-        "«Klasse»".to_string()
-    };
+    let stereotype_text = uml_class_stereotype_text(is_abstract);
 
     frame.fill_text(Text {
         content: stereotype_text,

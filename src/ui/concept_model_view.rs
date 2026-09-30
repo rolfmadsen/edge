@@ -251,7 +251,7 @@ pub fn view<'a>(
                         .size(11)
                         .color(ThemeColors::SLATE_600),
                     pick_list(
-                        RelationKind::ALL,
+                        RelationKind::CONCEPT_RELATIONS,
                         Some(dialog.kind),
                         Message::GraphRelationKindChanged,
                     )
@@ -394,47 +394,48 @@ pub fn view<'a>(
             ]
             .spacing(4);
 
+            let mut buttons = vec![
+                button(text("Association").size(11))
+                    .style(if edge.kind() == RelationKind::Association {
+                        primary_button_style
+                    } else {
+                        secondary_button_style
+                    })
+                    .on_press(Message::GraphUpdateEdgeKind(
+                        from_id,
+                        to_id,
+                        RelationKind::Association,
+                    ))
+                    .padding([4, 6])
+                    .into(),
+                button(text("Generalisering").size(11))
+                    .style(if edge.kind() == RelationKind::Generalization {
+                        primary_button_style
+                    } else {
+                        secondary_button_style
+                    })
+                    .on_press(Message::GraphUpdateEdgeKind(
+                        from_id,
+                        to_id,
+                        RelationKind::Generalization,
+                    ))
+                    .padding([4, 6])
+                    .into(),
+            ];
+            if edge.kind() == RelationKind::Composition {
+                buttons.push(
+                    button(text("Komposition (Udfases)").size(11))
+                        .style(primary_button_style)
+                        .padding([4, 6])
+                        .into(),
+                );
+            }
+
             let kind_selector = column![
-                crate::ui::inspector_panel::section_header("Relationstype"),
-                row![
-                    button(text("Association").size(11))
-                        .style(if edge.kind() == RelationKind::Association {
-                            primary_button_style
-                        } else {
-                            secondary_button_style
-                        })
-                        .on_press(Message::GraphUpdateEdgeKind(
-                            from_id,
-                            to_id,
-                            RelationKind::Association
-                        ))
-                        .padding([4, 6]),
-                    button(text("Generalisering").size(11))
-                        .style(if edge.kind() == RelationKind::Generalization {
-                            primary_button_style
-                        } else {
-                            secondary_button_style
-                        })
-                        .on_press(Message::GraphUpdateEdgeKind(
-                            from_id,
-                            to_id,
-                            RelationKind::Generalization
-                        ))
-                        .padding([4, 6]),
-                    button(text("Komposition").size(11))
-                        .style(if edge.kind() == RelationKind::Composition {
-                            primary_button_style
-                        } else {
-                            secondary_button_style
-                        })
-                        .on_press(Message::GraphUpdateEdgeKind(
-                            from_id,
-                            to_id,
-                            RelationKind::Composition
-                        ))
-                        .padding([4, 6]),
-                ]
-                .spacing(4),
+                crate::ui::inspector_panel::section_header(
+                    "Relationstype (Begrebsmodel jf. Tabel A)"
+                ),
+                row(buttons).spacing(4),
             ]
             .spacing(4);
 
