@@ -71,62 +71,68 @@ impl GitService {
     }
 
     /// Finder git-eksekverbar fil på tværs af macOS, Windows og Linux.
+    /// Resultatet caches med OnceLock så det kun søges én gang per proces.
     pub fn resolve_git_binary() -> std::ffi::OsString {
-        // 1. Tjek om standard "git" virker i systemets PATH
-        #[allow(unused_mut)]
-        let mut test_cmd = Command::new("git");
-        #[cfg(target_os = "windows")]
-        {
-            use std::os::windows::process::CommandExt;
-            test_cmd.creation_flags(0x08000000);
-        }
-        if test_cmd
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
-        {
-            return "git".into();
-        }
-
-        // 2. Fallbacks for macOS GUI-apps (hvor PATH ofte ikke arves fra .zshrc/.bash_profile i Finder)
-        #[cfg(target_os = "macos")]
-        {
-            for candidate in &[
-                "/usr/bin/git",
-                "/opt/homebrew/bin/git",
-                "/usr/local/bin/git",
-            ] {
-                let path = Path::new(candidate);
-                if path.exists() {
-                    return path.as_os_str().to_os_string();
+        static CACHED_BINARY: std::sync::OnceLock<std::ffi::OsString> = std::sync::OnceLock::new();
+        CACHED_BINARY
+            .get_or_init(|| {
+                // 1. Tjek om standard "git" virker i systemets PATH
+                #[allow(unused_mut)]
+                let mut test_cmd = Command::new("git");
+                #[cfg(target_os = "windows")]
+                {
+                    use std::os::windows::process::CommandExt;
+                    test_cmd.creation_flags(0x08000000);
                 }
-            }
-        }
-
-        // 3. Fallbacks for Windows (Standard Git for Windows installationer)
-        #[cfg(target_os = "windows")]
-        {
-            let local_app_data = std::env::var("LOCALAPPDATA").ok();
-            for candidate in Self::windows_git_candidates(local_app_data.as_deref()) {
-                if candidate.exists() {
-                    return candidate.into_os_string();
+                if test_cmd
+                    .arg("--version")
+                    .output()
+                    .map(|o| o.status.success())
+                    .unwrap_or(false)
+                {
+                    return "git".into();
                 }
-            }
-        }
 
-        // 4. Fallbacks for Linux
-        #[cfg(target_os = "linux")]
-        {
-            for candidate in &["/usr/bin/git", "/usr/local/bin/git", "/bin/git"] {
-                let path = Path::new(candidate);
-                if path.exists() {
-                    return path.as_os_str().to_os_string();
+                // 2. Fallbacks for macOS GUI-apps (hvor PATH ofte ikke arves fra .zshrc/.bash_profile i Finder)
+                #[cfg(target_os = "macos")]
+                {
+                    for candidate in &[
+                        "/usr/bin/git",
+                        "/opt/homebrew/bin/git",
+                        "/usr/local/bin/git",
+                    ] {
+                        let path = Path::new(candidate);
+                        if path.exists() {
+                            return path.as_os_str().to_os_string();
+                        }
+                    }
                 }
-            }
-        }
 
-        "git".into()
+                // 3. Fallbacks for Windows (Standard Git for Windows installationer)
+                #[cfg(target_os = "windows")]
+                {
+                    let local_app_data = std::env::var("LOCALAPPDATA").ok();
+                    for candidate in Self::windows_git_candidates(local_app_data.as_deref()) {
+                        if candidate.exists() {
+                            return candidate.into_os_string();
+                        }
+                    }
+                }
+
+                // 4. Fallbacks for Linux
+                #[cfg(target_os = "linux")]
+                {
+                    for candidate in &["/usr/bin/git", "/usr/local/bin/git", "/bin/git"] {
+                        let path = Path::new(candidate);
+                        if path.exists() {
+                            return path.as_os_str().to_os_string();
+                        }
+                    }
+                }
+
+                "git".into()
+            })
+            .clone()
     }
 
     /// Returnerer kandidatstier for Git på Windows (Standard installationsmapper + eventuel LocalAppData).
@@ -143,12 +149,16 @@ impl GitService {
     }
 
     /// Tjekker om git eksekverbare fil er tilgængelig i PATH eller standardstier.
+    /// Resultatet caches med OnceLock for at undgå gentagne unødige process spawns.
     pub fn is_git_installed() -> bool {
-        let mut cmd = Self::git_command();
-        cmd.arg("--version")
-            .output()
-            .map(|out| out.status.success())
-            .unwrap_or(false)
+        static CACHED_INSTALLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *CACHED_INSTALLED.get_or_init(|| {
+            let mut cmd = Self::git_command();
+            cmd.arg("--version")
+                .output()
+                .map(|out| out.status.success())
+                .unwrap_or(false)
+        })
     }
 
     fn check_git_installed() -> Result<(), GitError> {

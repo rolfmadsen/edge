@@ -844,7 +844,7 @@ impl App {
             recent_store.record_opened(ep);
         }
 
-        let repo_dir = match &effective_path {
+        let _repo_dir = match &effective_path {
             Some(p) => {
                 let mut candidate = if p.is_dir() {
                     p.clone()
@@ -867,10 +867,8 @@ impl App {
             }
             None => None,
         };
-        let git_sync_status = repo_dir
-            .as_ref()
-            .and_then(|d| GitService::get_sync_status(d).ok())
-            .unwrap_or(RepoSyncStatus::Uninitialized);
+        // Start altid med Uninitialized uden synkrone proceskald for omgående 60fps vinduesvisning
+        let git_sync_status = RepoSyncStatus::Uninitialized;
 
         if let Some(p) = &effective_path {
             if p.exists() {
@@ -2049,80 +2047,117 @@ impl App {
                 }
             }
             Message::ConfirmPublish => {
-                if let Some(modal) = self.publish_modal.take() {
-                    let dir = match self.repo_dir() {
-                        Some(d) => d,
-                        None => {
-                            let mut failed_modal = modal;
-                            failed_modal.error =
-                                Some("Modellen er ikke gemt i en dedikeret modelmappe".into());
-                            self.publish_modal = Some(failed_modal);
-                            return Task::none();
-                        }
-                    };
+                fn execute_publish_workflow(
+                    dir: &std::path::Path,
+                    project: &crate::features::model::ModelProject,
+                    message: &str,
+                ) -> PublishAsyncResult {
                     let has_pending =
-                        GitService::run_git(&dir, &["status", "--porcelain", "-uall", ".kant"])
+                        GitService::run_git(dir, &["status", "--porcelain", "-uall", ".kant"])
                             .map(|s| !s.trim().is_empty())
                             .unwrap_or(false);
 
                     let commit_result = if has_pending {
-                        GitService::publish_model(&dir, &self.project, &modal.message)
+                        GitService::publish_model(dir, project, message)
                     } else {
                         Ok("clean".to_string())
                     };
 
-                    match commit_result {
-                        Ok(_) => {
-                            // 2. Hvis remote er konfigureret, kør auto-pull før push
-                            if let Ok(Some(_)) = GitService::get_remote_url(&dir) {
-                                match GitService::pull_model(&dir, "origin", "main") {
-                                    Ok(PullResult::Merged { conflicts })
-                                        if !conflicts.is_empty() =>
-                                    {
-                                        // Modstridende ændringer fundet: Åbn visuel konfliktløser!
-                                        if let Ok(p) = ProjectStorage::load(&dir) {
-                                            self.project = p;
-                                        }
-                                        self.conflict_resolver_modal =
-                                            Some(ConflictResolverModalState::new(conflicts));
-                                        if let Ok(st) = GitService::get_sync_status(&dir) {
-                                            self.git_sync_status = st;
-                                        }
-                                        return Task::none();
-                                    }
-                                    Ok(_) => {
-                                        if let Ok(p) = ProjectStorage::load(&dir) {
-                                            self.project = p;
-                                        }
-                                    }
-                                    Err(_) => {
-                                        // Hvis remote fx er tom eller branch ikke findes endnu, fortsætter vi til push
-                                    }
-                                }
+                    if let Err(e) = commit_result {
+                        return PublishAsyncResult::Error(format!(
+                            "Udgivelse af model fejlede: {}",
+                            e
+                        ));
+                    }
 
-                                match GitService::push_model(&dir, "origin") {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        eprintln!("Git push fejl: {}", e);
-                                        let mut failed_modal = modal;
-                                        failed_modal.error = Some(format!("{}", e));
-                                        self.publish_modal = Some(failed_modal);
-                                    }
-                                }
+                    if let Ok(Some(_)) = GitService::get_remote_url(dir) {
+                        match GitService::pull_model(dir, "origin", "main") {
+                            Ok(PullResult::Merged { conflicts }) if !conflicts.is_empty() => {
+                                let sync_status = GitService::get_sync_status(dir)
+                                    .unwrap_or(RepoSyncStatus::Uninitialized);
+                                return PublishAsyncResult::Conflict {
+                                    conflicts,
+                                    sync_status,
+                                };
                             }
-
-                            if let Ok(st) = GitService::get_sync_status(&dir) {
-                                self.git_sync_status = st;
+                            Ok(_) => {}
+                            Err(_) => {
+                                // Hvis remote fx er tom eller branch ikke findes endnu, fortsætter vi til push
                             }
                         }
-                        Err(e) => {
-                            eprintln!("Udgivelse af model fejlede: {}", e);
+
+                        if let Err(e) = GitService::push_model(dir, "origin") {
+                            return PublishAsyncResult::Error(format!("Git push fejl: {}", e));
                         }
+                    }
+
+                    let sync_status =
+                        GitService::get_sync_status(dir).unwrap_or(RepoSyncStatus::Synced);
+                    PublishAsyncResult::Success { sync_status }
+                }
+
+                let dir_opt = self.repo_dir();
+                if let Some(modal) = &mut self.publish_modal {
+                    let dir = match dir_opt {
+                        Some(d) => d,
+                        None => {
+                            modal.error =
+                                Some("Modellen er ikke gemt i en dedikeret modelmappe".into());
+                            return Task::none();
+                        }
+                    };
+                    modal.is_publishing = true;
+                    modal.error = None;
+
+                    let dir_buf = dir.clone();
+                    let project_clone = self.project.clone();
+                    let msg_clone = modal.message.clone();
+
+                    if tokio::runtime::Handle::try_current().is_ok() {
+                        return Task::perform(
+                            async move {
+                                tokio::task::spawn_blocking(move || {
+                                    execute_publish_workflow(&dir_buf, &project_clone, &msg_clone)
+                                })
+                                .await
+                                .unwrap_or_else(|e| PublishAsyncResult::Error(e.to_string()))
+                            },
+                            Message::PublishCompleted,
+                        );
+                    } else {
+                        // Kør synkront hvis vi er i en testkontekst uden aktiv tokio runtime
+                        let res = execute_publish_workflow(&dir_buf, &project_clone, &msg_clone);
+                        return self.update(Message::PublishCompleted(res));
                     }
                 }
             }
-            Message::PublishCompleted(_res) => {
-                // RED phase stub: not yet handling completion
+            Message::PublishCompleted(res) => {
+                match res {
+                    PublishAsyncResult::Success { sync_status } => {
+                        self.publish_modal = None;
+                        self.git_sync_status = sync_status;
+                    }
+                    PublishAsyncResult::Conflict {
+                        conflicts,
+                        sync_status,
+                    } => {
+                        self.publish_modal = None;
+                        if let Some(dir) = self.repo_dir() {
+                            if let Ok(p) = ProjectStorage::load(&dir) {
+                                self.project = p;
+                            }
+                        }
+                        self.conflict_resolver_modal =
+                            Some(ConflictResolverModalState::new(conflicts));
+                        self.git_sync_status = sync_status;
+                    }
+                    PublishAsyncResult::Error(err) => {
+                        if let Some(modal) = &mut self.publish_modal {
+                            modal.is_publishing = false;
+                            modal.error = Some(err);
+                        }
+                    }
+                }
             }
             Message::InitGitRepository => {
                 if let Some(dir) = self.repo_dir() {
@@ -6251,15 +6286,23 @@ impl App {
     }
 
     fn view_publish_modal<'a>(&self, modal: &'a PublishModalState) -> Element<'a, Message> {
+        let close_btn = if modal.is_publishing {
+            button(text("✕").size(13))
+                .style(secondary_button_style)
+                .padding([3, 7])
+        } else {
+            button(text("✕").size(13))
+                .style(secondary_button_style)
+                .on_press(Message::ClosePublishModal)
+                .padding([3, 7])
+        };
+
         let title_row = row![
             text("🚀 Commit og send ændringer (pull, add & push)")
                 .size(17)
                 .color(ThemeColors::SLATE_900),
             Space::new().width(Length::Fill),
-            button(text("✕").size(13))
-                .style(secondary_button_style)
-                .on_press(Message::ClosePublishModal)
-                .padding([3, 7]),
+            close_btn,
         ]
         .align_y(Alignment::Center);
 
@@ -6366,7 +6409,18 @@ impl App {
             "Commit og send ændringer"
         };
 
-        let footer_buttons = if is_completely_synced {
+        let footer_buttons = if modal.is_publishing {
+            row![
+                text("⏳ Synkroniserer med Git...")
+                    .size(12)
+                    .color(ThemeColors::PRIMARY),
+                Space::new().width(Length::Fill),
+                button(text("Udgiver..."))
+                    .style(primary_button_style)
+                    .padding([6, 14]),
+            ]
+            .align_y(Alignment::Center)
+        } else if is_completely_synced {
             row![
                 Space::new().width(Length::Fill),
                 button(text("Luk"))

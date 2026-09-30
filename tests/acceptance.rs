@@ -6204,7 +6204,13 @@ fn test_task_054_windows_rendering_and_git_async_performance() {
     );
 
     // 3. AC4: Test at PublishCompleted opdaterer tilstand korrekt
+    let temp_root = std::env::temp_dir().join(format!("kant_test_054_{}", uuid::Uuid::new_v4()));
+    let local_dir = temp_root.join("local_model");
+    let _ = std::fs::create_dir_all(&local_dir);
+    let _ = GitService::init_repository(&local_dir);
+
     let mut app = EdgeApp::new();
+    app.set_active_file_path(Some(local_dir.clone()));
     let _ = app.update(Message::OpenPublishModal);
     assert!(app.publish_modal().is_some());
 
@@ -6217,5 +6223,7 @@ fn test_task_054_windows_rendering_and_git_async_performance() {
         "Modal skal lukke efter vellykket asynkron publish"
     );
     assert_eq!(*app.git_sync_status(), RepoSyncStatus::Synced);
+
+    let _ = std::fs::remove_dir_all(&temp_root);
 }
 
