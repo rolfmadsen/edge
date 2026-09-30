@@ -36,18 +36,48 @@ Gøre det muligt at eksportere modelprojekter som officielle indleveringspakker 
    - Generering af en komplet Markdown / HTML rapport med projektets metadata (Tabel D), forretningsformål, begrebsdefinitioner og diagrammer.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - SVG Canvas Eksport**: Diagramlærredet kan eksporteres som gyldig SVG-fil med korrekte FDA-farver, tekstplacering og forbindelseslinjer.
-- [ ] **AC2 - Begrebsliste CSV/Excel Eksport**: Begrebslisten kan eksporteres som RFC-4180 kompatibel CSV (med UTF-8 BOM til Excel) indeholdende alle 12 FDA standardkolonner.
-- [ ] **AC3 - Modelrapport Generering**: En knap i UI genererer en samlet afleveringsrapport med metadata, lovgrundlag og indholdsfortegnelse.
-- [ ] **AC4 - UI Eksportmenu**: Topbaren/burger-menuen forsynes med en "Eksporter"-undermenu (`SVG-diagram`, `Begrebsliste (CSV)`, `Afleveringsrapport (Markdown)`).
-- [ ] **AC5 - Headless Snapshot Tests**: Testsuite verificerer deterministisk SVG- og CSV-output fra en dummy-model.
+- [ ] **AC1 - Standardiseret Vektor-SVG Eksport**: Eksport af aktivt diagramlærred (Begrebsmodel og Informationsmodel) til standardiseret, velformet SVG med FDA styling (sand/blå/grøn/gul baggrunde, stereotyper, attributter, ortogonale linjer, generaliseringstrekanter, kompositionsdiamanter, associationspile og multipliciteter). ViewBox afpasses dynamisk efter elementernes ydergrænser med passende margin.
+- [ ] **AC2 - RFC-4180 CSV-eksport af Begrebsliste**: Eksport af samtlige begreber i tabellen som RFC-4180 kompatibel CSV med UTF-8 BOM (`\u{FEFF}`) og præcis de 12 FDA standardkolonner fra Bilag D & E:
+  1. `Foretrukken term`
+  2. `Accepteret term`
+  3. `Frarådet term`
+  4. `Definition`
+  5. `Eksempel`
+  6. `Kommentar`
+  7. `Anvendelsesnote`
+  8. `Juridisk kilde`
+  9. `Kilde`
+  10. `Tilhører emneområde`
+  11. `Identifikator`
+  12. `Afledt af`
+  Korrekt escaping af citationstegn, linjeskift og kommaer samt bevarelse af æ, ø, å.
+- [ ] **AC3 - Samlet Modelrapport (Markdown & HTML)**: Generering af officiel indleveringsrapport i både Markdown (`.md`) og selvstændig stylet HTML (`.html`) indeholdende:
+  - Dokumenttitel og modelnavn
+  - Indholdsfortegnelse (TOC)
+  - Tabel D modelmetadata (navn, URI, ansvarlig myndighed, status, godkendelse, version, sprog, dato, etc.)
+  - Lovgrundlag & juridiske kilder
+  - Begrebskatalog (definitioner per genus et differentiam, kilder, noter)
+  - Informationsmodel-oversigt (klasser, attributter, udfaldsrum, multipliciteter, relationer).
+- [ ] **AC4 - Eksportmenu i Brugerfladen**: Menu og knapper i UI (`Eksporter` dropdown i topbaren samt handlinger i respektive visninger) for:
+  - `Eksportér SVG-diagram...`
+  - `Eksportér begrebsliste (CSV)...`
+  - `Eksportér afleveringsrapport (Markdown / HTML)...`
+  Integreret med `rfd` native fildialoger og statusfeedback.
+- [ ] **AC5 - Headless Snapshot- og Accepttests**: Komplet testsuite i `tests/acceptance.rs` der verificerer:
+  - Deterministisk generering af SVG med korrekte tags og farvekoder for både begrebs- og informationsmodel.
+  - RFC-4180 validering af CSV-output med UTF-8 BOM og særtegn.
+  - Validering af rapportindhold (metadata, TOC, begreber, klasser).
+  - TEA message-flow for eksport-handlinger.
 
 ## 🚫 Must NOT
-- Må IKKE afhænge af eksterne cloud-konvertere (alt genereres 100% lokalt i Rust).
+- Må IKKE afhænge af eksterne cloud-konvertere eller eksterne services (100% lokal generering i Rust).
 - Må IKKE tabe specialtegn (æ, ø, å, Unicode) under eksport.
+- Må IKKE bryde RFC-4180 standarden for CSV (escaping med dobbelte anførselstegn ved komma/linjeskift).
+- Må IKKE fejle hvis lærredet er tomt (skal generere gyldig SVG med tom/default viewBox).
 
 ## 📝 Revisions
 - 2026-09-30: Oprettet opgavepakke til opfyldelse af FDA Kapitel 8.2.1 indleveringskrav.
+- 2026-09-30: Skærpet specifikation for SVG, RFC-4180 CSV, Markdown/HTML rapport og UI eksportmenu.
 
 ## 🧪 Verifikation
 - `cargo check --workspace`
