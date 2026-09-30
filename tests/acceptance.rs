@@ -6226,3 +6226,101 @@ fn test_task_054_windows_rendering_and_git_async_performance() {
 
     let _ = std::fs::remove_dir_all(&temp_root);
 }
+
+#[test]
+fn test_fda_tabel_d_metadata_and_backward_compatibility() {
+    use kant::features::model::{ApprovalStatus, ModelMetadata, ModelScope, ModelStatus};
+
+    // 1. Opret ModelMetadata med samtlige FDA Tabel D felter (Kapitel 6)
+    let mut meta = ModelMetadata::new(
+        "Transportmidler",
+        "Begrebsmodel over transportmidler jf. FDA vejledning",
+        "https://data.gov.dk/concept/core/transportationMeans",
+        "Trafik-, Bygge- og Boligstyrelsen",
+        "59.02.05 Overordnede opgaver vedrørende trafik og transport",
+        "1.0.0",
+        ModelStatus::Completed,
+    );
+
+    // Sæt supplerende Tabel D felter
+    meta.set_approval_status(ApprovalStatus::Approved);
+    meta.set_approved_by(Some("Rådet for Sikker Trafik".to_string()));
+    meta.set_model_scope(ModelScope::Core);
+    meta.set_language("da");
+    meta.set_date_modified("2026-09-30");
+    meta.set_version_notes(Some("Første officielle udgave af modellen".to_string()));
+    meta.set_source(Some("ISO 4210 Cycles".to_string()));
+    meta.set_was_derived_from(Some(
+        "https://data.gov.dk/concept/core/vehicle".to_string(),
+    ));
+    meta.set_legal_sources(vec![
+        "https://www.retsinformation.dk/eli/lta/2016/976".to_string(),
+        "http://data.europa.eu/eli/reg/2013/168/oj".to_string(),
+    ]);
+
+    // Verificer getters
+    assert_eq!(meta.model_status(), ModelStatus::Completed);
+    assert_eq!(meta.approval_status(), ApprovalStatus::Approved);
+    assert_eq!(meta.approved_by(), Some("Rådet for Sikker Trafik"));
+    assert_eq!(meta.model_scope(), ModelScope::Core);
+    assert_eq!(meta.language(), "da");
+    assert_eq!(meta.date_modified(), "2026-09-30");
+    assert_eq!(
+        meta.version_notes(),
+        Some("Første officielle udgave af modellen")
+    );
+    assert_eq!(meta.source(), Some("ISO 4210 Cycles"));
+    assert_eq!(
+        meta.was_derived_from(),
+        Some("https://data.gov.dk/concept/core/vehicle")
+    );
+    assert_eq!(meta.legal_sources().len(), 2);
+    assert_eq!(
+        meta.legal_sources()[0],
+        "https://www.retsinformation.dk/eli/lta/2016/976"
+    );
+
+    // 2. Roundtrip serialisering
+    let json = serde_json::to_string_pretty(&meta).expect("Serialization skal lykkes");
+    let deserialized: ModelMetadata =
+        serde_json::from_str(&json).expect("Deserialization skal lykkes");
+    assert_eq!(meta, deserialized);
+
+    // 3. Test bagudkompatibel migration fra ældre model.kant.json format
+    let legacy_json = r#"{
+        "name": "Ældre Projekt",
+        "description": "Model oprettet i ældre Kant version",
+        "uri": "https://data.gov.dk/model/core/legacy",
+        "responsible_org": "Myndighed",
+        "domain_area": "Sundhed",
+        "version": "0.2.0",
+        "status": "Draft",
+        "legal_source": "LBK nr 999 af 01/01/2020"
+    }"#;
+
+    let migrated: ModelMetadata =
+        serde_json::from_str(legacy_json).expect("Legacy format skal migreres automatisk");
+    assert_eq!(migrated.name(), "Ældre Projekt");
+    assert_eq!(
+        migrated.model_status(),
+        ModelStatus::Development,
+        "Gammelt Draft status skal migreres til ModelStatus::Development"
+    );
+    assert_eq!(
+        migrated.approval_status(),
+        ApprovalStatus::AwaitingApproval,
+        "Gammelt Draft status skal migreres til ApprovalStatus::AwaitingApproval"
+    );
+    assert_eq!(
+        migrated.model_scope(),
+        ModelScope::Core,
+        "Standard model_scope skal være Core"
+    );
+    assert_eq!(migrated.language(), "da", "Standard sprog skal være 'da'");
+    assert_eq!(
+        migrated.legal_sources(),
+        &["LBK nr 999 af 01/01/2020".to_string()],
+        "Gammelt enkeltstående legal_source felt skal migreres til legal_sources listen"
+    );
+}
+
