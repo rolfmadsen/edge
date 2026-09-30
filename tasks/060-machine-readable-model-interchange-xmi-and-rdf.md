@@ -30,15 +30,17 @@ Opfylde FDA Modelregel 05 (*Gør modellen tilgængelig i maskinlæsbart format*)
    - Gøre modellen direkte klar til optagelse og fremsøgning i det fællesoffentlige Modelkatalog på `data.gov.dk` jf. Kapitel 8.3.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - XMI 2.x Generator**: Implementere serialisering af `ModelProject` til valid OMG UML 2.x / XMI format.
-- [ ] **AC2 - RDF/Turtle SKOS Generator**: Implementere serialisering af begreber og relationer til valid W3C RDF Turtle syntaks (`.ttl`).
-- [ ] **AC3 - Namespace & Prefix Header**: Turtle output indeholder korrekte standardpræfikser (`skos:`, `dct:`, `rdfs:`, `owl:`, `xsd:`) samt modellens eget namespace.
-- [ ] **AC4 - UI Eksport Handling**: Mulighed for at vælge `XMI (.xmi)` og `RDF Turtle (.ttl)` fra applikationens eksportdialog.
-- [ ] **AC5 - Validations Test**: Headless tests validerer, at det genererede XML og Turtle parses fejlfrit og afspejler modellens indhold.
+- [ ] **AC1 - UML 2.5 / XMI 2.1 Eksport til Enterprise Architect**: Implementere serialisering af `InformationModel` og `ModelMetadata` til valid OMG UML 2.1/2.5 XMI (`.xmi`), der kan importeres direkte i Sparx Enterprise Architect med klasser, attributter, standard primitive datatyper, multipliciteter, generaliseringer, associationer, kompositioner, stereotyper og tagged values.
+- [ ] **AC2 - W3C SKOS RDF/Turtle Eksport af Begrebsliste**: Implementere serialisering af begreber (`Concept`), metadata og semantiske relationer (generaliseringer som `skos:broader`/`narrower`, associationer som `skos:related`) til valid W3C RDF Turtle (`.skos.ttl`) struktureret som et `skos:ConceptScheme` med `skos:prefLabel`, `skos:altLabel`, `skos:definition`, `skos:scopeNote`, og kildeangivelser.
+- [ ] **AC3 - W3C SHACL / OWL RDF/Turtle Eksport af Informationsmodel**: Implementere serialisering af klasser og relationer til W3C SHACL Shapes og OWL Ontology (`.shacl.ttl`), hvor hver informationsklasse modelleres som `owl:Class` og `sh:NodeShape` med tilhørende `sh:property` shapes for attributter, korrekte `xsd:` datatyper, `sh:minCount`/`sh:maxCount` multiplicitetsrestriktioner samt `sh:in` begrænsninger for enumerations.
+- [ ] **AC4 - UI Eksport Integration**: Udvide topbar-menuen "Eksporter" med en dedikeret sektion for maskinlæsbare formater: `Enterprise Architect (XMI 2.1)...`, `Begrebsliste (W3C SKOS Turtle)...` og `Informationsmodel (W3C SHACL/OWL Turtle)...` forbundet med native `rfd` fildialoger.
+- [ ] **AC5 - Validations Test Suite**: Etablere automatiseret testsuite i `tests/test_export_machine_readable.rs`, der headless beviser syntaktisk validitet, korrekt escaping og fuld semantisk overensstemmelse for samtlige tre maskinlæsbare formater.
 
 ## 🚫 Must NOT
-- Må IKKE introducere tunge C-runtime eller ustabile C++ biblioteker (brug ren Rust XML/Turtle formatering).
-- Må IKKE tabe begrebsrelationer eller tagged values under serialisering.
+- Må IKKE introducere eksterne C/C++ biblioteker eller tunge bindings (brug ren, deterministisk Rust XML og Turtle formatering).
+- Må IKKE bryde Zero-Daemon invarianten ved at starte baggrunds-triplestores eller eksterne sockets.
+- Må IKKE producere udokumenterede ikke-standardiserede XML- eller RDF-dialekter, der fejler ved validering i standardværktøjer som Sparx EA eller W3C validators.
+- Må IKKE tabe begrebsrelationer, attributmultipliciteter eller tagged values under serialisering.
 
 ## 📝 Revisions
 - 2026-09-30: Oprettet opgavepakke til opfyldelse af FDA Regel 05 og Modelkatalog-interoperabilitet.
