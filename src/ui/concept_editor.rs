@@ -1,8 +1,10 @@
-use crate::features::concepts::{BelongsToDomain, Concept, ConceptValidator, ValidationError};
+use crate::features::concepts::{
+    BelongsToDomain, Concept, ConceptValidator, DefinitionLinter, ValidationError,
+};
 use crate::ui::app::Message;
 use crate::ui::theme::ThemeColors;
 use iced::widget::{button, column, container, row, scrollable, text, text_input, Space};
-use iced::{Alignment, Element, Length};
+use iced::{Alignment, Color, Element, Length};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -296,8 +298,20 @@ impl ConceptEditorState {
 
         let term_domain_row = row![term_input, domain_col].spacing(16);
 
-        // 2. Definition
-        let definition_input = column![
+        // 2. Definition og Aristoteles linter feedback
+        let opt_syn = if self.accepted_term.trim().is_empty() {
+            None
+        } else {
+            Some(self.accepted_term.as_str())
+        };
+        let lint_issues = DefinitionLinter::lint_text(
+            &self.preferred_term,
+            opt_syn,
+            &self.definition,
+        );
+        let aristotle = DefinitionLinter::analyze_aristotle(&self.definition);
+
+        let mut definition_input = column![
             text("Definition * (Aristoteles' formel)").size(13).color(ThemeColors::SLATE_800),
             text_input(
                 "Genus proximum + differentia specifica (hvad er det, og hvad adskiller det)...",
@@ -306,11 +320,78 @@ impl ConceptEditorState {
             .style(modern_input_style)
             .on_input(|v| Message::UpdateConceptField(ConceptFormField::Definition, v))
             .padding(10),
-            text("Formuleret iht. Aristoteles' formel. Undgå cirkulære eller negative definitioner (§20-§22)")
-                .size(11)
-                .color(ThemeColors::SLATE_500),
         ]
-        .spacing(4);
+        .spacing(6);
+
+        if !lint_issues.is_empty() {
+            let mut issues_col = column![
+                text("⚠️ FDA Vejledning (§20-§22):")
+                    .size(11)
+                    .color(Color::from_rgb(0.75, 0.45, 0.05))
+            ]
+            .spacing(3);
+
+            for issue in &lint_issues {
+                issues_col = issues_col.push(
+                    text(format!("• {}", issue.message))
+                        .size(11)
+                        .color(Color::from_rgb(0.70, 0.40, 0.05)),
+                );
+            }
+
+            let issues_box = container(issues_col)
+                .style(|_| container::Style {
+                    background: Some(iced::Background::Color(Color::from_rgb(0.99, 0.97, 0.90))),
+                    border: iced::Border {
+                        color: Color::from_rgb(0.92, 0.80, 0.50),
+                        width: 1.0,
+                        radius: 6.0.into(),
+                    },
+                    ..Default::default()
+                })
+                .padding([6, 10])
+                .width(Length::Fill);
+
+            definition_input = definition_input.push(issues_box);
+        } else if !self.definition.trim().is_empty() {
+            if let (Some(genus), Some(diff)) = (&aristotle.genus_proximum, &aristotle.differentia_specifica) {
+                let ok_box = container(
+                    row![
+                        text("✓").size(12).color(ThemeColors::ACCENT_GREEN),
+                        Space::new().width(4),
+                        text(format!("Aristoteles: Overbegreb = '{}' • Adskillende træk = '{}'", genus, diff))
+                            .size(11)
+                            .color(ThemeColors::ACCENT_GREEN),
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .style(|_| container::Style {
+                    background: Some(iced::Background::Color(ThemeColors::ACCENT_GREEN_LIGHT)),
+                    border: iced::Border {
+                        color: Color::from_rgb(0.70, 0.88, 0.75),
+                        width: 1.0,
+                        radius: 6.0.into(),
+                    },
+                    ..Default::default()
+                })
+                .padding([5, 8])
+                .width(Length::Fill);
+
+                definition_input = definition_input.push(ok_box);
+            } else {
+                definition_input = definition_input.push(
+                    text("Tip: Angiv nærmeste overbegreb og adskillende træk (f.eks. 'køretøj der drives frem ved pedalkraft').")
+                        .size(11)
+                        .color(ThemeColors::SLATE_500),
+                );
+            }
+        } else {
+            definition_input = definition_input.push(
+                text("Formuleret iht. Aristoteles' formel. Undgå cirkulære eller negative definitioner (§20-§22)")
+                    .size(11)
+                    .color(ThemeColors::SLATE_500),
+            );
+        }
 
         // 3. Kilder
         let legal_source_input = column![
