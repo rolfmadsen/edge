@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 057: Aristotle Definition Linter & Guidance"
 description: "Semantisk linter for begrebsdefinitioner efter Aristoteles' formel (genus proximum og differentia specifica) med realtidsvejledning i editoren"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-30T21:46:00Z" }
 tags: [fda, concepts, aristotle, linter, validation, guidance, definitions]
 ---
 
 # Task 057: Aristotle Definition Linter & Guidance
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-30`
 
@@ -28,11 +28,11 @@ Understøtte udarbejdelsen af strukturerede definitioner jf. FDA Modelreglerne (
    - Indbygge linteren direkte i `ConceptValidator` samt vise inline statusbadges og hjælpetekster i `ConceptEditor` og `ConceptTable`.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Aristotle Linter Engine**: En ren modulær hjælpefunktion/struktur `DefinitionLinter::lint(&Concept)` evaluerer definitionen mod FDA-tjeklisten (afsnit 3.4.5).
-- [ ] **AC2 - Påvisning af Formateringsfejl**: Linteren fanger og rapporterer advarsel ved: stort begyndelsesbogstav, afsluttende punktum, samt forbudte fraser ("er en", "defineres som").
-- [ ] **AC3 - Cirkularitetsdetektering**: Hvis den foretrukne term indgår ordret i definitionen, udstedes en advarsel.
-- [ ] **AC4 - Inline UI Feedback**: `ConceptEditor` viser feedback-ikoner og informative tooltip/hjælpebeskeder, så brugeren guides til at skrive FDA-korrekte definitioner.
-- [ ] **AC5 - Ikke-blokerende for eksisterende data**: Eksisterende begreber med ældre fraseringer kan stadig gemmes og indlæses (advarsler er vejledende og blokerer ikke filgemning).
+- [x] **AC1 - Aristotle Linter Engine**: En ren modulær hjælpefunktion/struktur `DefinitionLinter::lint(&Concept)` evaluerer definitionen mod FDA-tjeklisten (afsnit 3.4.5).
+- [x] **AC2 - Påvisning af Formateringsfejl**: Linteren fanger og rapporterer advarsel ved: stort begyndelsesbogstav, afsluttende punktum, samt forbudte fraser ("er en", "defineres som").
+- [x] **AC3 - Cirkularitetsdetektering**: Hvis den foretrukne term indgår ordret i definitionen, udstedes en advarsel.
+- [x] **AC4 - Inline UI Feedback**: `ConceptEditor` viser feedback-ikoner og informative tooltip/hjælpebeskeder, så brugeren guides til at skrive FDA-korrekte definitioner.
+- [x] **AC5 - Ikke-blokerende for eksisterende data**: Eksisterende begreber med ældre fraseringer kan stadig gemmes og indlæses (advarsler er vejledende og blokerer ikke filgemning).
 
 ## 🚫 Must NOT
 - Må IKKE afbryde tastaturinput eller forårsage forsinkelser ved indtastning i tekstfelter.
@@ -40,6 +40,7 @@ Understøtte udarbejdelsen af strukturerede definitioner jf. FDA Modelreglerne (
 
 ## 📝 Revisions
 - 2026-09-30: Oprettet opgavepakke efter gennemgang af fda_modelleringsvejledning.md Kapitel 3.
+- 2026-09-30: Implementeret linter-motor, realtidsvejledning i ConceptEditor og statusbadges i ConceptTable. Alle kriterier verificeret.
 
 ## 🧪 Verifikation
 - `cargo check --workspace`

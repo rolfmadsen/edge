@@ -1,28 +1,21 @@
 # Verification Report
 
-**Task ID**: `055-056-fda-compliance`  
-**Task Title**: Tasks 055 & 056: FDA Modelmetadata, Lifecycle Alignment & Standard UML Stereotypes  
+**Task ID**: `057-aristotle-definition-linter-and-guidance`  
+**Task Title**: Task 057: Aristotle Definition Linter & Guidance  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Timestamp**: `2026-09-30T22:00:00Z`  
-**Head**: `ad52f9a`  
-**Commit**: `ad52f9a`  
+**Timestamp**: `2026-09-30T22:07:00Z`  
+**Head**: `6d265e7`  
+**Commit**: `6d265e7`  
 
 ## Acceptance Criteria
 
-### Task 055: FDA Modelmetadata & Lifecycle Alignment
-- [x] **AC1 - Domænemodel & Tabel D Felter**: `ModelMetadata` indeholder samtlige obligatoriske og anbefalede felter fra FDA Tabel D.
-- [x] **AC2 - Status Enums Adskilt**: `ModelStatus` (livscyklus) og `ApprovalStatus` (forretningsgodkendelse) er adskilte typer med korrekte FDA-betegnelser og display strings.
-- [x] **AC3 - Bagudkompatibel Migration**: Indlæsning af ældre projektfiler med legacy `status: "Draft" | "Candidate" | "Approved"` deserialiseres uden fejl til gyldige `model_status` og `approval_status`.
-- [x] **AC4 - UI Metadata Modal**: UI modalen (`EditMetadata`) lader brugeren vælge modelStatus, approvalStatus, modelScope, language og redigere godkendende forum samt kilder.
-- [x] **AC5 - Verificeret Serde & Headless Tests**: Unit- og acceptancetests beviser roundtrip serialisering i både enkeltfil og dekomponeret format.
-
-### Task 056: Standard UML Stereotypes & Concept Canvas Refinement
-- [x] **AC1 - Stereotype «Concept» på Diagramlærred**: Samtlige begrebskasser og informationsklasser renderer med den officielle stereotype `«Concept»` i stedet for `«lokalt begreb»` eller `«Klasse»`.
-- [x] **AC2 - Ren Begrebsmodel Toolbar**: Værktøjslinjen og relation-vælgeren på Begrebsmodel-fanen tillader kun Generalisering og Association (Komposition er deaktiveret/skjult).
-- [x] **AC3 - Visuel Adskillelse Uden Uofficielle Badges**: Forskellen mellem lokalt og fremmed begreb vises entydigt via sand vs. blå baggrund og border, uden tekstmæssig badge-støj.
-- [x] **AC4 - Bevaret Komposition i Informationsmodellen**: Komposition forbliver fuldt funktionsdygtig i Informationsmodel-fanen jf. FDA Tabel B.
-- [x] **AC5 - Regressionstests & Canvas Render Verifikation**: Alle eksisterende acceptancetests og canvas rendering-tests forbliver grønne (69 acceptance, 33 unit, 4 proptests, 7 relay integration tests).
+### Task 057: Aristotle Definition Linter & Guidance
+- [x] **AC1 - Aristotle Linter Engine**: En ren modulær hjælpefunktion/struktur `DefinitionLinter::lint(&Concept)` og `DefinitionLinter::lint_text(...)` evaluerer definitioner mod FDA-tjeklisten og identificerer nærmeste overbegreb og adskillende træk via `analyze_aristotle(...)`.
+- [x] **AC2 - Påvisning af Formateringsfejl**: Linteren fanger og advarer ved: stort begyndelsesbogstav (ISO 704 / §20), afsluttende punktum (§20), forbudte fyldfraser som *"er en"*, *"er et"*, *"defineres som"*, *"betyder"*, *"henvisning til"*, *"angivelse af"*, vage forbeholdsord som *"typisk"*, *"normalt"*, *"ofte"*, *"som regel"* (§21) samt negative definitioner som *"ikke-motoriseret..."* (§20).
+- [x] **AC3 - Cirkularitetsdetektering**: Hvis den foretrukne term eller en accepteret term (synonym) indgår ordret i definitionen, udstedes en cirkularitetsadvarsel jf. §20.
+- [x] **AC4 - Inline UI Feedback**: `ConceptEditor` viser feedback-boks med konkrete FDA-vejledningspunkter under indtastning samt grøn Aristoteles breakdown boks ved gyldige definitioner. `ConceptTable` viser statusbadge for antal FDA-bemærkninger.
+- [x] **AC5 - Ikke-blokerende for eksisterende data**: Eksisterende begreber med ældre fraseringer kan fortsat gemmes og indlæses uden fejl (advarsler er vejledende og blokerer ikke for `ConceptValidator::validate(&concept)`).
 
 ---
 
@@ -31,10 +24,10 @@
 | Check Name | Status | Exit Code | Tests Passed |
 |---|---|---|---|
 | `cargo check --workspace` | `PASSED` | `0` | - |
-| `cargo clippy --workspace --all-targets` | `PASSED` | `0` | - |
+| `cargo clippy --workspace --all-targets -- -D warnings` | `PASSED` | `0` | - |
 | `cargo fmt --check` | `PASSED` | `0` | - |
 | `cargo test (unittests)` | `PASSED` | `0` | 33 passed |
-| `cargo test (acceptance)` | `PASSED` | `0` | 69 passed |
+| `cargo test (acceptance)` | `PASSED` | `0` | 70 passed |
 | `cargo test (proptests)` | `PASSED` | `0` | 4 passed |
 | `cargo test (kant_relay)` | `PASSED` | `0` | 7 passed |
 
