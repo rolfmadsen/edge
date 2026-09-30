@@ -7063,8 +7063,8 @@ fn test_task_060_machine_readable_model_interchange_xmi_skos_and_shacl() {
     ));
     c2.set_comment(Some("Underlagt periodisk syn.".to_string()));
 
-    let id1 = project.add_concept(c1.clone()).unwrap();
-    let id2 = project.add_concept(c2.clone()).unwrap();
+    let _id1 = project.add_concept(c1.clone()).unwrap();
+    let _id2 = project.add_concept(c2.clone()).unwrap();
 
     // Begrebsgraf: Generalisering c2 (Personbil) -> c1 (Køretøj)
     let n1_id = project.concept_graph_mut().add_node(&c1);

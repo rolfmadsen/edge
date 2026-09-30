@@ -2,7 +2,8 @@ use crate::features::concept_model::{NodeId, RelationKind};
 use crate::features::concepts::{BelongsToDomain, Concept, ConceptValidator, ValidationError};
 use crate::features::export::{
     export_concept_model_svg, export_concepts_to_csv, export_information_model_svg,
-    export_model_report_html, export_model_report_markdown,
+    export_model_report_html, export_model_report_markdown, export_to_shacl_turtle,
+    export_to_skos_turtle, export_to_xmi_2_1,
 };
 use crate::features::git::{
     ChangeAction, DomainChangeEvent, DomainEventMapper, GitService, PullResult, RepoSyncStatus,
@@ -563,6 +564,9 @@ pub enum ExportKind {
     ConceptListCsv,
     ModelReportMarkdown,
     ModelReportHtml,
+    ModelXmi,
+    ModelSkosTurtle,
+    ModelShaclTurtle,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -623,11 +627,14 @@ pub enum Message {
     CloseMenu,
     ToggleLeftSidebar,
 
-    // Eksportmotor (Task 059)
+    // Eksportmotor (Task 059 & Task 060)
     ExportActiveDiagramSvgDialog,
     ExportConceptListCsvDialog,
     ExportModelReportMarkdownDialog,
     ExportModelReportHtmlDialog,
+    ExportModelXmiDialog,
+    ExportModelSkosDialog,
+    ExportModelShaclDialog,
     ExportDialogCompleted(crate::ui::file_dialog::DialogResult, ExportKind),
 
     // Modelomslag & Metadata modal (Task 017 & Task 055)
@@ -3175,6 +3182,51 @@ impl App {
                     |res| Message::ExportDialogCompleted(res, ExportKind::ModelReportHtml),
                 );
             }
+            Message::ExportModelXmiDialog => {
+                self.active_menu = None;
+                let sanitized_name = self.project.metadata().name().replace(' ', "_");
+                let default_name = format!("{}_uml25.xmi", sanitized_name);
+                return Task::perform(
+                    async move {
+                        crate::ui::file_dialog::pick_file_to_export(
+                            &default_name,
+                            "Enterprise Architect / UML 2.5 XMI (*.xmi)",
+                            "xmi",
+                        )
+                    },
+                    |res| Message::ExportDialogCompleted(res, ExportKind::ModelXmi),
+                );
+            }
+            Message::ExportModelSkosDialog => {
+                self.active_menu = None;
+                let sanitized_name = self.project.metadata().name().replace(' ', "_");
+                let default_name = format!("{}_begreber.skos.ttl", sanitized_name);
+                return Task::perform(
+                    async move {
+                        crate::ui::file_dialog::pick_file_to_export(
+                            &default_name,
+                            "W3C SKOS Begrebsmodel RDF/Turtle (*.ttl, *.skos.ttl)",
+                            "ttl",
+                        )
+                    },
+                    |res| Message::ExportDialogCompleted(res, ExportKind::ModelSkosTurtle),
+                );
+            }
+            Message::ExportModelShaclDialog => {
+                self.active_menu = None;
+                let sanitized_name = self.project.metadata().name().replace(' ', "_");
+                let default_name = format!("{}_informationsmodel.shacl.ttl", sanitized_name);
+                return Task::perform(
+                    async move {
+                        crate::ui::file_dialog::pick_file_to_export(
+                            &default_name,
+                            "W3C SHACL Shapes & OWL RDF/Turtle (*.ttl, *.shacl.ttl)",
+                            "ttl",
+                        )
+                    },
+                    |res| Message::ExportDialogCompleted(res, ExportKind::ModelShaclTurtle),
+                );
+            }
             Message::ExportDialogCompleted(res, kind) => {
                 if let crate::ui::file_dialog::DialogResult::Selected(path) = res {
                     let content = match kind {
@@ -3198,6 +3250,9 @@ impl App {
                             export_model_report_markdown(&self.project)
                         }
                         ExportKind::ModelReportHtml => export_model_report_html(&self.project),
+                        ExportKind::ModelXmi => export_to_xmi_2_1(&self.project),
+                        ExportKind::ModelSkosTurtle => export_to_skos_turtle(&self.project),
+                        ExportKind::ModelShaclTurtle => export_to_shacl_turtle(&self.project),
                     };
 
                     if let Err(err) = std::fs::write(&path, content) {
@@ -6337,9 +6392,31 @@ impl App {
                             "Modelrapport (HTML)...",
                             Message::ExportModelReportHtmlDialog,
                         ),
+                        Space::new().height(4),
+                        make_separator(),
+                        Space::new().height(4),
+                        text("MASKINLÆSBAR MODEL (XMI & RDF)")
+                            .size(10)
+                            .color(ThemeColors::TEXT_MUTED),
+                        Space::new().height(2),
+                        menu_item(
+                            "🏛️",
+                            "Enterprise Architect (XMI 2.1)...",
+                            Message::ExportModelXmiDialog,
+                        ),
+                        menu_item(
+                            "🌐",
+                            "Begrebsliste (W3C SKOS Turtle)...",
+                            Message::ExportModelSkosDialog,
+                        ),
+                        menu_item(
+                            "📐",
+                            "Informationsmodel (W3C SHACL/OWL)...",
+                            Message::ExportModelShaclDialog,
+                        ),
                     ]
                     .spacing(2)
-                    .width(Length::Fixed(280.0));
+                    .width(Length::Fixed(290.0));
 
                     (212.0, export_col)
                 }
