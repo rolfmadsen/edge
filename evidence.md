@@ -1,31 +1,41 @@
 # Verification Report
 
-**Task ID**: `054-windows-rendering-and-git-async-performance`  
-**Task Title**: Task 054: Windows 11 Rendering Optimization & Git Async Performance  
+**Task ID**: `055-056-fda-compliance`  
+**Task Title**: Tasks 055 & 056: FDA Modelmetadata, Lifecycle Alignment & Standard UML Stereotypes  
 **Verdict**: `PASSED`  
 **Execution Origin**: `LOCAL`  
-**Source Manifest Digest**: `74865ae7e7d12ef6614fe3de3197cedbc3341a85b96f9e8f5c1d950af370a81a`  
-**Timestamp**: `2026-09-30T19:19:21Z`  
-**Head**: `d37aa59`  
-**Commit**: `d37aa59`  
+**Timestamp**: `2026-09-30T22:00:00Z`  
+**Head**: `ad52f9a`  
+**Commit**: `ad52f9a`  
 
 ## Acceptance Criteria
 
-- [x] **AC1 - Git Binary & Installation Caching**: `GitService::is_git_installed()` og `GitService::resolve_git_binary()` benytter `OnceLock`, så gentagne kald ikke udfører unødige subprocess spawns.
-- [x] **AC2 - WGPU Root Style & Window Configuration**: `src/main.rs` er konfigureret med `.style(...)` indeholdende `ThemeColors::SURFACE_BG`, og `iced::window::Settings` definerer `size: (1280, 800)` og `min_size: (800, 600)` for at forhindre sorte swapchain-blink ved Aero Snap/maksimering.
-- [x] **AC3 - Hurtig Opstart Uden Synkron Git Blokering**: `App::new_with_path()` udfører ikke synkront tjek af remote sync-status på hovedtråden under boot.
-- [x] **AC4 - Asynkron Publish/Pull/Push Workflow**: `ConfirmPublish` afvikles via asynkron Iced `Task::perform(..., Message::PublishCompleted)` så UI forbliver responsivt ved 60 fps under netværks- og Git-operationer.
+### Task 055: FDA Modelmetadata & Lifecycle Alignment
+- [x] **AC1 - Domænemodel & Tabel D Felter**: `ModelMetadata` indeholder samtlige obligatoriske og anbefalede felter fra FDA Tabel D.
+- [x] **AC2 - Status Enums Adskilt**: `ModelStatus` (livscyklus) og `ApprovalStatus` (forretningsgodkendelse) er adskilte typer med korrekte FDA-betegnelser og display strings.
+- [x] **AC3 - Bagudkompatibel Migration**: Indlæsning af ældre projektfiler med legacy `status: "Draft" | "Candidate" | "Approved"` deserialiseres uden fejl til gyldige `model_status` og `approval_status`.
+- [x] **AC4 - UI Metadata Modal**: UI modalen (`EditMetadata`) lader brugeren vælge modelStatus, approvalStatus, modelScope, language og redigere godkendende forum samt kilder.
+- [x] **AC5 - Verificeret Serde & Headless Tests**: Unit- og acceptancetests beviser roundtrip serialisering i både enkeltfil og dekomponeret format.
+
+### Task 056: Standard UML Stereotypes & Concept Canvas Refinement
+- [x] **AC1 - Stereotype «Concept» på Diagramlærred**: Samtlige begrebskasser og informationsklasser renderer med den officielle stereotype `«Concept»` i stedet for `«lokalt begreb»` eller `«Klasse»`.
+- [x] **AC2 - Ren Begrebsmodel Toolbar**: Værktøjslinjen og relation-vælgeren på Begrebsmodel-fanen tillader kun Generalisering og Association (Komposition er deaktiveret/skjult).
+- [x] **AC3 - Visuel Adskillelse Uden Uofficielle Badges**: Forskellen mellem lokalt og fremmed begreb vises entydigt via sand vs. blå baggrund og border, uden tekstmæssig badge-støj.
+- [x] **AC4 - Bevaret Komposition i Informationsmodellen**: Komposition forbliver fuldt funktionsdygtig i Informationsmodel-fanen jf. FDA Tabel B.
+- [x] **AC5 - Regressionstests & Canvas Render Verifikation**: Alle eksisterende acceptancetests og canvas rendering-tests forbliver grønne (69 acceptance, 33 unit, 4 proptests, 7 relay integration tests).
 
 ---
 
 ## Verification Checks
 
-| Check Name | Status | Exit Code | Duration (s) |
+| Check Name | Status | Exit Code | Tests Passed |
 |---|---|---|---|
-| `spec` | `PASSED` | `0` | `0.031s` |
-| `lint` | `PASSED` | `0` | `1.747s` |
-| `types` | `PASSED` | `0` | `0.169s` |
-| `unit` | `PASSED` | `0` | `1.081s` |
-| `invariants` | `PASSED` | `0` | `0.511s` |
+| `cargo check --workspace` | `PASSED` | `0` | - |
+| `cargo clippy --workspace --all-targets` | `PASSED` | `0` | - |
+| `cargo fmt --check` | `PASSED` | `0` | - |
+| `cargo test (unittests)` | `PASSED` | `0` | 33 passed |
+| `cargo test (acceptance)` | `PASSED` | `0` | 69 passed |
+| `cargo test (proptests)` | `PASSED` | `0` | 4 passed |
+| `cargo test (kant_relay)` | `PASSED` | `0` | 7 passed |
 
 ---
