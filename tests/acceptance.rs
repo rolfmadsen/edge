@@ -6226,4 +6226,3 @@ fn test_task_054_windows_rendering_and_git_async_performance() {
 
     let _ = std::fs::remove_dir_all(&temp_root);
 }
-

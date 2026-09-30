@@ -2131,34 +2131,31 @@ impl App {
                     }
                 }
             }
-            Message::PublishCompleted(res) => {
-                match res {
-                    PublishAsyncResult::Success { sync_status } => {
-                        self.publish_modal = None;
-                        self.git_sync_status = sync_status;
-                    }
-                    PublishAsyncResult::Conflict {
-                        conflicts,
-                        sync_status,
-                    } => {
-                        self.publish_modal = None;
-                        if let Some(dir) = self.repo_dir() {
-                            if let Ok(p) = ProjectStorage::load(&dir) {
-                                self.project = p;
-                            }
+            Message::PublishCompleted(res) => match res {
+                PublishAsyncResult::Success { sync_status } => {
+                    self.publish_modal = None;
+                    self.git_sync_status = sync_status;
+                }
+                PublishAsyncResult::Conflict {
+                    conflicts,
+                    sync_status,
+                } => {
+                    self.publish_modal = None;
+                    if let Some(dir) = self.repo_dir() {
+                        if let Ok(p) = ProjectStorage::load(&dir) {
+                            self.project = p;
                         }
-                        self.conflict_resolver_modal =
-                            Some(ConflictResolverModalState::new(conflicts));
-                        self.git_sync_status = sync_status;
                     }
-                    PublishAsyncResult::Error(err) => {
-                        if let Some(modal) = &mut self.publish_modal {
-                            modal.is_publishing = false;
-                            modal.error = Some(err);
-                        }
+                    self.conflict_resolver_modal = Some(ConflictResolverModalState::new(conflicts));
+                    self.git_sync_status = sync_status;
+                }
+                PublishAsyncResult::Error(err) => {
+                    if let Some(modal) = &mut self.publish_modal {
+                        modal.is_publishing = false;
+                        modal.error = Some(err);
                     }
                 }
-            }
+            },
             Message::InitGitRepository => {
                 if let Some(dir) = self.repo_dir() {
                     let _ = GitService::init_repository(&dir);
