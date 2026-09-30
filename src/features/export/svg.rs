@@ -500,3 +500,31 @@ pub fn export_information_model_svg(graph: &ClassGraph, model: &InformationModel
     svg.push_str("</svg>");
     svg
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_xml_escaping() {
+        assert_eq!(xml_escape("Normale ord"), "Normale ord");
+        assert_eq!(xml_escape("A & B < C > 'D' \"E\""), "A &amp; B &lt; C &gt; &apos;D&apos; &quot;E&quot;");
+    }
+
+    #[test]
+    fn test_empty_canvas_svg_generation() {
+        let empty_cg = ConceptGraph::new();
+        let svg = export_concept_model_svg(&empty_cg, &[]);
+        assert!(svg.starts_with("<svg "));
+        assert!(svg.ends_with("</svg>"));
+        assert!(svg.contains("viewBox=\"0.0 0.0 800.0 600.0\""));
+
+        let empty_ig = ClassGraph::new();
+        let empty_im = InformationModel::new();
+        let info_svg = export_information_model_svg(&empty_ig, &empty_im);
+        assert!(info_svg.starts_with("<svg "));
+        assert!(info_svg.ends_with("</svg>"));
+        assert!(info_svg.contains("viewBox=\"0.0 0.0 900.0 650.0\""));
+    }
+}
+

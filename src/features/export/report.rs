@@ -370,3 +370,33 @@ pub fn export_model_report_html(project: &ModelProject) -> String {
     out.push_str("  </div>\n</body>\n</html>");
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::features::model::{ModelMetadata, ModelStatus};
+
+    #[test]
+    fn test_report_generation_empty_project() {
+        let meta = ModelMetadata::new(
+            "Testmodel",
+            "Beskrivelse for test",
+            "https://data.gov.dk/model/test",
+            "Digitaliseringsstyrelsen",
+            "Generel",
+            "0.1.0",
+            ModelStatus::Development,
+        );
+        let project = ModelProject::new(meta);
+
+        let md = export_model_report_markdown(&project);
+        assert!(md.contains("# Testmodel"));
+        assert!(md.contains("## Indholdsfortegnelse"));
+        assert!(md.contains("Digitaliseringsstyrelsen"));
+
+        let html = export_model_report_html(&project);
+        assert!(html.contains("<!DOCTYPE html>"));
+        assert!(html.contains("<title>Testmodel</title>"));
+    }
+}
+
