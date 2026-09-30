@@ -304,14 +304,12 @@ impl ConceptEditorState {
         } else {
             Some(self.accepted_term.as_str())
         };
-        let lint_issues = DefinitionLinter::lint_text(
-            &self.preferred_term,
-            opt_syn,
-            &self.definition,
-        );
+        let lint_issues =
+            DefinitionLinter::lint_text(&self.preferred_term, opt_syn, &self.definition);
         let aristotle = DefinitionLinter::analyze_aristotle(&self.definition);
 
-        let mut definition_input = column![
+        let mut definition_input =
+            column![
             text("Definition * (Aristoteles' formel)").size(13).color(ThemeColors::SLATE_800),
             text_input(
                 "Genus proximum + differentia specifica (hvad er det, og hvad adskiller det)...",
@@ -321,14 +319,12 @@ impl ConceptEditorState {
             .on_input(|v| Message::UpdateConceptField(ConceptFormField::Definition, v))
             .padding(10),
         ]
-        .spacing(6);
+            .spacing(6);
 
         if !lint_issues.is_empty() {
-            let mut issues_col = column![
-                text("⚠️ FDA Vejledning (§20-§22):")
-                    .size(11)
-                    .color(Color::from_rgb(0.75, 0.45, 0.05))
-            ]
+            let mut issues_col = column![text("⚠️ FDA Vejledning (§20-§22):")
+                .size(11)
+                .color(Color::from_rgb(0.75, 0.45, 0.05))]
             .spacing(3);
 
             for issue in &lint_issues {
@@ -354,14 +350,19 @@ impl ConceptEditorState {
 
             definition_input = definition_input.push(issues_box);
         } else if !self.definition.trim().is_empty() {
-            if let (Some(genus), Some(diff)) = (&aristotle.genus_proximum, &aristotle.differentia_specifica) {
+            if let (Some(genus), Some(diff)) =
+                (&aristotle.genus_proximum, &aristotle.differentia_specifica)
+            {
                 let ok_box = container(
                     row![
                         text("✓").size(12).color(ThemeColors::ACCENT_GREEN),
                         Space::new().width(4),
-                        text(format!("Aristoteles: Overbegreb = '{}' • Adskillende træk = '{}'", genus, diff))
-                            .size(11)
-                            .color(ThemeColors::ACCENT_GREEN),
+                        text(format!(
+                            "Aristoteles: Overbegreb = '{}' • Adskillende træk = '{}'",
+                            genus, diff
+                        ))
+                        .size(11)
+                        .color(ThemeColors::ACCENT_GREEN),
                     ]
                     .align_y(Alignment::Center),
                 )

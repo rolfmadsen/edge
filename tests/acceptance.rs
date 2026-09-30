@@ -6461,7 +6461,8 @@ fn test_fda_regler_20_21_22_aristotle_definition_linter() {
         Some("drives frem ved pedalkraft")
     );
 
-    let analysis2 = DefinitionLinter::analyze_aristotle("person som er passager på et transportmiddel");
+    let analysis2 =
+        DefinitionLinter::analyze_aristotle("person som er passager på et transportmiddel");
     assert_eq!(analysis2.genus_proximum.as_deref(), Some("person"));
     assert_eq!(
         analysis2.differentia_specifica.as_deref(),
@@ -6597,4 +6598,3 @@ fn test_fda_regler_20_21_22_aristotle_definition_linter() {
         "Linter-advarsler må IKKE blokere for validering og lagring af eksisterende begreber"
     );
 }
-

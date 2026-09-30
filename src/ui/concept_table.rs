@@ -142,11 +142,9 @@ pub fn view<'a>(
 
             // Definition kolonne med eventuelle FDA linter badges
             let lint_issues = DefinitionLinter::lint(concept);
-            let mut def_col = column![
-                text(concept.definition())
-                    .size(13)
-                    .color(ThemeColors::SLATE_800),
-            ]
+            let mut def_col = column![text(concept.definition())
+                .size(13)
+                .color(ThemeColors::SLATE_800),]
             .spacing(4);
 
             if !lint_issues.is_empty() {
@@ -157,7 +155,9 @@ pub fn view<'a>(
                             .color(Color::from_rgb(0.75, 0.45, 0.05)),
                     )
                     .style(|_| container::Style {
-                        background: Some(iced::Background::Color(Color::from_rgb(0.99, 0.97, 0.90))),
+                        background: Some(iced::Background::Color(Color::from_rgb(
+                            0.99, 0.97, 0.90,
+                        ))),
                         border: iced::Border {
                             color: Color::from_rgb(0.92, 0.80, 0.50),
                             width: 0.5,
