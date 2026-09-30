@@ -6173,3 +6173,49 @@ fn test_task_053_windows_git_candidates_and_pathbuf_resolution() {
     let candidates_empty = GitService::windows_git_candidates(Some("   "));
     assert_eq!(candidates_empty.len(), 2);
 }
+
+#[test]
+fn test_task_054_windows_rendering_and_git_async_performance() {
+    use kant::features::git::service::{GitService, RepoSyncStatus};
+    use kant::ui::app::{EdgeApp, Message, PublishAsyncResult};
+    use std::time::Instant;
+
+    // 1. AC1: Test at OnceLock caching af Git-detektering gør gentagne kald lynhurtige (<10ms for 50 kald)
+    if GitService::is_git_installed() {
+        let t0 = Instant::now();
+        for _ in 0..50 {
+            assert!(GitService::is_git_installed());
+            let _ = GitService::resolve_git_binary();
+        }
+        let elapsed = t0.elapsed();
+        assert!(
+            elapsed.as_millis() < 20,
+            "50 gentagne kald til is_git_installed og resolve_git_binary skal være cached via OnceLock (<20ms), men tog: {:?}",
+            elapsed
+        );
+    }
+
+    // 2. AC3: Test at App::new_with_path starter op uden at blokere på remote sync status
+    let app = EdgeApp::new();
+    assert_eq!(
+        *app.git_sync_status(),
+        RepoSyncStatus::Uninitialized,
+        "Opstart skal ikke synkront køre tunge git-kommandoer, men starte med Uninitialized"
+    );
+
+    // 3. AC4: Test at PublishCompleted opdaterer tilstand korrekt
+    let mut app = EdgeApp::new();
+    let _ = app.update(Message::OpenPublishModal);
+    assert!(app.publish_modal().is_some());
+
+    // Simulér asynkron færdiggørelse via Message::PublishCompleted
+    let _ = app.update(Message::PublishCompleted(PublishAsyncResult::Success {
+        sync_status: RepoSyncStatus::Synced,
+    }));
+    assert!(
+        app.publish_modal().is_none(),
+        "Modal skal lukke efter vellykket asynkron publish"
+    );
+    assert_eq!(*app.git_sync_status(), RepoSyncStatus::Synced);
+}
+

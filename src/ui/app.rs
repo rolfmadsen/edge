@@ -30,6 +30,18 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
+pub enum PublishAsyncResult {
+    Success {
+        sync_status: RepoSyncStatus,
+    },
+    Conflict {
+        conflicts: Vec<crate::features::model::merge::ModelConflict>,
+        sync_status: RepoSyncStatus,
+    },
+    Error(String),
+}
+
+#[derive(Debug, Clone)]
 pub struct PublishModalState {
     pub message: String,
     pub preview_events: Vec<DomainChangeEvent>,
@@ -584,6 +596,7 @@ pub enum Message {
     ClosePublishModal,
     UpdatePublishMessage(String),
     ConfirmPublish,
+    PublishCompleted(PublishAsyncResult),
     InitGitRepository,
     PullModel,
 
@@ -2107,6 +2120,9 @@ impl App {
                         }
                     }
                 }
+            }
+            Message::PublishCompleted(_res) => {
+                // RED phase stub: not yet handling completion
             }
             Message::InitGitRepository => {
                 if let Some(dir) = self.repo_dir() {
