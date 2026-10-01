@@ -422,7 +422,6 @@ where
     selected_node_ids: std::collections::HashSet<NodeId>,
     selected_edge: Option<(NodeId, NodeId)>,
     viewport: CanvasViewport,
-    snap_to_grid: bool,
     is_space_pressed: bool,
     render_node: R,
     on_node_selected: Box<dyn Fn(Option<NodeId>) -> Message + 'a>,
@@ -448,7 +447,6 @@ where
         edges: &'a [E],
         selected_node_id: Option<NodeId>,
         viewport: CanvasViewport,
-        snap_to_grid: bool,
         is_space_pressed: bool,
         render_node: R,
         on_node_selected: impl Fn(Option<NodeId>) -> Message + 'a,
@@ -464,7 +462,6 @@ where
             selected_node_ids: selected_node_id.into_iter().collect(),
             selected_edge: None,
             viewport,
-            snap_to_grid,
             is_space_pressed,
             render_node,
             on_node_selected: Box::new(on_node_selected),
@@ -937,23 +934,7 @@ where
                     let raw_dx = world_pos.x - bulk.start_world_pos.x;
                     let raw_dy = world_pos.y - bulk.start_world_pos.y;
 
-                    let (delta_x, delta_y) = if let Some(&(_, (lx, ly))) = bulk
-                        .initial_positions
-                        .iter()
-                        .find(|(id, _)| *id == bulk.leader_id)
-                    {
-                        if self.snap_to_grid {
-                            let target_x = lx + raw_dx;
-                            let target_y = ly + raw_dy;
-                            let snapped_x = (target_x / GRID_SIZE).round() * GRID_SIZE;
-                            let snapped_y = (target_y / GRID_SIZE).round() * GRID_SIZE;
-                            (snapped_x - lx, snapped_y - ly)
-                        } else {
-                            (raw_dx, raw_dy)
-                        }
-                    } else {
-                        (raw_dx, raw_dy)
-                    };
+                    let (delta_x, delta_y) = (raw_dx, raw_dy);
 
                     let updates: Vec<(NodeId, f32, f32)> = bulk
                         .initial_positions
@@ -976,14 +957,7 @@ where
                     let raw_world_x = world_pos.x - offset.x;
                     let raw_world_y = world_pos.y - offset.y;
 
-                    let (new_x, new_y) = if self.snap_to_grid {
-                        (
-                            (raw_world_x / GRID_SIZE).round() * GRID_SIZE,
-                            (raw_world_y / GRID_SIZE).round() * GRID_SIZE,
-                        )
-                    } else {
-                        (raw_world_x, raw_world_y)
-                    };
+                    let (new_x, new_y) = (raw_world_x, raw_world_y);
 
                     return Some(
                         Action::publish((self.on_node_moved)(id, new_x, new_y)).and_capture(),
@@ -2108,7 +2082,6 @@ mod tests {
             &edges,
             None,
             CanvasViewport::default(),
-            true,
             false, // is_space_pressed = false
             |_, _, _, _| {},
             move |id| {
@@ -2191,7 +2164,6 @@ mod tests {
             &edges,
             Some(node1.id()),
             CanvasViewport::default(),
-            false,
             false,
             |_, _, _, _| {},
             |_| (),

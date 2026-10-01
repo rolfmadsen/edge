@@ -1,6 +1,6 @@
 use crate::features::concept_model::{ConceptGraph, NodeId, RelationKind};
 use crate::features::concepts::Concept;
-use crate::ui::app::{Message, NodeOption, RelationDialogState};
+use crate::ui::app::{Message, NodeOption, PaletteDragItem, RelationDialogState};
 use crate::ui::concept_editor::{ConceptEditorState, ConceptFormField};
 use crate::ui::diagram_canvas::{render_concept_node, CanvasViewport, DiagramCanvas};
 use crate::ui::theme::{
@@ -8,7 +8,8 @@ use crate::ui::theme::{
     pill_container_style, primary_button_style, secondary_button_style, ThemeColors,
 };
 use iced::widget::{
-    button, checkbox, column, container, pick_list, row, scrollable, text, text_input, Space,
+    button, checkbox, column, container, mouse_area, pick_list, row, scrollable, text, text_input,
+    Space,
 };
 use iced::{Alignment, Color, Element, Length};
 
@@ -21,7 +22,6 @@ pub fn view<'a>(
     selected_edge: Option<(NodeId, NodeId)>,
     search_query: &'a str,
     viewport: CanvasViewport,
-    snap_to_grid: bool,
     is_space_pressed: bool,
     is_inline_editing: bool,
     editor_state: Option<&'a ConceptEditorState>,
@@ -125,8 +125,16 @@ pub fn view<'a>(
         .width(Length::Fill)
         .padding([4, 6]);
 
+        let item_widget: Element<'a, Message> = if !is_on_canvas {
+            mouse_area(item_btn)
+                .on_press(Message::StartPaletteDrag(PaletteDragItem::Concept(concept_id)))
+                .into()
+        } else {
+            item_btn.into()
+        };
+
         let item_row = container(
-            row![item_btn, action_controls]
+            row![item_widget, action_controls]
                 .align_y(Alignment::Center)
                 .spacing(4),
         )
@@ -161,22 +169,6 @@ pub fn view<'a>(
             .style(primary_button_style)
             .on_press(Message::GraphOpenRelationDialog)
             .padding([4, 10]),
-        Space::new().width(6),
-        button(
-            text(if snap_to_grid {
-                "Snap: Til"
-            } else {
-                "Snap: Fra"
-            })
-            .size(11)
-        )
-        .style(if snap_to_grid {
-            primary_button_style
-        } else {
-            secondary_button_style
-        })
-        .on_press(Message::ToggleSnapToGrid)
-        .padding([4, 8]),
         Space::new().width(Length::Fill),
         text(format!(
             "{} begreber på diagram • {} relationer",
@@ -195,7 +187,6 @@ pub fn view<'a>(
             concept_graph.edges(),
             selected_node_id,
             viewport,
-            snap_to_grid,
             is_space_pressed,
             render_concept_node,
             Message::GraphNodeSelected,

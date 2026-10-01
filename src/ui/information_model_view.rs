@@ -5,7 +5,8 @@ use crate::features::information_model::{
     NamingLinter, PrimitiveType,
 };
 use crate::ui::app::{
-    AttributeConceptOption, ConceptOption, Message, NodeOption, RelationDialogState,
+    AttributeConceptOption, ConceptOption, Message, NodeOption, PaletteDragItem,
+    RelationDialogState,
 };
 use crate::ui::diagram_canvas::{
     render_uml_class_node, render_uml_datatype_node, render_uml_enumeration_node, CanvasViewport,
@@ -16,7 +17,8 @@ use crate::ui::theme::{
     pill_container_style, primary_button_style, secondary_button_style, ThemeColors,
 };
 use iced::widget::{
-    button, checkbox, column, container, pick_list, row, scrollable, text, text_input, Space,
+    button, checkbox, column, container, mouse_area, pick_list, row, scrollable, text,
+    text_input, Space,
 };
 use iced::{Alignment, Color, Element, Length};
 use uuid::Uuid;
@@ -46,7 +48,6 @@ pub fn view<'a>(
     search_query: &'a str,
     new_enum_value_input: &'a str,
     viewport: CanvasViewport,
-    snap_to_grid: bool,
     is_space_pressed: bool,
     relation_dialog: Option<&'a RelationDialogState>,
     show_left_sidebar: bool,
@@ -197,8 +198,16 @@ pub fn view<'a>(
         .width(Length::Fill)
         .padding([4, 6]);
 
+        let item_widget: Element<'a, Message> = if !is_on_canvas {
+            mouse_area(item_btn)
+                .on_press(Message::StartPaletteDrag(PaletteDragItem::Class(class_id)))
+                .into()
+        } else {
+            item_btn.into()
+        };
+
         let item_row = container(
-            row![item_btn, action_controls]
+            row![item_widget, action_controls]
                 .align_y(Alignment::Center)
                 .spacing(4),
         )
@@ -233,11 +242,6 @@ pub fn view<'a>(
         )
         .style(pill_container_style)
         .padding([2, 7]),
-        Space::new().width(Length::Fill),
-        button(text("+ Opret").size(10))
-            .style(primary_button_style)
-            .on_press(Message::CreateInformationEnumeration)
-            .padding([2, 6]),
     ]
     .spacing(6)
     .align_y(Alignment::Center);
@@ -314,8 +318,16 @@ pub fn view<'a>(
         .width(Length::Fill)
         .padding([4, 6]);
 
+        let item_widget: Element<'a, Message> = if !is_on_canvas {
+            mouse_area(item_btn)
+                .on_press(Message::StartPaletteDrag(PaletteDragItem::Enumeration(enum_id)))
+                .into()
+        } else {
+            item_btn.into()
+        };
+
         let item_row = container(
-            row![item_btn, action_controls]
+            row![item_widget, action_controls]
                 .align_y(Alignment::Center)
                 .spacing(4),
         )
@@ -348,26 +360,15 @@ pub fn view<'a>(
             .on_press(Message::CreateInformationClassAtCenter)
             .padding([4, 10]),
         Space::new().width(4),
+        button(text("+ Opret enumeration").size(11))
+            .style(primary_button_style)
+            .on_press(Message::CreateInformationEnumerationAtCenter)
+            .padding([4, 10]),
+        Space::new().width(4),
         button(text("+ Opret Relation").size(11))
             .style(primary_button_style)
             .on_press(Message::OpenInfoRelationDialog)
             .padding([4, 10]),
-        Space::new().width(6),
-        button(
-            text(if snap_to_grid {
-                "Snap: Til"
-            } else {
-                "Snap: Fra"
-            })
-            .size(11)
-        )
-        .style(if snap_to_grid {
-            primary_button_style
-        } else {
-            secondary_button_style
-        })
-        .on_press(Message::ToggleInfoSnapToGrid)
-        .padding([4, 10]),
         Space::new().width(Length::Fill),
         text(format!(
             "{} elementer på diagram • {} relationer",
@@ -386,7 +387,6 @@ pub fn view<'a>(
             class_graph.edges(),
             selected_node_id,
             viewport,
-            snap_to_grid,
             is_space_pressed,
             |frame, node, is_selected, vp| {
                 if let Some(c) = info_model.get_class(node.class_id()) {

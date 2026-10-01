@@ -372,6 +372,17 @@ impl ConceptGraph {
         id
     }
 
+    pub fn add_node_at(&mut self, concept: &Concept, x: f32, y: f32) -> NodeId {
+        if let Some(existing) = self.find_node_by_concept_mut(concept.id()) {
+            existing.set_position(x, y);
+            return existing.id();
+        }
+        let node = DiagramNode::new(concept, x, y);
+        let id = node.id();
+        self.nodes.push(node);
+        id
+    }
+
     pub fn add_relation(&mut self, from: NodeId, to: NodeId, kind: RelationKind) {
         self.edges.push(DiagramEdge::new(from, to, kind));
     }

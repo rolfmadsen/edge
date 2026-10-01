@@ -795,55 +795,25 @@ fn test_canvas_ergonomics_zoom_pan_grid() {
     assert!((world_before.x - world_after.x).abs() < 0.001);
     assert!((world_before.y - world_after.y).abs() < 0.001);
 
-    // 3. Test Magnetisk Snap-to-Grid i App
+    // 3. Test flydende bevægelse uden snap-to-grid i App (Task 064)
     assert!(
-        app.is_snap_to_grid_enabled(),
-        "Snap to grid skal være slået til som default"
+        !app.is_snap_to_grid_enabled(),
+        "Snap to grid skal være slået fra som default"
     );
 
-    // Flyt node til arbitrære koordinater (137.4, 91.2) - skal snappe til (140.0, 100.0)
+    // Flyt node til arbitrære koordinater (137.4, 91.2) - skal forblive flydende uden magnetisk snapping
     let _ = app.update(Message::GraphNodeMoved(node_id, 137.4, 91.2));
     let moved_node = app.project().concept_graph().find_node(node_id).unwrap();
     assert_eq!(
         moved_node.x(),
-        140.0,
-        "Node x skal snappe til nærmeste multiplum af 20"
+        137.4,
+        "Node x skal bevares præcist uden magnetisk grid snapping"
     );
     assert_eq!(
         moved_node.y(),
-        100.0,
-        "Node y skal snappe til nærmeste multiplum af 20"
+        91.2,
+        "Node y skal bevares præcist uden magnetisk grid snapping"
     );
-
-    // Verificer at alle 4 hjørner rammer gitterpunkter
-    assert_eq!(
-        (moved_node.x() + moved_node.width()) % GRID_SIZE,
-        0.0,
-        "Top-højre hjørne"
-    );
-    assert_eq!(
-        (moved_node.y() + moved_node.height()) % GRID_SIZE,
-        0.0,
-        "Bund-venstre hjørne"
-    );
-    assert_eq!(
-        (moved_node.x() + moved_node.width()) % GRID_SIZE,
-        0.0,
-        "Bund-højre x"
-    );
-    assert_eq!(
-        (moved_node.y() + moved_node.height()) % GRID_SIZE,
-        0.0,
-        "Bund-højre y"
-    );
-
-    // Slå snapping fra og test at position ikke snappes
-    let _ = app.update(Message::ToggleSnapToGrid);
-    assert!(!app.is_snap_to_grid_enabled());
-    let _ = app.update(Message::GraphNodeMoved(node_id, 137.4, 91.2));
-    let unsnapped = app.project().concept_graph().find_node(node_id).unwrap();
-    assert_eq!(unsnapped.x(), 137.4);
-    assert_eq!(unsnapped.y(), 91.2);
 
     // 4. Test Zoom-kontroller i App
     assert_eq!(app.canvas_zoom(), 1.0);
@@ -3235,7 +3205,6 @@ fn test_task023_canvas_floating_controls_and_minimap() {
         &edges,
         None,
         CanvasViewport::default(),
-        true,
         false,
         render_concept_node,
         move |id| {
@@ -3338,7 +3307,6 @@ fn test_task023_canvas_floating_controls_and_minimap() {
         &edges,
         None,
         *last_viewport.lock().unwrap(),
-        true,
         false,
         render_concept_node,
         move |id| {
@@ -7497,7 +7465,6 @@ fn test_task_040_canvas_multi_node_selection_and_bulk_move() {
         &edges,
         None,
         CanvasViewport::default(),
-        true,
         false,
         render_concept_node,
         |_| (),
@@ -7630,7 +7597,6 @@ fn test_task_040_canvas_multi_node_selection_and_bulk_move() {
         &edges,
         Some(n1.id()),
         CanvasViewport::default(),
-        true,
         false,
         render_concept_node,
         |_| (),
@@ -8198,6 +8164,10 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
     // 2. AC2: Drag-and-Drop af begreber på Begrebsdiagram uden gitter-snapping
     let concept = Concept::new("Station", "Togstation", BelongsToDomain::Yes);
     let concept_id = app.project_mut().add_concept(concept).expect("Tilføj begreb");
+    if let Some(node) = app.project().concept_graph().find_node_by_concept(concept_id) {
+        let nid = node.id();
+        app.project_mut().concept_graph_mut().remove_node(nid);
+    }
     assert!(
         !app.project().concept_graph().is_concept_on_diagram(concept_id),
         "Begrebet må ikke være på diagrammet før det trækkes/tilføjes"
@@ -8209,18 +8179,21 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         app.project().concept_graph().is_concept_on_diagram(concept_id),
         "AC2: Begrebet skal være tilføjet til begrebsdiagrammet efter drop"
     );
-    let concept_node = app
-        .project()
-        .concept_graph()
-        .find_node_by_concept(concept_id)
-        .expect("Concept node skal findes");
+    let (concept_node_id, node_x, node_y) = {
+        let cn = app
+            .project()
+            .concept_graph()
+            .find_node_by_concept(concept_id)
+            .expect("Concept node skal findes");
+        (cn.id(), cn.x(), cn.y())
+    };
     assert_eq!(
-        concept_node.x(),
+        node_x,
         253.7,
         "AC2: Noden skal placeres præcist ved drop-position x (ingen gitter-snapping)"
     );
     assert_eq!(
-        concept_node.y(),
+        node_y,
         184.2,
         "AC2: Noden skal placeres præcist ved drop-position y (ingen gitter-snapping)"
     );
@@ -8236,7 +8209,7 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
 
     // 3. AC3: Drag-and-Drop af Klasser og Enumerationer på Informationsmodel uden gitter-snapping
     let cls = InformationClass::new("Spor");
-    let class_id = app.project().information_model_mut().add_class(cls);
+    let class_id = app.project_mut().information_model_mut().add_class(cls);
     assert!(
         !app.project().information_graph().is_class_on_diagram(class_id),
         "Klassen må ikke være på informationsdiagrammet endnu"
@@ -8248,18 +8221,21 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         app.project().information_graph().is_class_on_diagram(class_id),
         "AC3: Klassen skal findes på informationsdiagrammet efter drop"
     );
-    let class_node = app
-        .project()
-        .information_graph()
-        .find_node_by_class(class_id)
-        .expect("Klassenode skal findes");
+    let (class_x, class_y) = {
+        let class_node = app
+            .project()
+            .information_graph()
+            .find_node_by_class(class_id)
+            .expect("Klassenode skal findes");
+        (class_node.x(), class_node.y())
+    };
     assert_eq!(
-        class_node.x(),
+        class_x,
         312.4,
         "AC3: Klassenoden skal have præcis x position"
     );
     assert_eq!(
-        class_node.y(),
+        class_y,
         215.8,
         "AC3: Klassenoden skal have præcis y position"
     );
@@ -8270,7 +8246,7 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         vec!["roed".to_string(), "groen".to_string()],
     );
     let enum2_id = app
-        .project()
+        .project_mut()
         .information_model_mut()
         .add_enumeration(enum2);
     let _ = app.update(Message::AddEnumerationToDiagramAt(enum2_id, 411.3, 155.6));
@@ -8278,18 +8254,21 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         app.project().information_graph().is_class_on_diagram(enum2_id),
         "AC3: Enumerationen skal findes på informationsdiagrammet efter drop"
     );
-    let enum_node = app
-        .project()
-        .information_graph()
-        .find_node_by_class(enum2_id)
-        .expect("Enumeration-node skal findes");
+    let (enum_x, enum_y) = {
+        let enum_node = app
+            .project()
+            .information_graph()
+            .find_node_by_class(enum2_id)
+            .expect("Enumeration-node skal findes");
+        (enum_node.x(), enum_node.y())
+    };
     assert_eq!(
-        enum_node.x(),
+        enum_x,
         411.3,
         "AC3: Enumeration-noden skal have præcis x position"
     );
     assert_eq!(
-        enum_node.y(),
+        enum_y,
         155.6,
         "AC3: Enumeration-noden skal have præcis y position"
     );
@@ -8307,6 +8286,14 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
     // 4. AC4: Bevarelse af 1-klik '+' tilføjelse
     let concept_quick = Concept::new("Perron", "Perron til passagerer", BelongsToDomain::Yes);
     let c_quick_id = app.project_mut().add_concept(concept_quick).unwrap();
+    if let Some(node) = app.project().concept_graph().find_node_by_concept(c_quick_id) {
+        let nid = node.id();
+        app.project_mut().concept_graph_mut().remove_node(nid);
+    }
+    assert!(
+        !app.project().concept_graph().is_concept_on_diagram(c_quick_id),
+        "Begrebet må ikke være på diagrammet før '+' klik"
+    );
     let _ = app.update(Message::AddConceptToDiagram(c_quick_id));
     assert!(
         app.project().concept_graph().is_concept_on_diagram(c_quick_id),
@@ -8314,12 +8301,11 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
     );
 
     // 5. AC5: Sanering af gitter-snapping ved flytning
-    let moved_concept_node_id = concept_node.id();
-    let _ = app.update(Message::GraphNodeMoved(moved_concept_node_id, 137.4, 91.2));
+    let _ = app.update(Message::GraphNodeMoved(concept_node_id, 137.4, 91.2));
     let moved_node = app
         .project()
         .concept_graph()
-        .find_node(moved_concept_node_id)
+        .find_node(concept_node_id)
         .unwrap();
     assert_eq!(
         moved_node.x(),

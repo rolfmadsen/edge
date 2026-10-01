@@ -28,6 +28,7 @@ use crate::ui::theme::{
 };
 use iced::event::{self, Event};
 use iced::keyboard::{self, key::Named, Key};
+use iced::mouse;
 use iced::widget::{
     button, checkbox, column, container, mouse_area, operation, pick_list, row, scrollable, stack,
     text, text_input, tooltip, Space,
@@ -168,6 +169,21 @@ impl std::fmt::Display for AttributeConceptOption {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.label)
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PaletteDragItem {
+    Concept(Uuid),
+    Class(Uuid),
+    Enumeration(Uuid),
+}
+
+#[derive(Debug, Clone)]
+pub struct PaletteDragState {
+    pub item: PaletteDragItem,
+    pub start_pos: Point,
+    pub current_pos: Point,
+    pub is_dragging: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -741,6 +757,7 @@ pub enum Message {
     GraphDeleteRelation(NodeId, NodeId),
     GraphSyncNodes,
     AddConceptToDiagram(Uuid),
+    AddConceptToDiagramAt(Uuid, f32, f32),
     RemoveConceptFromDiagram(NodeId),
     ConceptModelSearchChanged(String),
 
@@ -799,6 +816,7 @@ pub enum Message {
 
     // Enumeration styring (Task 063)
     CreateInformationEnumeration,
+    CreateInformationEnumerationAtCenter,
     SelectInformationEnumeration(Option<Uuid>),
     UpdateInformationEnumerationName(Uuid, String),
     UpdateInformationEnumerationDefinition(Uuid, String),
@@ -806,11 +824,13 @@ pub enum Message {
     RemoveValueFromEnumeration(Uuid, String),
     DeleteInformationEnumeration(Uuid),
     AddEnumerationToDiagram(Uuid),
+    AddEnumerationToDiagramAt(Uuid, f32, f32),
     RemoveEnumerationFromDiagram(Uuid),
     NewEnumValueInputChanged(String),
 
     // Informationsmodel Canvas & Studio (Task 011 & 014)
     AddClassToDiagram(Uuid),
+    AddClassToDiagramAt(Uuid, f32, f32),
     RemoveClassFromDiagram(NodeId),
     UpdateClassNodePosition(NodeId, f32, f32),
     UpdateClassNodesPositions(Vec<(NodeId, f32, f32)>),
@@ -840,6 +860,11 @@ pub enum Message {
     InfoUpdateEdgeTargetMultiplicity(NodeId, NodeId, Option<Multiplicity>),
     InfoToggleEdgeDirected(NodeId, NodeId, bool),
     InfoReverseEdge(NodeId, NodeId),
+
+    // Palette Drag & Drop (Task 064)
+    StartPaletteDrag(PaletteDragItem),
+    PaletteDragMoved(Point),
+    PaletteDragDropped,
 }
 
 pub struct App {
@@ -860,6 +885,8 @@ pub struct App {
     canvas_viewport: crate::ui::graph_canvas::CanvasViewport,
     snap_to_grid: bool,
     is_space_pressed: bool,
+    palette_drag: Option<PaletteDragState>,
+    last_cursor_pos: Point,
     selected_info_class_id: Option<Uuid>,
     selected_info_enum_id: Option<Uuid>,
     new_enum_value_input: String,
@@ -973,8 +1000,10 @@ impl App {
                         quick_create: None,
                         is_inline_graph_editing: false,
                         canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
-                        snap_to_grid: true,
+                        snap_to_grid: false,
                         is_space_pressed: false,
+                        palette_drag: None,
+                        last_cursor_pos: Point::ORIGIN,
                         selected_info_class_id: None,
                         selected_info_enum_id: None,
                         new_enum_value_input: String::new(),
@@ -984,7 +1013,7 @@ impl App {
                         info_class_search: String::new(),
                         info_canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
                         info_relation_dialog: None,
-                        info_snap_to_grid: true,
+                        info_snap_to_grid: false,
                         concept_model_search: String::new(),
                         metadata_modal: None,
                         active_menu: None,
@@ -1036,8 +1065,10 @@ impl App {
             quick_create: None,
             is_inline_graph_editing: false,
             canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
-            snap_to_grid: true,
+            snap_to_grid: false,
             is_space_pressed: false,
+            palette_drag: None,
+            last_cursor_pos: Point::ORIGIN,
             selected_info_class_id: None,
             selected_info_enum_id: None,
             new_enum_value_input: String::new(),
@@ -1047,7 +1078,7 @@ impl App {
             info_class_search: String::new(),
             info_canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
             info_relation_dialog: None,
-            info_snap_to_grid: true,
+            info_snap_to_grid: false,
             concept_model_search: String::new(),
             metadata_modal: None,
             active_menu: None,
@@ -3729,16 +3760,7 @@ impl App {
                 _ => {}
             },
             Message::GraphNodeMoved(node_id, x, y) => {
-                let (final_x, final_y) = if self.snap_to_grid {
-                    (
-                        (x / crate::features::concept_model::GRID_SIZE).round()
-                            * crate::features::concept_model::GRID_SIZE,
-                        (y / crate::features::concept_model::GRID_SIZE).round()
-                            * crate::features::concept_model::GRID_SIZE,
-                    )
-                } else {
-                    (x, y)
-                };
+                let (final_x, final_y) = (x, y);
                 let cg = self.project.concept_graph_mut();
                 cg.update_node_position(node_id, final_x, final_y);
 
@@ -3752,22 +3774,7 @@ impl App {
                 self.trigger_autosave();
             }
             Message::GraphNodesMoved(moves) => {
-                let computed_moves: Vec<(NodeId, f32, f32)> = moves
-                    .iter()
-                    .map(|&(node_id, x, y)| {
-                        let (final_x, final_y) = if self.snap_to_grid {
-                            (
-                                (x / crate::features::concept_model::GRID_SIZE).round()
-                                    * crate::features::concept_model::GRID_SIZE,
-                                (y / crate::features::concept_model::GRID_SIZE).round()
-                                    * crate::features::concept_model::GRID_SIZE,
-                            )
-                        } else {
-                            (x, y)
-                        };
-                        (node_id, final_x, final_y)
-                    })
-                    .collect();
+                let computed_moves: Vec<(NodeId, f32, f32)> = moves;
 
                 {
                     let cg = self.project.concept_graph_mut();
@@ -3934,6 +3941,31 @@ impl App {
                             &crate::features::collab::protocol::ModelMutation::ConceptDiagramNodeAdded(
                                 concept_id,
                             ),
+                        );
+                        self.trigger_autosave();
+                    }
+                }
+            }
+            Message::AddConceptToDiagramAt(concept_id, x, y) => {
+                if !self
+                    .project
+                    .concept_graph()
+                    .is_concept_on_diagram(concept_id)
+                {
+                    if let Some(concept) = self.project.get_concept(concept_id).cloned() {
+                        let new_id = self.project.concept_graph_mut().add_node_at(&concept, x, y);
+                        self.selected_graph_node_id = Some(new_id);
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::ConceptDiagramNodeAdded(
+                                concept_id,
+                            ),
+                        );
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::NodeMoved {
+                                id: concept_id,
+                                x,
+                                y,
+                            },
                         );
                         self.trigger_autosave();
                     }
@@ -4143,16 +4175,7 @@ impl App {
             Message::CreateInformationClassAt(x, y) => {
                 let class = InformationClass::new("");
                 let id = self.project.information_model_mut().add_class(class);
-                let (nx, ny) = if self.info_snap_to_grid {
-                    (
-                        (x / crate::features::concept_model::GRID_SIZE).round()
-                            * crate::features::concept_model::GRID_SIZE,
-                        (y / crate::features::concept_model::GRID_SIZE).round()
-                            * crate::features::concept_model::GRID_SIZE,
-                    )
-                } else {
-                    (x, y)
-                };
+                let (nx, ny) = (x, y);
                 let node_id = self
                     .project
                     .information_graph_mut()
@@ -4551,6 +4574,41 @@ impl App {
                 );
                 self.trigger_autosave();
             }
+            Message::CreateInformationEnumerationAtCenter => {
+                let center_world = self.info_canvas_viewport.to_world(Point::new(500.0, 350.0));
+                let count = self.project.information_model().enumerations().len() + 1;
+                let enum_name = format!("Enumeration{}", count);
+                let e = InformationEnumeration::new(enum_name, Vec::new());
+                let enum_id = self
+                    .project
+                    .information_model_mut()
+                    .add_enumeration(e.clone());
+                let val_count = e.values().len();
+                let cx = center_world.x
+                    - crate::features::information_model::DEFAULT_CLASS_NODE_WIDTH / 2.0;
+                let cy = center_world.y
+                    - crate::features::information_model::calculate_class_node_height(0) / 2.0;
+                let node_id = self
+                    .project
+                    .information_graph_mut()
+                    .add_node_at(enum_id, cx, cy, val_count);
+                self.project.sync_information_graph();
+                self.reroute_info_graph_edges();
+                self.selected_info_enum_id = Some(enum_id);
+                self.selected_info_class_id = None;
+                self.selected_info_graph_node_id = Some(node_id);
+                self.broadcast_mutation(
+                    &crate::features::collab::protocol::ModelMutation::InformationEnumerationAdded(
+                        e,
+                    ),
+                );
+                self.broadcast_mutation(
+                    &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeAdded(
+                        enum_id,
+                    ),
+                );
+                self.trigger_autosave();
+            }
             Message::SelectInformationEnumeration(id) => {
                 self.selected_info_enum_id = id;
                 if id.is_some() {
@@ -4685,6 +4743,41 @@ impl App {
                 );
                 self.trigger_autosave();
             }
+            Message::AddEnumerationToDiagramAt(enum_id, x, y) => {
+                if !self
+                    .project
+                    .information_graph()
+                    .is_class_on_diagram(enum_id)
+                {
+                    let val_count = self
+                        .project
+                        .information_model()
+                        .get_enumeration(enum_id)
+                        .map(|e| e.values().len())
+                        .unwrap_or(0);
+                    let node_id = self
+                        .project
+                        .information_graph_mut()
+                        .add_node_at(enum_id, x, y, val_count);
+                    self.project.sync_information_graph();
+                    self.reroute_info_graph_edges();
+                    self.selected_info_enum_id = Some(enum_id);
+                    self.selected_info_graph_node_id = Some(node_id);
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeAdded(
+                            enum_id,
+                        ),
+                    );
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::NodeMoved {
+                            id: enum_id,
+                            x,
+                            y,
+                        },
+                    );
+                    self.trigger_autosave();
+                }
+            }
             Message::RemoveEnumerationFromDiagram(enum_id) => {
                 let node_id_opt = self
                     .project
@@ -4765,6 +4858,41 @@ impl App {
                 );
                 self.trigger_autosave();
             }
+            Message::AddClassToDiagramAt(class_id, x, y) => {
+                if !self
+                    .project
+                    .information_graph()
+                    .is_class_on_diagram(class_id)
+                {
+                    let attr_count = self
+                        .project
+                        .information_model()
+                        .get_class(class_id)
+                        .map(|c| c.attributes().len())
+                        .unwrap_or(0);
+                    let node_id = self
+                        .project
+                        .information_graph_mut()
+                        .add_node_at(class_id, x, y, attr_count);
+                    self.project.sync_information_graph();
+                    self.reroute_info_graph_edges();
+                    self.selected_info_class_id = Some(class_id);
+                    self.selected_info_graph_node_id = Some(node_id);
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeAdded(
+                            class_id,
+                        ),
+                    );
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::NodeMoved {
+                            id: class_id,
+                            x,
+                            y,
+                        },
+                    );
+                    self.trigger_autosave();
+                }
+            }
             Message::RemoveClassFromDiagram(node_id) => {
                 let class_id = self
                     .project
@@ -4785,16 +4913,8 @@ impl App {
                 self.trigger_autosave();
             }
             Message::UpdateClassNodePosition(node_id, x, y) => {
-                let (final_x, final_y) = if self.info_snap_to_grid {
-                    (
-                        (x / crate::features::concept_model::GRID_SIZE).round()
-                            * crate::features::concept_model::GRID_SIZE,
-                        (y / crate::features::concept_model::GRID_SIZE).round()
-                            * crate::features::concept_model::GRID_SIZE,
-                    )
-                } else {
-                    (x, y)
-                };
+                let final_x = x;
+                let final_y = y;
                 let ig = self.project.information_graph_mut();
                 ig.update_node_position(node_id, final_x, final_y);
                 let class_id_opt = ig.find_node(node_id).map(|n| n.class_id());
@@ -4814,19 +4934,7 @@ impl App {
             Message::UpdateClassNodesPositions(moves) => {
                 let computed_moves: Vec<(NodeId, f32, f32)> = moves
                     .iter()
-                    .map(|&(node_id, x, y)| {
-                        let (final_x, final_y) = if self.info_snap_to_grid {
-                            (
-                                (x / crate::features::concept_model::GRID_SIZE).round()
-                                    * crate::features::concept_model::GRID_SIZE,
-                                (y / crate::features::concept_model::GRID_SIZE).round()
-                                    * crate::features::concept_model::GRID_SIZE,
-                            )
-                        } else {
-                            (x, y)
-                        };
-                        (node_id, final_x, final_y)
-                    })
+                    .map(|&(node_id, x, y)| (node_id, x, y))
                     .collect();
 
                 let mut broadcasts: Vec<(Uuid, f32, f32)> = Vec::new();
@@ -5595,6 +5703,75 @@ impl App {
                     }
                 }
             }
+
+            Message::StartPaletteDrag(item) => {
+                self.palette_drag = Some(PaletteDragState {
+                    item,
+                    start_pos: self.last_cursor_pos,
+                    current_pos: self.last_cursor_pos,
+                    is_dragging: false,
+                });
+            }
+            Message::PaletteDragMoved(pos) => {
+                self.last_cursor_pos = pos;
+                if let Some(ref mut drag) = self.palette_drag {
+                    let dist = (pos.x - drag.start_pos.x).hypot(pos.y - drag.start_pos.y);
+                    if dist > 6.0 {
+                        drag.is_dragging = true;
+                        drag.current_pos = pos;
+                    }
+                }
+            }
+            Message::PaletteDragDropped => {
+                if let Some(drag) = self.palette_drag.take() {
+                    if drag.is_dragging {
+                        let canvas_start_x = if self.show_left_sidebar { 252.0 } else { 12.0 };
+                        let canvas_start_y = 96.0;
+                        if drag.current_pos.x >= canvas_start_x && drag.current_pos.y >= canvas_start_y {
+                            let local_x = drag.current_pos.x - canvas_start_x;
+                            let local_y = drag.current_pos.y - canvas_start_y;
+                            match self.active_tab {
+                                Tab::ConceptModel => {
+                                    if let PaletteDragItem::Concept(cid) = drag.item {
+                                        let world = self.canvas_viewport.to_world(Point::new(local_x, local_y));
+                                        return self.update(Message::AddConceptToDiagramAt(cid, world.x, world.y));
+                                    }
+                                }
+                                Tab::InformationModel => {
+                                    let world = self.info_canvas_viewport.to_world(Point::new(local_x, local_y));
+                                    match drag.item {
+                                        PaletteDragItem::Class(cid) => {
+                                            return self.update(Message::AddClassToDiagramAt(cid, world.x, world.y));
+                                        }
+                                        PaletteDragItem::Enumeration(eid) => {
+                                            return self.update(Message::AddEnumerationToDiagramAt(eid, world.x, world.y));
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                    } else {
+                        // Click without drag -> select or add
+                        match drag.item {
+                            PaletteDragItem::Concept(cid) => {
+                                if let Some(node) = self.project.concept_graph().find_node_by_concept(cid) {
+                                    self.selected_graph_node_id = Some(node.id());
+                                } else {
+                                    return self.update(Message::AddConceptToDiagram(cid));
+                                }
+                            }
+                            PaletteDragItem::Class(cid) => {
+                                return self.update(Message::SelectInformationClass(Some(cid)));
+                            }
+                            PaletteDragItem::Enumeration(eid) => {
+                                return self.update(Message::SelectInformationEnumeration(Some(eid)));
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         Task::none()
@@ -5604,6 +5781,12 @@ impl App {
         let keyboard_sub = event::listen_with(|event, status, _window| {
             if let Event::Window(iced::window::Event::Unfocused) = event {
                 return Some(Message::CanvasSpacePressed(false));
+            }
+            if let Event::Mouse(mouse::Event::CursorMoved { position }) = event {
+                return Some(Message::PaletteDragMoved(position));
+            }
+            if let Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) = event {
+                return Some(Message::PaletteDragDropped);
             }
             if status == event::Status::Captured {
                 return None;
@@ -7252,7 +7435,6 @@ impl App {
                 self.selected_edge,
                 &self.concept_model_search,
                 self.canvas_viewport,
-                self.snap_to_grid,
                 self.is_space_pressed,
                 self.is_inline_graph_editing,
                 self.editor_state.as_ref(),
@@ -7272,7 +7454,6 @@ impl App {
                 &self.info_class_search,
                 &self.new_enum_value_input,
                 self.info_canvas_viewport,
-                self.info_snap_to_grid,
                 self.is_space_pressed,
                 self.info_relation_dialog.as_ref(),
                 self.show_left_sidebar,
