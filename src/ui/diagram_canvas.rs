@@ -869,7 +869,10 @@ where
                     }
                 }
 
-                // 4. Klik på tomt lærred: start potentiel marquee drag-selection
+                // 4. Klik på tomt lærred: fravælg kant og start potentiel marquee drag-selection
+                if let Some(ref on_edge_selected) = self.on_edge_selected {
+                    let _ = (on_edge_selected)(None);
+                }
                 state.marquee = Some(MarqueeState {
                     start: world_pos,
                     current: world_pos,
