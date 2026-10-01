@@ -7035,7 +7035,9 @@ fn test_task_060_machine_readable_model_interchange_xmi_skos_and_shacl() {
         ModelStatus::Completed,
     );
     metadata.set_approval_status(ApprovalStatus::Approved);
-    metadata.set_legal_sources(vec!["https://www.retsinformation.dk/eli/lta/2016/976".to_string()]);
+    metadata.set_legal_sources(vec![
+        "https://www.retsinformation.dk/eli/lta/2016/976".to_string()
+    ]);
     let mut project = ModelProject::new(metadata);
 
     // Begreber
@@ -7083,7 +7085,9 @@ fn test_task_060_machine_readable_model_interchange_xmi_skos_and_shacl() {
             "Brint".to_string(),
         ],
     );
-    drivkraft_enum.set_definition(Some("Drivkraftkilde for et motoriseret køretøj.".to_string()));
+    drivkraft_enum.set_definition(Some(
+        "Drivkraftkilde for et motoriseret køretøj.".to_string(),
+    ));
     let enum_id = project
         .information_model_mut()
         .add_enumeration(drivkraft_enum);
@@ -7323,4 +7327,3 @@ fn test_task_062_windows_software_rendering_and_backend_resolution() {
         "På Unix/macOS skal Iced have lov til at benytte systemets standard renderer"
     );
 }
-

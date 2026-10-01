@@ -1,7 +1,5 @@
 use crate::features::concept_model::RelationKind;
-use crate::features::information_model::{
-    InformationClass, InformationDataType, PrimitiveType,
-};
+use crate::features::information_model::{InformationClass, InformationDataType, PrimitiveType};
 use crate::features::model::ModelProject;
 use std::collections::BTreeMap;
 use uuid::Uuid;
@@ -83,7 +81,10 @@ pub fn export_to_shacl_turtle(project: &ModelProject) -> String {
         let enum_uri = format!("<{}/enums/{}>", clean_base, enum_slug);
 
         out.push_str(&format!("{} a owl:Class ;\n", enum_uri));
-        out.push_str(&format!("    rdfs:label \"{}\"@da ;\n", escape_turtle(en.name())));
+        out.push_str(&format!(
+            "    rdfs:label \"{}\"@da ;\n",
+            escape_turtle(en.name())
+        ));
         if let Some(def) = en.definition() {
             if !def.trim().is_empty() {
                 out.push_str(&format!(
@@ -135,12 +136,10 @@ pub fn export_to_shacl_turtle(project: &ModelProject) -> String {
                     let target_uri = format!("<{}/classes/{}>", clean_base, target_slug);
                     let min_count = edge.target_multiplicity().map(|m| m.lower());
                     let max_count = edge.target_multiplicity().and_then(|m| m.upper());
-                    class_relations.entry(src.id()).or_default().push((
-                        rel_slug,
-                        target_uri,
-                        min_count,
-                        max_count,
-                    ));
+                    class_relations
+                        .entry(src.id())
+                        .or_default()
+                        .push((rel_slug, target_uri, min_count, max_count));
                 }
                 _ => {}
             }
@@ -157,7 +156,10 @@ pub fn export_to_shacl_turtle(project: &ModelProject) -> String {
 
         out.push_str(&format!("{} a owl:Class, sh:NodeShape ;\n", class_uri));
         out.push_str(&format!("    sh:targetClass {} ;\n", class_uri));
-        out.push_str(&format!("    rdfs:label \"{}\"@da ;\n", escape_turtle(cls.name())));
+        out.push_str(&format!(
+            "    rdfs:label \"{}\"@da ;\n",
+            escape_turtle(cls.name())
+        ));
 
         if let Some(desc) = cls.description() {
             if !desc.trim().is_empty() {

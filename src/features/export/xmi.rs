@@ -108,8 +108,12 @@ pub fn export_to_xmi_2_1(project: &ModelProject) -> String {
             let attr_name = escape_xml(attr.name());
             let type_id = match attr.data_type() {
                 InformationDataType::Primitive(p) => format!("prim_{}", p.as_str()),
-                InformationDataType::Enumeration { enumeration_id } => format!("enum_{}", enumeration_id),
-                InformationDataType::Structured { structured_id } => format!("datatype_{}", structured_id),
+                InformationDataType::Enumeration { enumeration_id } => {
+                    format!("enum_{}", enumeration_id)
+                }
+                InformationDataType::Structured { structured_id } => {
+                    format!("datatype_{}", structured_id)
+                }
             };
             out.push_str(&format!(
                 "        <ownedAttribute xmi:type=\"uml:Property\" xmi:id=\"{}\" name=\"{}\" type=\"{}\" visibility=\"public\">\n",
@@ -183,8 +187,12 @@ pub fn export_to_xmi_2_1(project: &ModelProject) -> String {
             let attr_name = escape_xml(attr.name());
             let type_id = match attr.data_type() {
                 InformationDataType::Primitive(p) => format!("prim_{}", p.as_str()),
-                InformationDataType::Enumeration { enumeration_id } => format!("enum_{}", enumeration_id),
-                InformationDataType::Structured { structured_id } => format!("datatype_{}", structured_id),
+                InformationDataType::Enumeration { enumeration_id } => {
+                    format!("enum_{}", enumeration_id)
+                }
+                InformationDataType::Structured { structured_id } => {
+                    format!("datatype_{}", structured_id)
+                }
             };
             out.push_str(&format!(
                 "        <ownedAttribute xmi:type=\"uml:Property\" xmi:id=\"{}\" name=\"{}\" type=\"{}\" visibility=\"public\">\n",
@@ -231,7 +239,11 @@ pub fn export_to_xmi_2_1(project: &ModelProject) -> String {
                 let assoc_id = format!("assoc_{}_{}", edge.from(), idx);
                 let assoc_name = escape_xml(edge.label().unwrap_or(""));
                 let is_comp = edge.kind() == RelationKind::Composition;
-                let agg_str = if is_comp { "aggregation=\"composite\"" } else { "" };
+                let agg_str = if is_comp {
+                    "aggregation=\"composite\""
+                } else {
+                    ""
+                };
 
                 let src_prop_id = format!("prop_src_{}", assoc_id);
                 let tgt_prop_id = format!("prop_tgt_{}", assoc_id);
@@ -246,7 +258,9 @@ pub fn export_to_xmi_2_1(project: &ModelProject) -> String {
                 ));
 
                 // Source end
-                let src_mult = edge.source_multiplicity().unwrap_or_else(crate::features::information_model::Multiplicity::zero_or_more);
+                let src_mult = edge
+                    .source_multiplicity()
+                    .unwrap_or_else(crate::features::information_model::Multiplicity::zero_or_more);
                 let src_upper = match src_mult.upper() {
                     Some(u) => u.to_string(),
                     None => "*".to_string(),
@@ -266,7 +280,9 @@ pub fn export_to_xmi_2_1(project: &ModelProject) -> String {
                 out.push_str("        </ownedEnd>\n");
 
                 // Target end
-                let tgt_mult = edge.target_multiplicity().unwrap_or_else(crate::features::information_model::Multiplicity::exactly_one);
+                let tgt_mult = edge
+                    .target_multiplicity()
+                    .unwrap_or_else(crate::features::information_model::Multiplicity::exactly_one);
                 let tgt_upper = match tgt_mult.upper() {
                     Some(u) => u.to_string(),
                     None => "*".to_string(),

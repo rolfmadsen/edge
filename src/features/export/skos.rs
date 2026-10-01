@@ -133,7 +133,8 @@ pub fn export_to_skos_turtle(project: &ModelProject) -> String {
     sorted_concepts.sort_by(|a, b| a.preferred_term().cmp(b.preferred_term()));
 
     // Map over alle begrebers URI for nem opslag
-    let concept_by_id: BTreeMap<Uuid, &Concept> = project.concepts().iter().map(|c| (c.id(), c)).collect();
+    let concept_by_id: BTreeMap<Uuid, &Concept> =
+        project.concepts().iter().map(|c| (c.id(), c)).collect();
 
     // Hvert skos:Concept
     for c in sorted_concepts {
@@ -205,17 +206,11 @@ pub fn export_to_skos_turtle(project: &ModelProject) -> String {
 
         if let Some(src) = c.source() {
             if !src.trim().is_empty() {
-                out.push_str(&format!(
-                    "    dct:source \"{}\" ;\n",
-                    escape_turtle(src)
-                ));
+                out.push_str(&format!("    dct:source \"{}\" ;\n", escape_turtle(src)));
             }
         } else if let Some(lsrc) = c.legal_source() {
             if !lsrc.trim().is_empty() {
-                out.push_str(&format!(
-                    "    dct:source \"{}\" ;\n",
-                    escape_turtle(lsrc)
-                ));
+                out.push_str(&format!("    dct:source \"{}\" ;\n", escape_turtle(lsrc)));
             }
         }
 
