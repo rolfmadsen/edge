@@ -2,7 +2,7 @@
 type: Task Package
 title: "Task 029: Inbound Collab Subscription, Transport Framing & Relay Hardening"
 description: "Udbedring af indgående netværkskanal i Iced App via subscription, eksplicit transport-framing mod nonce-kollision, kryptografisk replay-beskyttelse og DoS-hærdning af relay"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-20T15:36:00Z" }
 tags: [collaboration, e2ee, iced, subscription, framing, security, hardening]
 ---
