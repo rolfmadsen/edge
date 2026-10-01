@@ -245,9 +245,26 @@ impl CanvasEdge for ClassDiagramEdge {
     }
 }
 
+/// Tilstand for rektangulær drag-select (marquee)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MarqueeState {
+    pub start: Point,
+    pub current: Point,
+}
+
+/// Tilstand for synkron parallelforskydning af noder (bulk drag)
+#[derive(Debug, Clone, PartialEq)]
+pub struct BulkDragState {
+    pub leader_id: NodeId,
+    pub start_world_pos: Point,
+    pub initial_positions: Vec<(NodeId, (f32, f32))>,
+}
+
 #[derive(Debug, Default)]
 pub struct DiagramCanvasState {
     pub dragging_node: Option<(NodeId, Vector)>,
+    pub bulk_drag: Option<BulkDragState>,
+    pub marquee: Option<MarqueeState>,
     pub last_click: Option<ClickRecord>,
     pub panning_start: Option<(Point, Vector)>,
     pub is_panning_space: bool,
@@ -256,6 +273,8 @@ pub struct DiagramCanvasState {
     pub connecting_from: Option<NodeId>,
     pub connecting_cursor: Option<Point>,
     pub hovered_target_node: Option<NodeId>,
+    pub selected_node_ids: std::collections::HashSet<NodeId>,
+    pub last_canvas_selection: Option<std::collections::HashSet<NodeId>>,
 }
 
 /// Koordinattransformation for miniaturekort (Minimap)
@@ -397,15 +416,18 @@ where
     nodes: &'a [N],
     edges: &'a [E],
     selected_node_id: Option<NodeId>,
+    selected_node_ids: std::collections::HashSet<NodeId>,
     selected_edge: Option<(NodeId, NodeId)>,
     viewport: CanvasViewport,
     snap_to_grid: bool,
     is_space_pressed: bool,
     render_node: R,
     on_node_selected: Box<dyn Fn(Option<NodeId>) -> Message + 'a>,
+    on_selection_changed: Option<Box<dyn Fn(std::collections::HashSet<NodeId>) -> Message + 'a>>,
     on_edge_selected: Option<EdgeSelectHandler<'a, Message>>,
     on_edge_created: Option<EdgeCreateHandler<'a, Message>>,
     on_node_moved: Box<dyn Fn(NodeId, f32, f32) -> Message + 'a>,
+    on_nodes_moved: Option<Box<dyn Fn(Vec<(NodeId, f32, f32)>) -> Message + 'a>>,
     on_canvas_double_clicked: Box<dyn Fn(f32, f32) -> Message + 'a>,
     on_node_double_clicked: Box<dyn Fn(NodeId) -> Message + 'a>,
     on_viewport_changed: Box<dyn Fn(CanvasViewport) -> Message + 'a>,
@@ -436,19 +458,50 @@ where
             nodes,
             edges,
             selected_node_id,
+            selected_node_ids: selected_node_id.into_iter().collect(),
             selected_edge: None,
             viewport,
             snap_to_grid,
             is_space_pressed,
             render_node,
             on_node_selected: Box::new(on_node_selected),
+            on_selection_changed: None,
             on_edge_selected: None,
             on_edge_created: None,
             on_node_moved: Box::new(on_node_moved),
+            on_nodes_moved: None,
             on_canvas_double_clicked: Box::new(on_canvas_double_clicked),
             on_node_double_clicked: Box::new(on_node_double_clicked),
             on_viewport_changed: Box::new(on_viewport_changed),
         }
+    }
+
+    pub fn selected_node_ids(mut self, ids: impl IntoIterator<Item = NodeId>) -> Self {
+        self.selected_node_ids = ids.into_iter().collect();
+        if self.selected_node_id.is_none() {
+            self.selected_node_id = self.selected_node_ids.iter().next().copied();
+        }
+        self
+    }
+
+    pub fn on_selection_changed(
+        mut self,
+        handler: impl Fn(std::collections::HashSet<NodeId>) -> Message + 'a,
+    ) -> Self {
+        self.on_selection_changed = Some(Box::new(handler));
+        self
+    }
+
+    pub fn on_nodes_moved(
+        mut self,
+        handler: impl Fn(Vec<(NodeId, f32, f32)>) -> Message + 'a,
+    ) -> Self {
+        self.on_nodes_moved = Some(Box::new(handler));
+        self
+    }
+
+    pub fn is_node_selected(&self, id: NodeId) -> bool {
+        self.selected_node_ids.contains(&id) || self.selected_node_id == Some(id)
     }
 
     pub fn selected_edge(mut self, edge: Option<(NodeId, NodeId)>) -> Self {
@@ -535,6 +588,11 @@ where
         bounds: Rectangle,
         cursor: mouse::Cursor,
     ) -> Option<Action<Message>> {
+        if state.last_canvas_selection.as_ref() != Some(&self.selected_node_ids) {
+            state.selected_node_ids = self.selected_node_ids.clone();
+            state.last_canvas_selection = Some(self.selected_node_ids.clone());
+        }
+
         let cursor_pos = cursor.position_in(bounds)?;
 
         match event {
@@ -704,12 +762,70 @@ where
                 // 2. Klik på en node
                 for node in self.nodes.iter().rev() {
                     if node.contains(world_pos.x, world_pos.y) {
-                        let (nx, ny) = node.position();
-                        let offset = Vector::new(world_pos.x - nx, world_pos.y - ny);
-                        state.dragging_node = Some((node.id(), offset));
-                        return Some(
-                            Action::publish((self.on_node_selected)(Some(node.id()))).and_capture(),
-                        );
+                        let is_ctrl = state.modifiers.control() || state.modifiers.command();
+                        if is_ctrl {
+                            if state.selected_node_ids.contains(&node.id()) {
+                                state.selected_node_ids.remove(&node.id());
+                            } else {
+                                state.selected_node_ids.insert(node.id());
+                            }
+                            let new_selection = state.selected_node_ids.clone();
+                            if let Some(ref on_selection_changed) = self.on_selection_changed {
+                                return Some(
+                                    Action::publish((on_selection_changed)(new_selection))
+                                        .and_capture(),
+                                );
+                            } else {
+                                let first = new_selection.iter().next().copied();
+                                return Some(
+                                    Action::publish((self.on_node_selected)(first))
+                                        .and_capture(),
+                                );
+                            }
+                        } else {
+                            let is_already_selected = state.selected_node_ids.contains(&node.id())
+                                || self.is_node_selected(node.id());
+                            let drag_ids: Vec<NodeId> =
+                                if is_already_selected && state.selected_node_ids.len() > 1 {
+                                    state.selected_node_ids.iter().copied().collect()
+                                } else {
+                                    vec![node.id()]
+                                };
+
+                            let initial_positions: Vec<(NodeId, (f32, f32))> = self
+                                .nodes
+                                .iter()
+                                .filter(|n| drag_ids.contains(&n.id()))
+                                .map(|n| (n.id(), n.position()))
+                                .collect();
+
+                            let (nx, ny) = node.position();
+                            let offset = Vector::new(world_pos.x - nx, world_pos.y - ny);
+                            state.dragging_node = Some((node.id(), offset));
+                            state.bulk_drag = Some(BulkDragState {
+                                leader_id: node.id(),
+                                start_world_pos: world_pos,
+                                initial_positions,
+                            });
+
+                            if !is_already_selected {
+                                state.selected_node_ids = [node.id()].into_iter().collect();
+                                let new_selection = state.selected_node_ids.clone();
+                                if let Some(ref on_selection_changed) = self.on_selection_changed {
+                                    return Some(
+                                        Action::publish((on_selection_changed)(new_selection))
+                                            .and_capture(),
+                                    );
+                                } else {
+                                    return Some(
+                                        Action::publish((self.on_node_selected)(Some(node.id())))
+                                            .and_capture(),
+                                    );
+                                }
+                            } else {
+                                return Some(Action::capture());
+                            }
+                        }
                     }
                 }
 
@@ -751,11 +867,12 @@ where
                     }
                 }
 
-                // 4. Klik på tomt lærred: fravælg node og kant
-                if let Some(ref on_edge_selected) = self.on_edge_selected {
-                    let _ = (on_edge_selected)(None);
-                }
-                Some(Action::publish((self.on_node_selected)(None)).and_capture())
+                // 4. Klik på tomt lærred: start potentiel marquee drag-selection
+                state.marquee = Some(MarqueeState {
+                    start: world_pos,
+                    current: world_pos,
+                });
+                Some(Action::capture())
             }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
                 if state.is_panning_minimap {
@@ -804,7 +921,50 @@ where
                     return Some(Action::request_redraw().and_capture());
                 }
 
-                if let Some((id, offset)) = state.dragging_node {
+                if let Some(ref mut marquee) = state.marquee {
+                    let world_pos = self.viewport.to_world(cursor_pos);
+                    marquee.current = world_pos;
+                    return Some(Action::request_redraw().and_capture());
+                }
+
+                if let Some(ref bulk) = state.bulk_drag {
+                    let world_pos = self.viewport.to_world(cursor_pos);
+                    let raw_dx = world_pos.x - bulk.start_world_pos.x;
+                    let raw_dy = world_pos.y - bulk.start_world_pos.y;
+
+                    let (delta_x, delta_y) = if let Some(&(_, (lx, ly))) =
+                        bulk.initial_positions.iter().find(|(id, _)| *id == bulk.leader_id)
+                    {
+                        if self.snap_to_grid {
+                            let target_x = lx + raw_dx;
+                            let target_y = ly + raw_dy;
+                            let snapped_x = (target_x / GRID_SIZE).round() * GRID_SIZE;
+                            let snapped_y = (target_y / GRID_SIZE).round() * GRID_SIZE;
+                            (snapped_x - lx, snapped_y - ly)
+                        } else {
+                            (raw_dx, raw_dy)
+                        }
+                    } else {
+                        (raw_dx, raw_dy)
+                    };
+
+                    let updates: Vec<(NodeId, f32, f32)> = bulk
+                        .initial_positions
+                        .iter()
+                        .map(|&(id, (ix, iy))| (id, ix + delta_x, iy + delta_y))
+                        .collect();
+
+                    if let Some(ref on_nodes_moved) = self.on_nodes_moved {
+                        return Some(Action::publish((on_nodes_moved)(updates)).and_capture());
+                    } else if let Some(&(lid, lx, ly)) =
+                        updates.iter().find(|(id, _, _)| *id == bulk.leader_id)
+                    {
+                        return Some(
+                            Action::publish((self.on_node_moved)(lid, lx, ly)).and_capture(),
+                        );
+                    }
+                    return Some(Action::capture());
+                } else if let Some((id, offset)) = state.dragging_node {
                     let world_pos = self.viewport.to_world(cursor_pos);
                     let raw_world_x = world_pos.x - offset.x;
                     let raw_world_y = world_pos.y - offset.y;
@@ -855,6 +1015,104 @@ where
                         }
                     }
                     return Some(Action::request_redraw().and_capture());
+                }
+
+                if let Some(marquee) = state.marquee.take() {
+                    let drag_dist = (marquee.current.x - marquee.start.x)
+                        .hypot(marquee.current.y - marquee.start.y);
+                    if drag_dist < 4.0 {
+                        // Enkeltklik på tomt lærred (ikke drag)
+                        if !state.modifiers.control() && !state.modifiers.command() {
+                            state.selected_node_ids.clear();
+                            if let Some(ref on_edge_selected) = self.on_edge_selected {
+                                let _ = (on_edge_selected)(None);
+                            }
+                            if let Some(ref on_selection_changed) = self.on_selection_changed {
+                                return Some(
+                                    Action::publish((on_selection_changed)(
+                                        std::collections::HashSet::new(),
+                                    ))
+                                    .and_capture(),
+                                );
+                            } else {
+                                return Some(
+                                    Action::publish((self.on_node_selected)(None)).and_capture(),
+                                );
+                            }
+                        }
+                    } else {
+                        // Rektangulær drag-select (marquee)
+                        state.last_click = None;
+                        let min_x = marquee.start.x.min(marquee.current.x);
+                        let max_x = marquee.start.x.max(marquee.current.x);
+                        let min_y = marquee.start.y.min(marquee.current.y);
+                        let max_y = marquee.start.y.max(marquee.current.y);
+
+                        let selected_in_box: std::collections::HashSet<NodeId> = self
+                            .nodes
+                            .iter()
+                            .filter(|n| {
+                                let (nx, ny) = n.position();
+                                let (nw, nh) = n.size();
+                                let node_max_x = nx + nw;
+                                let node_max_y = ny + nh;
+                                node_max_x >= min_x && nx <= max_x && node_max_y >= min_y && ny <= max_y
+                            })
+                            .map(|n| n.id())
+                            .collect();
+
+                        let new_selection = if state.modifiers.control() || state.modifiers.command()
+                        {
+                            let mut combined = state.selected_node_ids.clone();
+                            combined.extend(selected_in_box);
+                            combined
+                        } else {
+                            selected_in_box
+                        };
+                        state.selected_node_ids = new_selection.clone();
+
+                        if let Some(ref on_selection_changed) = self.on_selection_changed {
+                            return Some(
+                                Action::publish((on_selection_changed)(new_selection)).and_capture(),
+                            );
+                        } else {
+                            let first = new_selection.iter().next().copied();
+                            return Some(
+                                Action::publish((self.on_node_selected)(first)).and_capture(),
+                            );
+                        }
+                    }
+                    return Some(Action::request_redraw().and_capture());
+                }
+
+                if let Some(bulk) = state.bulk_drag.take() {
+                    state.dragging_node = None;
+                    let world_pos = self.viewport.to_world(cursor_pos);
+                    let drag_dist = (world_pos.x - bulk.start_world_pos.x)
+                        .hypot(world_pos.y - bulk.start_world_pos.y);
+                    if drag_dist >= 4.0 {
+                        state.last_click = None;
+                    }
+                    if drag_dist < 4.0
+                        && state.selected_node_ids.len() > 1
+                        && !state.modifiers.control()
+                        && !state.modifiers.command()
+                    {
+                        state.selected_node_ids = [bulk.leader_id].into_iter().collect();
+                        let new_selection = state.selected_node_ids.clone();
+                        if let Some(ref on_selection_changed) = self.on_selection_changed {
+                            return Some(
+                                Action::publish((on_selection_changed)(new_selection))
+                                    .and_capture(),
+                            );
+                        } else {
+                            return Some(
+                                Action::publish((self.on_node_selected)(Some(bulk.leader_id)))
+                                    .and_capture(),
+                            );
+                        }
+                    }
+                    return Some(Action::capture());
                 }
 
                 if state.dragging_node.is_some() {
@@ -1004,7 +1262,7 @@ where
 
         // 4. Tegn noder via pluggable node-rendering closure
         for node in self.nodes {
-            let is_selected = self.selected_node_id == Some(node.id());
+            let is_selected = self.is_node_selected(node.id());
             (self.render_node)(&mut frame, node, is_selected, self.viewport);
 
             // Highlight målnode under drag-to-connect
@@ -1024,8 +1282,8 @@ where
                 );
             }
 
-            // Forbindelseshåndtag (connect handle) på valgt node
-            if is_selected {
+            // Forbindelseshåndtag (connect handle) på primær valgt node
+            if is_selected && (self.selected_node_id == Some(node.id()) || self.selected_node_ids.len() <= 1) {
                 let (nx, ny) = node.position();
                 let (nw, nh) = node.size();
                 let handle_center = Point::new(nx + nw, ny + nh / 2.0);
@@ -1188,6 +1446,26 @@ where
             }
         }
 
+        // 6e. Rektangulær drag-select markeringsramme (Marquee) i verdenskoordinater
+        if let Some(marquee) = state.marquee {
+            let min_x = marquee.start.x.min(marquee.current.x);
+            let max_x = marquee.start.x.max(marquee.current.x);
+            let min_y = marquee.start.y.min(marquee.current.y);
+            let max_y = marquee.start.y.max(marquee.current.y);
+            let w = max_x - min_x;
+            let h = max_y - min_y;
+            if w > 0.0 && h > 0.0 {
+                let rect = Path::rectangle(Point::new(min_x, min_y), Size::new(w, h));
+                frame.fill(&rect, Color::from_rgba(0.23, 0.51, 0.96, 0.12));
+                frame.stroke(
+                    &rect,
+                    Stroke::default()
+                        .with_color(ThemeColors::PRIMARY)
+                        .with_width(1.5),
+                );
+            }
+        }
+
         // 7. Svævende kontrolpanel og miniaturekort (Minimap) i skærmkoordinater
         let mut overlay_frame = Frame::new(renderer, bounds.size());
         let panel_rect = Self::floating_panel_rect(bounds);
@@ -1242,7 +1520,7 @@ where
             let mini_w = (nw * transform.scale).max(3.0);
             let mini_h = (nh * transform.scale).max(3.0);
 
-            let is_selected = self.selected_node_id == Some(node.id());
+            let is_selected = self.is_node_selected(node.id());
             let node_rect =
                 Path::rounded_rectangle(top_left, Size::new(mini_w, mini_h), 1.5.into());
             let node_color = if is_selected {

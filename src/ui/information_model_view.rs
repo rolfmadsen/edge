@@ -24,6 +24,7 @@ pub fn view<'a>(
     concepts: &'a [Concept],
     selected_class_id: Option<Uuid>,
     selected_node_id: Option<NodeId>,
+    selected_node_ids: &'a std::collections::HashSet<NodeId>,
     selected_edge: Option<(NodeId, NodeId)>,
     search_query: &'a str,
     viewport: CanvasViewport,
@@ -293,6 +294,9 @@ pub fn view<'a>(
             |node_id| Message::SelectInfoGraphNode(Some(node_id)),
             Message::InfoCanvasViewportChanged,
         )
+        .selected_node_ids(selected_node_ids.iter().copied())
+        .on_selection_changed(Message::SelectInfoGraphNodes)
+        .on_nodes_moved(Message::UpdateClassNodesPositions)
         .selected_edge(selected_edge)
         .on_edge_selected(Message::InfoEdgeSelected)
         .on_edge_created(Message::InfoEdgeCreated),
@@ -700,6 +704,37 @@ pub fn view<'a>(
                     .into(),
             )
         }
+    } else if selected_node_ids.len() > 1 {
+        let count = selected_node_ids.len();
+        let header = crate::ui::inspector_panel::panel_header(
+            crate::ui::inspector_panel::PROPERTIES_TITLE,
+            Some((
+                "Multimarkering",
+                ThemeColors::FDA_BORROWED_BLUE_BG,
+                ThemeColors::FDA_BORROWED_BLUE,
+            )),
+            None,
+        );
+        let multi_col = column![
+            header,
+            container(
+                column![
+                    text(format!("{} informationsklasser valgt", count))
+                        .size(13)
+                        .color(ThemeColors::TEXT_DARK),
+                    text("Brug musen til at parallelforskyde alle valgte klasser på lærredet.")
+                        .size(11)
+                        .color(ThemeColors::TEXT_MUTED),
+                ]
+                .spacing(6)
+            )
+            .style(card_container_style)
+            .padding(10)
+            .width(Length::Fill),
+        ]
+        .spacing(12);
+
+        crate::ui::inspector_panel::panel_container(multi_col.into())
     } else if let Some(class_id) = selected_class_id {
         if let Some(class) = info_model.get_class(class_id) {
             let is_on_canvas = class_graph.is_class_on_diagram(class_id);

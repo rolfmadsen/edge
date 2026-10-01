@@ -17,6 +17,7 @@ pub fn view<'a>(
     concepts: &'a [Concept],
     concept_graph: &'a ConceptGraph,
     selected_node_id: Option<NodeId>,
+    selected_node_ids: &'a std::collections::HashSet<NodeId>,
     selected_edge: Option<(NodeId, NodeId)>,
     search_query: &'a str,
     viewport: CanvasViewport,
@@ -203,6 +204,9 @@ pub fn view<'a>(
             Message::GraphNodeDoubleClicked,
             Message::CanvasViewportChanged,
         )
+        .selected_node_ids(selected_node_ids.iter().copied())
+        .on_selection_changed(Message::GraphNodesSelected)
+        .on_nodes_moved(Message::GraphNodesMoved)
         .selected_edge(selected_edge)
         .on_edge_selected(Message::GraphEdgeSelected)
         .on_edge_created(Message::GraphEdgeCreated),
@@ -492,6 +496,37 @@ pub fn view<'a>(
                     .into(),
             )
         }
+    } else if selected_node_ids.len() > 1 {
+        let count = selected_node_ids.len();
+        let header = crate::ui::inspector_panel::panel_header(
+            crate::ui::inspector_panel::PROPERTIES_TITLE,
+            Some((
+                "Multimarkering",
+                ThemeColors::FDA_BORROWED_BLUE_BG,
+                ThemeColors::FDA_BORROWED_BLUE,
+            )),
+            None,
+        );
+        let multi_col = column![
+            header,
+            container(
+                column![
+                    text(format!("{} begreber valgt", count))
+                        .size(13)
+                        .color(ThemeColors::TEXT_DARK),
+                    text("Brug musen til at parallelforskyde alle valgte noder på lærredet.")
+                        .size(11)
+                        .color(ThemeColors::TEXT_MUTED),
+                ]
+                .spacing(6)
+            )
+            .style(card_container_style)
+            .padding(10)
+            .width(Length::Fill),
+        ]
+        .spacing(12);
+
+        crate::ui::inspector_panel::panel_container(multi_col.into())
     } else if let Some(selected_id) = selected_node_id {
         if let Some(node) = concept_graph.find_node(selected_id) {
             match (is_inline_editing, editor_state) {

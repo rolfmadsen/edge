@@ -727,7 +727,9 @@ pub enum Message {
 
     // Graf-handlinger (Fase 3)
     GraphNodeSelected(Option<NodeId>),
+    GraphNodesSelected(std::collections::HashSet<NodeId>),
     GraphNodeMoved(NodeId, f32, f32),
+    GraphNodesMoved(Vec<(NodeId, f32, f32)>),
     GraphOpenRelationDialog,
     GraphCloseRelationDialog,
     GraphRelationFromChanged(NodeOption),
@@ -797,7 +799,9 @@ pub enum Message {
     AddClassToDiagram(Uuid),
     RemoveClassFromDiagram(NodeId),
     UpdateClassNodePosition(NodeId, f32, f32),
+    UpdateClassNodesPositions(Vec<(NodeId, f32, f32)>),
     SelectInfoGraphNode(Option<NodeId>),
+    SelectInfoGraphNodes(std::collections::HashSet<NodeId>),
     AddClassRelation(NodeId, NodeId, RelationKind, Option<String>),
     DeleteClassRelation(NodeId, NodeId),
     InfoCanvasViewportChanged(crate::ui::graph_canvas::CanvasViewport),
@@ -834,6 +838,7 @@ pub struct App {
     file_dialog_mode: Option<FileDialogMode>,
     file_dialog_input: String,
     selected_graph_node_id: Option<NodeId>,
+    selected_graph_node_ids: std::collections::HashSet<NodeId>,
     selected_edge: Option<(NodeId, NodeId)>,
     relation_dialog: Option<RelationDialogState>,
     quick_create: Option<QuickCreateState>,
@@ -843,6 +848,7 @@ pub struct App {
     is_space_pressed: bool,
     selected_info_class_id: Option<Uuid>,
     selected_info_graph_node_id: Option<NodeId>,
+    selected_info_graph_node_ids: std::collections::HashSet<NodeId>,
     selected_info_edge: Option<(NodeId, NodeId)>,
     info_class_search: String,
     info_canvas_viewport: crate::ui::graph_canvas::CanvasViewport,
@@ -945,6 +951,7 @@ impl App {
                         file_dialog_mode: None,
                         file_dialog_input: String::new(),
                         selected_graph_node_id: None,
+                        selected_graph_node_ids: std::collections::HashSet::new(),
                         selected_edge: None,
                         relation_dialog: None,
                         quick_create: None,
@@ -954,6 +961,7 @@ impl App {
                         is_space_pressed: false,
                         selected_info_class_id: None,
                         selected_info_graph_node_id: None,
+                        selected_info_graph_node_ids: std::collections::HashSet::new(),
                         selected_info_edge: None,
                         info_class_search: String::new(),
                         info_canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
@@ -1004,6 +1012,7 @@ impl App {
             file_dialog_mode: None,
             file_dialog_input: String::new(),
             selected_graph_node_id: None,
+            selected_graph_node_ids: std::collections::HashSet::new(),
             selected_edge: None,
             relation_dialog: None,
             quick_create: None,
@@ -1013,6 +1022,7 @@ impl App {
             is_space_pressed: false,
             selected_info_class_id: None,
             selected_info_graph_node_id: None,
+            selected_info_graph_node_ids: std::collections::HashSet::new(),
             selected_info_edge: None,
             info_class_search: String::new(),
             info_canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
@@ -1213,6 +1223,10 @@ impl App {
         self.selected_graph_node_id
     }
 
+    pub fn selected_graph_node_ids(&self) -> &std::collections::HashSet<NodeId> {
+        &self.selected_graph_node_ids
+    }
+
     pub fn selected_edge(&self) -> Option<(NodeId, NodeId)> {
         self.selected_edge
     }
@@ -1223,6 +1237,10 @@ impl App {
 
     pub fn selected_info_graph_node_id(&self) -> Option<NodeId> {
         self.selected_info_graph_node_id
+    }
+
+    pub fn selected_info_graph_node_ids(&self) -> &std::collections::HashSet<NodeId> {
+        &self.selected_info_graph_node_ids
     }
 
     pub fn selected_info_edge(&self) -> Option<(NodeId, NodeId)> {
@@ -1794,9 +1812,11 @@ impl App {
         }
         self.project = snapshot;
         self.selected_graph_node_id = None;
+        self.selected_graph_node_ids.clear();
         self.selected_edge = None;
         self.selected_info_class_id = None;
         self.selected_info_graph_node_id = None;
+        self.selected_info_graph_node_ids.clear();
         self.selected_info_edge = None;
         self.trigger_autosave();
     }
@@ -3304,12 +3324,19 @@ impl App {
             // Graf-handlinger (Fase 3)
             Message::GraphNodeSelected(node_id) => {
                 self.selected_graph_node_id = node_id;
+                self.selected_graph_node_ids = node_id.into_iter().collect();
+                self.selected_edge = None;
+            }
+            Message::GraphNodesSelected(ids) => {
+                self.selected_graph_node_ids = ids;
+                self.selected_graph_node_id = self.selected_graph_node_ids.iter().next().copied();
                 self.selected_edge = None;
             }
             Message::GraphEdgeSelected(edge) => {
                 self.selected_edge = edge;
                 if edge.is_some() {
                     self.selected_graph_node_id = None;
+                    self.selected_graph_node_ids.clear();
                 }
             }
             Message::GraphEdgeCreated(from, to) => {
@@ -3487,6 +3514,25 @@ impl App {
                             },
                         );
                         self.trigger_autosave();
+                    } else if !self.selected_graph_node_ids.is_empty() {
+                        let to_remove: Vec<NodeId> = self.selected_graph_node_ids.drain().collect();
+                        self.selected_graph_node_id = None;
+                        for node_id in to_remove {
+                            let concept_id = self
+                                .project
+                                .concept_graph()
+                                .find_node(node_id)
+                                .map(|n| n.concept_id());
+                            self.project.concept_graph_mut().remove_node(node_id);
+                            if let Some(cid) = concept_id {
+                                self.broadcast_mutation(
+                                    &crate::features::collab::protocol::ModelMutation::ConceptDiagramNodeRemoved(
+                                        cid,
+                                    ),
+                                );
+                            }
+                        }
+                        self.trigger_autosave();
                     } else if let Some(node_id) = self.selected_graph_node_id.take() {
                         let concept_id = self
                             .project
@@ -3526,6 +3572,26 @@ impl App {
                                     to_class: tc,
                                 },
                             );
+                        }
+                        self.trigger_autosave();
+                    } else if !self.selected_info_graph_node_ids.is_empty() {
+                        let to_remove: Vec<NodeId> = self.selected_info_graph_node_ids.drain().collect();
+                        self.selected_info_graph_node_id = None;
+                        self.selected_info_class_id = None;
+                        for node_id in to_remove {
+                            let class_id = self
+                                .project
+                                .information_graph()
+                                .find_node(node_id)
+                                .map(|n| n.class_id());
+                            self.project.information_graph_mut().remove_node(node_id);
+                            if let Some(cid) = class_id {
+                                self.broadcast_mutation(
+                                    &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeRemoved(
+                                        cid,
+                                    ),
+                                );
+                            }
                         }
                         self.trigger_autosave();
                     } else if let Some(node_id) = self.selected_info_graph_node_id.take() {
@@ -3568,6 +3634,42 @@ impl App {
                     cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
                 }
                 self.broadcast_node_moved_throttled(node_id, final_x, final_y);
+                self.trigger_autosave();
+            }
+            Message::GraphNodesMoved(moves) => {
+                let computed_moves: Vec<(NodeId, f32, f32)> = moves
+                    .iter()
+                    .map(|&(node_id, x, y)| {
+                        let (final_x, final_y) = if self.snap_to_grid {
+                            (
+                                (x / crate::features::concept_model::GRID_SIZE).round()
+                                    * crate::features::concept_model::GRID_SIZE,
+                                (y / crate::features::concept_model::GRID_SIZE).round()
+                                    * crate::features::concept_model::GRID_SIZE,
+                            )
+                        } else {
+                            (x, y)
+                        };
+                        (node_id, final_x, final_y)
+                    })
+                    .collect();
+
+                {
+                    let cg = self.project.concept_graph_mut();
+                    for &(node_id, final_x, final_y) in &computed_moves {
+                        cg.update_node_position(node_id, final_x, final_y);
+                    }
+                    let nodes = cg.nodes().to_vec();
+                    let edges = cg.edges().to_vec();
+                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                    for r in routes {
+                        cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                    }
+                }
+
+                for (node_id, final_x, final_y) in computed_moves {
+                    self.broadcast_node_moved_throttled(node_id, final_x, final_y);
+                }
                 self.trigger_autosave();
             }
             Message::GraphOpenRelationDialog => {
@@ -4349,10 +4451,66 @@ impl App {
                 self.broadcast_node_moved_throttled(broadcast_id, final_x, final_y);
                 self.trigger_autosave();
             }
+            Message::UpdateClassNodesPositions(moves) => {
+                let computed_moves: Vec<(NodeId, f32, f32)> = moves
+                    .iter()
+                    .map(|&(node_id, x, y)| {
+                        let (final_x, final_y) = if self.info_snap_to_grid {
+                            (
+                                (x / crate::features::concept_model::GRID_SIZE).round()
+                                    * crate::features::concept_model::GRID_SIZE,
+                                (y / crate::features::concept_model::GRID_SIZE).round()
+                                    * crate::features::concept_model::GRID_SIZE,
+                            )
+                        } else {
+                            (x, y)
+                        };
+                        (node_id, final_x, final_y)
+                    })
+                    .collect();
+
+                let mut broadcasts: Vec<(Uuid, f32, f32)> = Vec::new();
+                {
+                    let ig = self.project.information_graph_mut();
+                    for &(node_id, final_x, final_y) in &computed_moves {
+                        ig.update_node_position(node_id, final_x, final_y);
+                        let class_id_opt = ig.find_node(node_id).map(|n| n.class_id());
+                        let broadcast_id = class_id_opt.unwrap_or(node_id);
+                        broadcasts.push((broadcast_id, final_x, final_y));
+                    }
+
+                    let d_nodes: Vec<crate::features::concept_model::DiagramNode> =
+                        ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
+                    let d_edges: Vec<crate::features::concept_model::DiagramEdge> =
+                        ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
+                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&d_nodes, &d_edges);
+                    for r in routes {
+                        ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                    }
+                }
+
+                for (broadcast_id, final_x, final_y) in broadcasts {
+                    self.broadcast_node_moved_throttled(broadcast_id, final_x, final_y);
+                }
+                self.trigger_autosave();
+            }
             Message::SelectInfoGraphNode(node_id_opt) => {
                 self.selected_info_graph_node_id = node_id_opt;
+                self.selected_info_graph_node_ids = node_id_opt.into_iter().collect();
                 self.selected_info_edge = None;
                 if let Some(nid) = node_id_opt {
+                    if let Some(node) = self.project.information_graph().find_node(nid) {
+                        self.selected_info_class_id = Some(node.class_id());
+                    }
+                } else {
+                    self.selected_info_class_id = None;
+                }
+            }
+            Message::SelectInfoGraphNodes(ids) => {
+                self.selected_info_graph_node_ids = ids;
+                self.selected_info_graph_node_id = self.selected_info_graph_node_ids.iter().next().copied();
+                self.selected_info_edge = None;
+                if let Some(nid) = self.selected_info_graph_node_id {
                     if let Some(node) = self.project.information_graph().find_node(nid) {
                         self.selected_info_class_id = Some(node.class_id());
                     }
@@ -4364,6 +4522,7 @@ impl App {
                 self.selected_info_edge = edge;
                 if edge.is_some() {
                     self.selected_info_graph_node_id = None;
+                    self.selected_info_graph_node_ids.clear();
                     self.selected_info_class_id = None;
                 }
             }
@@ -6510,6 +6669,7 @@ impl App {
                 self.project.concepts(),
                 self.project.concept_graph(),
                 self.selected_graph_node_id,
+                &self.selected_graph_node_ids,
                 self.selected_edge,
                 &self.concept_model_search,
                 self.canvas_viewport,
@@ -6527,6 +6687,7 @@ impl App {
                 self.project.concepts(),
                 self.selected_info_class_id,
                 self.selected_info_graph_node_id,
+                &self.selected_info_graph_node_ids,
                 self.selected_info_edge,
                 &self.info_class_search,
                 self.info_canvas_viewport,

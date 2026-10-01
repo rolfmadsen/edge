@@ -7598,6 +7598,7 @@ fn test_task_040_canvas_multi_node_selection_and_bulk_move() {
 
     // AC7: App integrationstest for Begrebsmodel og Informationsmodel
     let mut app = App::new_with_path(None);
+    let _ = app.update(Message::SelectTab(kant::ui::app::Tab::ConceptModel));
     let _ = app.update(Message::CreateConceptAtCenter);
     let cid1 = app.selected_graph_node_id().unwrap();
     let _ = app.update(Message::CreateConceptAtCenter);
