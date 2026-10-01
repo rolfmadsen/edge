@@ -7443,3 +7443,188 @@ fn test_task_061_naming_convention_linter_and_ui_feedback() {
         "Klassen skal fortsat kunne gemmes selvom navnet overtræder konventionen (ikke-blokerende linter)"
     );
 }
+
+#[test]
+fn test_task_040_canvas_multi_node_selection_and_bulk_move() {
+    use iced::mouse::{Button, Cursor};
+    use iced::widget::canvas::{Event, Program};
+    use iced::{Point, Rectangle, Size};
+    use kant::features::concept_model::{DiagramEdge, DiagramNode, NodeId, GRID_SIZE};
+    use kant::ui::app::{App, Message};
+    use kant::ui::diagram_canvas::{render_concept_node, CanvasViewport, DiagramCanvas, DiagramCanvasState};
+    use std::collections::HashSet;
+    use std::sync::{Arc, Mutex};
+    use uuid::Uuid;
+
+    // 1. Setup 3 noder på et diagram
+    let n1 = DiagramNode::custom(Uuid::new_v4(), "Begreb 1".to_string(), 100.0, 100.0, 120.0, 60.0);
+    let n2 = DiagramNode::custom(Uuid::new_v4(), "Begreb 2".to_string(), 300.0, 100.0, 120.0, 60.0);
+    let n3 = DiagramNode::custom(Uuid::new_v4(), "Begreb 3".to_string(), 500.0, 100.0, 120.0, 60.0);
+    let nodes = vec![n1.clone(), n2.clone(), n3.clone()];
+    let edges: Vec<DiagramEdge> = vec![];
+
+    let current_selection = Arc::new(Mutex::new(HashSet::new()));
+    let moved_nodes = Arc::new(Mutex::new(Vec::new()));
+
+    let sel_cb = Arc::clone(&current_selection);
+    let mov_cb = Arc::clone(&moved_nodes);
+
+    let canvas = DiagramCanvas::new(
+        &nodes,
+        &edges,
+        None,
+        CanvasViewport::default(),
+        true,
+        false,
+        render_concept_node,
+        |_| (),
+        |_, _, _| (),
+        |_, _| (),
+        |_| (),
+        |_| (),
+    )
+    .on_selection_changed(move |set| {
+        *sel_cb.lock().unwrap() = set;
+    })
+    .on_nodes_moved(move |updates| {
+        *mov_cb.lock().unwrap() = updates;
+    });
+
+    let mut state = DiagramCanvasState::default();
+    let bounds = Rectangle::new(Point::ORIGIN, Size::new(1000.0, 800.0));
+
+    // AC1: Ctrl+Klik Multi-select toggling
+    state.modifiers = iced::keyboard::Modifiers::CTRL;
+    let click_n1 = Point::new(120.0, 120.0);
+    let press_left = Event::Mouse(iced::mouse::Event::ButtonPressed(Button::Left));
+    let _ = canvas.update(&mut state, &press_left, bounds, Cursor::Available(click_n1));
+    assert!(
+        current_selection.lock().unwrap().contains(&n1.id()),
+        "AC1: Ctrl+klik på n1 skal tilføje n1 til udvalget"
+    );
+
+    // Ctrl+klik på n2 skal tilføje n2 uden at fjerne n1
+    let click_n2 = Point::new(320.0, 120.0);
+    let _ = canvas.update(&mut state, &press_left, bounds, Cursor::Available(click_n2));
+    assert!(
+        current_selection.lock().unwrap().contains(&n1.id())
+            && current_selection.lock().unwrap().contains(&n2.id()),
+        "AC1: Ctrl+klik på n2 skal udvide udvalget så både n1 og n2 er valgt"
+    );
+
+    // AC2: Marquee / Rektangulær Drag-Select
+    state.modifiers = iced::keyboard::Modifiers::empty();
+    let empty_drag_start = Point::new(50.0, 50.0);
+    let _ = canvas.update(&mut state, &press_left, bounds, Cursor::Available(empty_drag_start));
+    assert!(state.marquee.is_some(), "AC2: Drag på tomt lærred skal initialisere marquee-tilstand");
+
+    // Flyt mus til (450.0, 200.0) så både n1 og n2 omsluttes, men n3 (ved 500) er udenfor
+    let drag_pos = Point::new(450.0, 200.0);
+    let move_event = Event::Mouse(iced::mouse::Event::CursorMoved { position: drag_pos });
+    let _ = canvas.update(&mut state, &move_event, bounds, Cursor::Available(drag_pos));
+    assert_eq!(state.marquee.unwrap().current, drag_pos);
+
+    // Slip musen for at afslutte marquee select
+    let release_left = Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left));
+    let _ = canvas.update(&mut state, &release_left, bounds, Cursor::Available(drag_pos));
+    assert!(state.marquee.is_none(), "AC2: Marquee skal afsluttes ved ButtonReleased");
+    {
+        let sel = current_selection.lock().unwrap();
+        assert!(sel.contains(&n1.id()), "AC2: n1 skal være valgt via marquee");
+        assert!(sel.contains(&n2.id()), "AC2: n2 skal være valgt via marquee");
+        assert!(!sel.contains(&n3.id()), "AC2: n3 udenfor marquee må IKKE være valgt");
+    }
+
+    // AC3 & AC4: Synkron Flytning og Grid Snapping
+    // Konfigurer canvas med aktuel udvælgelse {n1, n2}
+    let sel_set: HashSet<NodeId> = [n1.id(), n2.id()].into_iter().collect();
+    let mov_cb2 = Arc::clone(&moved_nodes);
+    let canvas_selected = DiagramCanvas::new(
+        &nodes,
+        &edges,
+        Some(n1.id()),
+        CanvasViewport::default(),
+        true,
+        false,
+        render_concept_node,
+        |_| (),
+        |_, _, _| (),
+        |_, _| (),
+        |_| (),
+        |_| (),
+    )
+    .selected_node_ids(sel_set.clone())
+    .on_nodes_moved(move |updates| {
+        *mov_cb2.lock().unwrap() = updates;
+    });
+
+    let mut drag_state = DiagramCanvasState::default();
+    // Start træk på n1 ved (120, 120)
+    let _ = canvas_selected.update(&mut drag_state, &press_left, bounds, Cursor::Available(click_n1));
+    // Træk 40 px til højre og 60 px ned
+    let drag_target = Point::new(160.0, 180.0);
+    let drag_move = Event::Mouse(iced::mouse::Event::CursorMoved { position: drag_target });
+    let _ = canvas_selected.update(&mut drag_state, &drag_move, bounds, Cursor::Available(drag_target));
+
+    {
+        let updates = moved_nodes.lock().unwrap();
+        assert_eq!(updates.len(), 2, "AC3: Begge markerede noder skal modtage flytte-opdatering");
+        let n1_up = updates.iter().find(|(id, _, _)| *id == n1.id()).expect("n1 skal opdateres");
+        let n2_up = updates.iter().find(|(id, _, _)| *id == n2.id()).expect("n2 skal opdateres");
+
+        let delta_x1 = n1_up.1 - 100.0;
+        let delta_y1 = n1_up.2 - 100.0;
+        let delta_x2 = n2_up.1 - 300.0;
+        let delta_y2 = n2_up.2 - 100.0;
+
+        assert_eq!(delta_x1, delta_x2, "AC3: Noder skal parallelforskydes med identisk delta X");
+        assert_eq!(delta_y1, delta_y2, "AC3: Noder skal parallelforskydes med identisk delta Y");
+
+        // AC4: Grid snapping
+        assert_eq!(n1_up.1 % GRID_SIZE, 0.0, "AC4: n1 X skal snappe til GRID_SIZE");
+        assert_eq!(n1_up.2 % GRID_SIZE, 0.0, "AC4: n1 Y skal snappe til GRID_SIZE");
+        assert_eq!(n2_up.1 % GRID_SIZE, 0.0, "AC4: n2 X skal snappe til GRID_SIZE");
+        assert_eq!(n2_up.2 % GRID_SIZE, 0.0, "AC4: n2 Y skal snappe til GRID_SIZE");
+    }
+
+    // AC5: Afmarkering ved klik på tomt lærred uden Ctrl
+    let empty_click = Point::new(50.0, 50.0);
+    let _ = canvas.update(&mut state, &press_left, bounds, Cursor::Available(empty_click));
+    let _ = canvas.update(&mut state, &release_left, bounds, Cursor::Available(empty_click));
+    assert!(
+        current_selection.lock().unwrap().is_empty(),
+        "AC5: Klik på tomt lærred skal nulstille markering"
+    );
+
+    // AC7: App integrationstest for Begrebsmodel og Informationsmodel
+    let mut app = App::new_with_path(None);
+    let _ = app.update(Message::CreateConceptAtCenter);
+    let cid1 = app.selected_graph_node_id().unwrap();
+    let _ = app.update(Message::CreateConceptAtCenter);
+    let cid2 = app.selected_graph_node_id().unwrap();
+
+    let mut multi_concept_ids = HashSet::new();
+    multi_concept_ids.insert(cid1);
+    multi_concept_ids.insert(cid2);
+
+    let _ = app.update(Message::GraphNodesSelected(multi_concept_ids.clone()));
+    assert_eq!(
+        app.selected_graph_node_ids(),
+        &multi_concept_ids,
+        "AC7: App skal registrere samtlige valgte begrebsnoder"
+    );
+
+    // Bulk flytning i App
+    let moves = vec![(cid1, 200.0, 200.0), (cid2, 400.0, 200.0)];
+    let _ = app.update(Message::GraphNodesMoved(moves));
+    let cg = app.project().concept_graph();
+    let node1 = cg.find_node(cid1).unwrap();
+    let node2 = cg.find_node(cid2).unwrap();
+    assert_eq!((node1.x(), node1.y()), (200.0, 200.0));
+    assert_eq!((node2.x(), node2.y()), (400.0, 200.0));
+
+    // Sletning af multimarkerede noder
+    let _ = app.update(Message::GraphDeleteSelected);
+    assert!(app.project().concept_graph().find_node(cid1).is_none());
+    assert!(app.project().concept_graph().find_node(cid2).is_none());
+}
