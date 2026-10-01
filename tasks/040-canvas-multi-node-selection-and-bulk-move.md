@@ -54,6 +54,7 @@ Gøre det muligt for brugeren at markere og flytte flere diagramnoder ad gangen 
 
 ## 📝 Revisions
 - 2026-09-21: Oprettet opgavepakke efter sparring med brugeren.
+- 2026-10-01: Påbegyndt eksekvering via TDD (SPEC -> RED -> GREEN -> REFACTOR -> GAUNTLET).
 
 ---
 
