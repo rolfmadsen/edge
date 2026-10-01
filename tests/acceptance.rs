@@ -8339,5 +8339,135 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         100.0,
         "AC5: Node y skal altid snappe magnetisk til nærmeste multiplum af 20"
     );
+
+    // 6. Fuld Drag-and-Drop livscyklus fra Palet til Canvas via CanvasDropAt
+    use iced::Point;
+    use kant::ui::app::PaletteDragItem;
+
+    // A: Træk begreb fra palet og slip på canvas
+    let concept_drag = Concept::new("Ventesal", "Lokale for passagerer", BelongsToDomain::Yes);
+    let c_drag_id = app.project_mut().add_concept(concept_drag).unwrap();
+    if let Some(node) = app.project().concept_graph().find_node_by_concept(c_drag_id) {
+        let nid = node.id();
+        app.project_mut().concept_graph_mut().remove_node(nid);
+    }
+    assert!(!app.project().concept_graph().is_concept_on_diagram(c_drag_id));
+
+    // Tryk ned på palet
+    let _ = app.update(Message::StartPaletteDrag(PaletteDragItem::Concept(c_drag_id)));
+    // Træk musen over på canvas
+    let _ = app.update(Message::PaletteDragMoved(Point::new(150.0, 150.0)));
+    // Slip over canvas ved (348.6, 211.2) - snapper til (360.0, 220.0)
+    let _ = app.update(Message::CanvasDropAt {
+        x: 348.6,
+        y: 211.2,
+    });
+    assert!(
+        app.project().concept_graph().is_concept_on_diagram(c_drag_id),
+        "AC2: Begreb skal placeres på canvas efter fuld drag-and-drop livscyklus"
+    );
+    let c_node = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(c_drag_id)
+        .unwrap();
+    assert_eq!(
+        c_node.x(),
+        340.0,
+        "Begrebsnode skal snappe til nærmeste 20px gitterpunkt x"
+    );
+    assert_eq!(
+        c_node.y(),
+        220.0,
+        "Begrebsnode skal snappe til nærmeste 20px gitterpunkt y"
+    );
+
+    // B: Træk klasse fra palet og slip på informationscanvas
+    let cls_drag = InformationClass::new("Billetautomat");
+    let cls_drag_id = app
+        .project_mut()
+        .information_model_mut()
+        .add_class(cls_drag);
+    assert!(!app.project().information_graph().is_class_on_diagram(cls_drag_id));
+
+    let _ = app.update(Message::StartPaletteDrag(PaletteDragItem::Class(cls_drag_id)));
+    let _ = app.update(Message::PaletteDragMoved(Point::new(180.0, 200.0)));
+    let _ = app.update(Message::CanvasDropAt {
+        x: 273.8,
+        y: 189.5,
+    });
+    assert!(
+        app.project().information_graph().is_class_on_diagram(cls_drag_id),
+        "AC3: Klasse skal placeres på canvas efter fuld drag-and-drop livscyklus"
+    );
+    let cls_node = app
+        .project()
+        .information_graph()
+        .find_node_by_class(cls_drag_id)
+        .unwrap();
+    assert_eq!(
+        cls_node.x(),
+        280.0,
+        "Klassenode skal snappe til nærmeste 20px gitterpunkt x"
+    );
+    assert_eq!(
+        cls_node.y(),
+        180.0,
+        "Klassenode skal snappe til nærmeste 20px gitterpunkt y"
+    );
+
+    // C: Træk enumeration fra palet og slip på informationscanvas
+    let enum_drag = kant::features::information_model::InformationEnumeration::new(
+        "KøreplanType",
+        vec!["Hverdag".to_string(), "Weekend".to_string()],
+    );
+    let enum_drag_id = app
+        .project_mut()
+        .information_model_mut()
+        .add_enumeration(enum_drag);
+    assert!(!app.project().information_graph().is_class_on_diagram(enum_drag_id));
+
+    let _ = app.update(Message::StartPaletteDrag(PaletteDragItem::Enumeration(enum_drag_id)));
+    let _ = app.update(Message::PaletteDragMoved(Point::new(190.0, 210.0)));
+    let _ = app.update(Message::CanvasDropAt {
+        x: 418.2,
+        y: 263.9,
+    });
+    assert!(
+        app.project().information_graph().is_class_on_diagram(enum_drag_id),
+        "AC3: Enumeration skal placeres på canvas efter fuld drag-and-drop livscyklus"
+    );
+    let enum_node = app
+        .project()
+        .information_graph()
+        .find_node_by_class(enum_drag_id)
+        .unwrap();
+    assert_eq!(
+        enum_node.x(),
+        420.0,
+        "Enumeration-node skal snappe til nærmeste 20px gitterpunkt x"
+    );
+    assert_eq!(
+        enum_node.y(),
+        260.0,
+        "Enumeration-node skal snappe til nærmeste 20px gitterpunkt y"
+    );
+
+    // D: Klik uden træk (afstand <= 4.0px) vælger elementet
+    let cls_click = InformationClass::new("KlikKlasse");
+    let cls_click_id = app
+        .project_mut()
+        .information_model_mut()
+        .add_class(cls_click);
+    let _ = app.update(Message::StartPaletteDrag(PaletteDragItem::Class(
+        cls_click_id,
+    )));
+    let _ = app.update(Message::PaletteDragMoved(Point::new(191.0, 211.0)));
+    let _ = app.update(Message::PaletteDragDropped);
+    assert_eq!(
+        app.selected_info_class_id(),
+        Some(cls_click_id),
+        "Enkeltklik uden træk skal vælge klassen"
+    );
 }
 

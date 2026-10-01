@@ -4,14 +4,15 @@ use crate::ui::app::{Message, NodeOption, PaletteDragItem, RelationDialogState};
 use crate::ui::concept_editor::{ConceptEditorState, ConceptFormField};
 use crate::ui::diagram_canvas::{render_concept_node, CanvasViewport, DiagramCanvas};
 use crate::ui::theme::{
-    card_container_style, danger_button_style, list_item_button, modern_input_style,
-    pill_container_style, primary_button_style, secondary_button_style, ThemeColors,
+    card_container_style, danger_button_style, list_item_button, list_item_container_style,
+    modern_input_style, pill_container_style, primary_button_style, secondary_button_style,
+    ThemeColors,
 };
 use iced::widget::{
     button, checkbox, column, container, mouse_area, pick_list, row, scrollable, text, text_input,
     Space,
 };
-use iced::{Alignment, Color, Element, Length};
+use iced::{Alignment, Color, Element, Length, mouse};
 
 #[allow(clippy::too_many_arguments)]
 pub fn view<'a>(
@@ -27,6 +28,7 @@ pub fn view<'a>(
     editor_state: Option<&'a ConceptEditorState>,
     relation_dialog: Option<&'a RelationDialogState>,
     show_left_sidebar: bool,
+    is_palette_dragging: bool,
 ) -> Element<'a, Message> {
     // ==========================================
     // 1. VENSTRE PALET (Repository Browser ~240px)
@@ -103,34 +105,39 @@ pub fn view<'a>(
         let is_local = concept.belongs_to_domain().is_local();
         let subtitle = if is_local { "Lokalt" } else { "Indlånt" };
 
-        let item_btn = button(
-            column![
-                text(concept.preferred_term())
-                    .size(13)
-                    .color(if is_selected {
-                        ThemeColors::PRIMARY
-                    } else {
-                        ThemeColors::SLATE_900
-                    }),
-                text(subtitle).size(10).color(ThemeColors::TEXT_MUTED),
-            ]
-            .width(Length::Fill),
-        )
-        .style(list_item_button(is_selected))
-        .on_press(if let Some(nid) = node_id {
-            Message::GraphNodeSelected(Some(nid))
-        } else {
-            Message::AddConceptToDiagram(concept_id)
-        })
-        .width(Length::Fill)
-        .padding([4, 6]);
+        let item_content = column![
+            text(concept.preferred_term())
+                .size(13)
+                .color(if is_selected {
+                    ThemeColors::PRIMARY
+                } else {
+                    ThemeColors::SLATE_900
+                }),
+            text(subtitle).size(10).color(ThemeColors::TEXT_MUTED),
+        ]
+        .width(Length::Fill);
 
         let item_widget: Element<'a, Message> = if !is_on_canvas {
-            mouse_area(item_btn)
-                .on_press(Message::StartPaletteDrag(PaletteDragItem::Concept(concept_id)))
-                .into()
+            mouse_area(
+                container(item_content)
+                    .style(list_item_container_style(is_selected))
+                    .width(Length::Fill)
+                    .padding([4, 6]),
+            )
+            .interaction(mouse::Interaction::Grab)
+            .on_press(Message::StartPaletteDrag(PaletteDragItem::Concept(concept_id)))
+            .into()
         } else {
-            item_btn.into()
+            button(item_content)
+                .style(list_item_button(is_selected))
+                .on_press(if let Some(nid) = node_id {
+                    Message::GraphNodeSelected(Some(nid))
+                } else {
+                    Message::AddConceptToDiagram(concept_id)
+                })
+                .width(Length::Fill)
+                .padding([4, 6])
+                .into()
         };
 
         let item_row = container(
@@ -200,7 +207,9 @@ pub fn view<'a>(
         .on_nodes_moved(Message::GraphNodesMoved)
         .selected_edge(selected_edge)
         .on_edge_selected(Message::GraphEdgeSelected)
-        .on_edge_created(Message::GraphEdgeCreated),
+        .on_edge_created(Message::GraphEdgeCreated)
+        .is_palette_dragging(is_palette_dragging)
+        .on_canvas_drop(|x, y| Message::CanvasDropAt { x, y }),
     )
     .width(Length::Fill)
     .height(Length::Fill);

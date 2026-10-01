@@ -13,14 +13,15 @@ use crate::ui::diagram_canvas::{
     DiagramCanvas,
 };
 use crate::ui::theme::{
-    card_container_style, danger_button_style, list_item_button, modern_input_style,
-    pill_container_style, primary_button_style, secondary_button_style, ThemeColors,
+    card_container_style, danger_button_style, list_item_button, list_item_container_style,
+    modern_input_style, pill_container_style, primary_button_style, secondary_button_style,
+    ThemeColors,
 };
 use iced::widget::{
     button, checkbox, column, container, mouse_area, pick_list, row, scrollable, text,
     text_input, Space,
 };
-use iced::{Alignment, Color, Element, Length};
+use iced::{Alignment, Color, Element, Length, mouse};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,6 +52,7 @@ pub fn view<'a>(
     is_space_pressed: bool,
     relation_dialog: Option<&'a RelationDialogState>,
     show_left_sidebar: bool,
+    is_palette_dragging: bool,
 ) -> Element<'a, Message> {
     let existing_class_names: std::collections::HashSet<String> = info_model
         .classes()
@@ -184,26 +186,31 @@ pub fn view<'a>(
             );
         }
 
-        let item_btn = button(
-            column![
-                title_row,
-                text(format!("{} attr", attr_count))
-                    .size(10)
-                    .color(ThemeColors::TEXT_MUTED),
-            ]
-            .width(Length::Fill),
-        )
-        .style(list_item_button(is_selected))
-        .on_press(Message::SelectInformationClass(Some(class_id)))
-        .width(Length::Fill)
-        .padding([4, 6]);
+        let item_content = column![
+            title_row,
+            text(format!("{} attr", attr_count))
+                .size(10)
+                .color(ThemeColors::TEXT_MUTED),
+        ]
+        .width(Length::Fill);
 
         let item_widget: Element<'a, Message> = if !is_on_canvas {
-            mouse_area(item_btn)
-                .on_press(Message::StartPaletteDrag(PaletteDragItem::Class(class_id)))
-                .into()
+            mouse_area(
+                container(item_content)
+                    .style(list_item_container_style(is_selected))
+                    .width(Length::Fill)
+                    .padding([4, 6]),
+            )
+            .interaction(mouse::Interaction::Grab)
+            .on_press(Message::StartPaletteDrag(PaletteDragItem::Class(class_id)))
+            .into()
         } else {
-            item_btn.into()
+            button(item_content)
+                .style(list_item_button(is_selected))
+                .on_press(Message::SelectInformationClass(Some(class_id)))
+                .width(Length::Fill)
+                .padding([4, 6])
+                .into()
         };
 
         let item_row = container(
@@ -304,26 +311,31 @@ pub fn view<'a>(
         .spacing(4)
         .align_y(Alignment::Center);
 
-        let item_btn = button(
-            column![
-                title_row,
-                text(format!("{} værdier", val_count))
-                    .size(10)
-                    .color(ThemeColors::TEXT_MUTED),
-            ]
-            .width(Length::Fill),
-        )
-        .style(list_item_button(is_selected))
-        .on_press(Message::SelectInformationEnumeration(Some(enum_id)))
-        .width(Length::Fill)
-        .padding([4, 6]);
+        let item_content = column![
+            title_row,
+            text(format!("{} værdier", val_count))
+                .size(10)
+                .color(ThemeColors::TEXT_MUTED),
+        ]
+        .width(Length::Fill);
 
         let item_widget: Element<'a, Message> = if !is_on_canvas {
-            mouse_area(item_btn)
-                .on_press(Message::StartPaletteDrag(PaletteDragItem::Enumeration(enum_id)))
-                .into()
+            mouse_area(
+                container(item_content)
+                    .style(list_item_container_style(is_selected))
+                    .width(Length::Fill)
+                    .padding([4, 6]),
+            )
+            .interaction(mouse::Interaction::Grab)
+            .on_press(Message::StartPaletteDrag(PaletteDragItem::Enumeration(enum_id)))
+            .into()
         } else {
-            item_btn.into()
+            button(item_content)
+                .style(list_item_button(is_selected))
+                .on_press(Message::SelectInformationEnumeration(Some(enum_id)))
+                .width(Length::Fill)
+                .padding([4, 6])
+                .into()
         };
 
         let item_row = container(
@@ -475,7 +487,9 @@ pub fn view<'a>(
         .on_nodes_moved(Message::UpdateClassNodesPositions)
         .selected_edge(selected_edge)
         .on_edge_selected(Message::InfoEdgeSelected)
-        .on_edge_created(Message::InfoEdgeCreated),
+        .on_edge_created(Message::InfoEdgeCreated)
+        .is_palette_dragging(is_palette_dragging)
+        .on_canvas_drop(|x, y| Message::CanvasDropAt { x, y }),
     )
     .width(Length::Fill)
     .height(Length::Fill);

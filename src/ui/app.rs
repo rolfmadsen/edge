@@ -865,6 +865,7 @@ pub enum Message {
     StartPaletteDrag(PaletteDragItem),
     PaletteDragMoved(Point),
     PaletteDragDropped,
+    CanvasDropAt { x: f32, y: f32 },
 }
 
 pub struct App {
@@ -5757,43 +5758,30 @@ impl App {
                 self.last_cursor_pos = pos;
                 if let Some(ref mut drag) = self.palette_drag {
                     let dist = (pos.x - drag.start_pos.x).hypot(pos.y - drag.start_pos.y);
-                    if dist > 6.0 {
+                    if dist > 4.0 {
                         drag.is_dragging = true;
                         drag.current_pos = pos;
                     }
                 }
             }
+            Message::CanvasDropAt { x, y } => {
+                if let Some(drag) = self.palette_drag.take() {
+                    match drag.item {
+                        PaletteDragItem::Concept(cid) => {
+                            return self.update(Message::AddConceptToDiagramAt(cid, x, y));
+                        }
+                        PaletteDragItem::Class(cid) => {
+                            return self.update(Message::AddClassToDiagramAt(cid, x, y));
+                        }
+                        PaletteDragItem::Enumeration(eid) => {
+                            return self.update(Message::AddEnumerationToDiagramAt(eid, x, y));
+                        }
+                    }
+                }
+            }
             Message::PaletteDragDropped => {
                 if let Some(drag) = self.palette_drag.take() {
-                    if drag.is_dragging {
-                        let canvas_start_x = if self.show_left_sidebar { 252.0 } else { 12.0 };
-                        let canvas_start_y = 96.0;
-                        if drag.current_pos.x >= canvas_start_x && drag.current_pos.y >= canvas_start_y {
-                            let local_x = drag.current_pos.x - canvas_start_x;
-                            let local_y = drag.current_pos.y - canvas_start_y;
-                            match self.active_tab {
-                                Tab::ConceptModel => {
-                                    if let PaletteDragItem::Concept(cid) = drag.item {
-                                        let world = self.canvas_viewport.to_world(Point::new(local_x, local_y));
-                                        return self.update(Message::AddConceptToDiagramAt(cid, world.x, world.y));
-                                    }
-                                }
-                                Tab::InformationModel => {
-                                    let world = self.info_canvas_viewport.to_world(Point::new(local_x, local_y));
-                                    match drag.item {
-                                        PaletteDragItem::Class(cid) => {
-                                            return self.update(Message::AddClassToDiagramAt(cid, world.x, world.y));
-                                        }
-                                        PaletteDragItem::Enumeration(eid) => {
-                                            return self.update(Message::AddEnumerationToDiagramAt(eid, world.x, world.y));
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                                _ => {}
-                            }
-                        }
-                    } else {
+                    if !drag.is_dragging {
                         // Click without drag -> select or add
                         match drag.item {
                             PaletteDragItem::Concept(cid) => {
@@ -7481,6 +7469,7 @@ impl App {
                 self.editor_state.as_ref(),
                 self.relation_dialog.as_ref(),
                 self.show_left_sidebar,
+                self.palette_drag.as_ref().is_some_and(|d| d.is_dragging),
             ),
 
             Tab::InformationModel => information_model_view::view(
@@ -7498,6 +7487,7 @@ impl App {
                 self.is_space_pressed,
                 self.info_relation_dialog.as_ref(),
                 self.show_left_sidebar,
+                self.palette_drag.as_ref().is_some_and(|d| d.is_dragging),
             ),
         };
 
@@ -7631,34 +7621,118 @@ impl App {
             .height(Length::Fill)
             .into();
 
-        if let Some(modal) = maybe_conflict_resolver_modal {
-            stack![base_layout, modal].into()
-        } else if let Some(modal) = maybe_history_modal {
-            stack![base_layout, modal].into()
-        } else if let Some(modal) = maybe_publish_modal {
-            stack![base_layout, modal].into()
-        } else if let Some(modal) = maybe_git_connection_modal {
-            stack![base_layout, modal].into()
-        } else if let Some(modal) = maybe_git_clone_modal {
-            stack![base_layout, modal].into()
-        } else if let Some(modal) = maybe_metadata_modal {
-            stack![base_layout, modal].into()
-        } else if let Some(modal) = maybe_start_session_modal {
-            stack![base_layout, modal].into()
-        } else if let Some(modal) = maybe_join_session_modal {
-            stack![base_layout, modal].into()
-        } else if let Some(modal) = maybe_guest_ended_modal {
-            stack![base_layout, modal].into()
-        } else if let Some(modal) = maybe_file_dialog_modal {
-            stack![base_layout, modal].into()
-        } else if let Some(modal) = maybe_relation_modal {
-            stack![base_layout, modal].into()
-        } else if let Some(modal) = maybe_quick_create_modal {
-            stack![base_layout, modal].into()
-        } else if let Some(menu) = maybe_menu_overlay {
-            stack![base_layout, menu].into()
+        let maybe_drag_ghost: Option<Element<Message>> = self.palette_drag.as_ref().and_then(|drag| {
+            if !drag.is_dragging {
+                return None;
+            }
+            let (icon, label, tag_color) = match drag.item {
+                PaletteDragItem::Concept(cid) => {
+                    let term = self
+                        .project
+                        .concepts()
+                        .iter()
+                        .find(|c| c.id() == cid)
+                        .map(|c| c.preferred_term().to_string())
+                        .unwrap_or_else(|| "Begreb".to_string());
+                    ("💡", term, ThemeColors::PRIMARY)
+                }
+                PaletteDragItem::Class(cid) => {
+                    let name = self
+                        .project
+                        .information_model()
+                        .get_class(cid)
+                        .map(|c| c.name().to_string())
+                        .unwrap_or_else(|| "Klasse".to_string());
+                    ("🏛️", name, ThemeColors::PRIMARY)
+                }
+                PaletteDragItem::Enumeration(eid) => {
+                    let name = self
+                        .project
+                        .information_model()
+                        .get_enumeration(eid)
+                        .map(|e| e.name().to_string())
+                        .unwrap_or_else(|| "Enumeration".to_string());
+                    ("🔢", name, ThemeColors::ACCENT_GREEN)
+                }
+            };
+
+            let ghost_card = container(
+                row![
+                    text(icon).size(13),
+                    Space::new().width(4),
+                    text(label).size(12).color(tag_color),
+                    Space::new().width(6),
+                    container(text("Slip på lærred").size(9).color(ThemeColors::TEXT_MUTED))
+                        .style(pill_container_style)
+                        .padding([1, 4]),
+                ]
+                .align_y(Alignment::Center),
+            )
+            .style(move |_| container::Style {
+                background: Some(iced::Background::Color(iced::Color::from_rgba(1.0, 1.0, 1.0, 0.94))),
+                border: iced::Border {
+                    color: tag_color,
+                    width: 1.5,
+                    radius: 6.0.into(),
+                },
+                shadow: iced::Shadow {
+                    color: iced::Color::from_rgba(0.0, 0.0, 0.0, 0.15),
+                    offset: iced::Vector::new(2.0, 4.0),
+                    blur_radius: 8.0,
+                },
+                ..Default::default()
+            })
+            .padding([6, 10]);
+
+            let overlay = container(
+                column![
+                    Space::new().height(Length::Fixed((drag.current_pos.y + 12.0).max(0.0))),
+                    row![
+                        Space::new().width(Length::Fixed((drag.current_pos.x + 12.0).max(0.0))),
+                        ghost_card,
+                    ],
+                ],
+            )
+            .width(Length::Fill)
+            .height(Length::Fill);
+
+            Some(overlay.into())
+        });
+
+        let layered_layout: Element<Message> = if let Some(ghost) = maybe_drag_ghost {
+            stack![base_layout, ghost].into()
         } else {
             base_layout
+        };
+
+        if let Some(modal) = maybe_conflict_resolver_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(modal) = maybe_history_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(modal) = maybe_publish_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(modal) = maybe_git_connection_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(modal) = maybe_git_clone_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(modal) = maybe_metadata_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(modal) = maybe_start_session_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(modal) = maybe_join_session_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(modal) = maybe_guest_ended_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(modal) = maybe_file_dialog_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(modal) = maybe_relation_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(modal) = maybe_quick_create_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(menu) = maybe_menu_overlay {
+            stack![layered_layout, menu].into()
+        } else {
+            layered_layout
         }
     }
 

@@ -417,6 +417,44 @@ pub fn list_item_button(
     }
 }
 
+pub fn list_item_container_style(
+    is_selected: bool,
+) -> impl Fn(&iced::Theme) -> container::Style {
+    move |_theme| {
+        if is_selected {
+            container::Style {
+                background: Some(Background::Color(Color::from_rgba(0.91, 0.95, 0.99, 0.92))),
+                border: Border {
+                    color: ThemeColors::PRIMARY,
+                    width: 1.5,
+                    radius: 8.0.into(),
+                },
+                shadow: Shadow {
+                    color: Color::from_rgba(0.08, 0.38, 0.74, 0.12),
+                    offset: Vector::new(0.0, 2.0),
+                    blur_radius: 4.0,
+                },
+                ..Default::default()
+            }
+        } else {
+            container::Style {
+                background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.85))),
+                border: Border {
+                    color: Color::from_rgba(0.88, 0.91, 0.94, 0.85),
+                    width: 1.0,
+                    radius: 8.0.into(),
+                },
+                shadow: Shadow {
+                    color: Color::from_rgba(0.0, 0.0, 0.0, 0.02),
+                    offset: Vector::new(0.0, 1.0),
+                    blur_radius: 2.0,
+                },
+                ..Default::default()
+            }
+        }
+    }
+}
+
 // -----------------------------------------------------------------------------
 // Input Styles
 // -----------------------------------------------------------------------------

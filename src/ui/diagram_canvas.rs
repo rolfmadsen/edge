@@ -423,6 +423,7 @@ where
     selected_edge: Option<(NodeId, NodeId)>,
     viewport: CanvasViewport,
     is_space_pressed: bool,
+    is_palette_dragging: bool,
     render_node: R,
     on_node_selected: Box<dyn Fn(Option<NodeId>) -> Message + 'a>,
     on_selection_changed: Option<SelectionChangeHandler<'a, Message>>,
@@ -433,6 +434,7 @@ where
     on_canvas_double_clicked: Box<dyn Fn(f32, f32) -> Message + 'a>,
     on_node_double_clicked: Box<dyn Fn(NodeId) -> Message + 'a>,
     on_viewport_changed: Box<dyn Fn(CanvasViewport) -> Message + 'a>,
+    on_canvas_drop: Option<Box<dyn Fn(f32, f32) -> Message + 'a>>,
 }
 
 impl<'a, Message, N, E, R> DiagramCanvas<'a, Message, N, E, R>
@@ -463,6 +465,7 @@ where
             selected_edge: None,
             viewport,
             is_space_pressed,
+            is_palette_dragging: false,
             render_node,
             on_node_selected: Box::new(on_node_selected),
             on_selection_changed: None,
@@ -473,7 +476,18 @@ where
             on_canvas_double_clicked: Box::new(on_canvas_double_clicked),
             on_node_double_clicked: Box::new(on_node_double_clicked),
             on_viewport_changed: Box::new(on_viewport_changed),
+            on_canvas_drop: None,
         }
+    }
+
+    pub fn is_palette_dragging(mut self, is_dragging: bool) -> Self {
+        self.is_palette_dragging = is_dragging;
+        self
+    }
+
+    pub fn on_canvas_drop(mut self, handler: impl Fn(f32, f32) -> Message + 'a) -> Self {
+        self.on_canvas_drop = Some(Box::new(handler));
+        self
     }
 
     pub fn selected_node_ids(mut self, ids: impl IntoIterator<Item = NodeId>) -> Self {
@@ -1118,6 +1132,14 @@ where
                     state.dragging_node = None;
                     return Some(Action::capture());
                 }
+
+                if self.is_palette_dragging {
+                    if let Some(ref on_canvas_drop) = self.on_canvas_drop {
+                        let world_pos = self.viewport.to_world(cursor_pos);
+                        return Some(Action::publish((on_canvas_drop)(world_pos.x, world_pos.y)).and_capture());
+                    }
+                }
+
                 None
             }
             _ => None,
@@ -1130,7 +1152,7 @@ where
         renderer: &Renderer,
         _theme: &Theme,
         bounds: Rectangle,
-        _cursor: mouse::Cursor,
+        cursor: mouse::Cursor,
     ) -> Vec<Geometry> {
         let mut frame = Frame::new(renderer, bounds.size());
 
@@ -1168,6 +1190,27 @@ where
         // 2. Transformer resten af tegningen via frame transformation
         frame.translate(self.viewport.pan());
         frame.scale(self.viewport.zoom());
+
+        // 2a. Svævende snap-forhåndsvisning ved træk fra palet
+        if self.is_palette_dragging {
+            if let Some(cursor_pos) = cursor.position_in(bounds) {
+                let world_pos = self.viewport.to_world(cursor_pos);
+                let snapped_x = (world_pos.x / GRID_SIZE).round() * GRID_SIZE;
+                let snapped_y = (world_pos.y / GRID_SIZE).round() * GRID_SIZE;
+                let preview_rect = Path::rounded_rectangle(
+                    Point::new(snapped_x, snapped_y),
+                    Size::new(140.0, 60.0),
+                    8.0.into(),
+                );
+                frame.fill(&preview_rect, Color::from_rgba(0.23, 0.51, 0.96, 0.12));
+                frame.stroke(
+                    &preview_rect,
+                    Stroke::default()
+                        .with_color(ThemeColors::PRIMARY)
+                        .with_width(1.5),
+                );
+            }
+        }
 
         // 3. Deterministisk ortogonal edge routing
         let diagram_nodes: Vec<DiagramNode> =
