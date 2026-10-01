@@ -21,7 +21,7 @@ Gøre det muligt for brugeren at markere og flytte flere diagramnoder ad gangen 
 
 1. **Multi-Node Markering**:
    - **Ctrl / Cmd + Klik**: Toggler udvælgelsen af en node. Hvis noden allerede er valgt, fravælges den. Hvis den ikke er valgt, føjes den til udvalget uden at afmarkere de øvrige noder.
-   - **Rektangulær Drag-Select (Marquee / Box-select)**: Klik og træk på tomt lærred (når der ikke panoreres med Space eller midterklik) danner en visuel, semi-transparent markeringsramme. Ved mus-slip (release) tilføjes alle noder, der overlapper eller omsluttes af rektanglet, til markeringen.
+   - **Rektangulær Drag-Select (Marquee / Box-select)**: Klik og træk på tomt lærred (når der ikke panoreres med Space eller midterklik) danner en visuel, semi-transparent markeringsramme. Ved mus-slip (release) tilføjes kun de noder, der er fuldt omsluttet af rektanglet (containment/enclosure), til markeringen.
    - **Afmarkering**: Enkeltklik på tomt lærred uden Ctrl/Cmd rydder alle markeringer.
 2. **Synkron Bulk Forskydning (Drag Move)**:
    - Når brugeren trækker i en af de markerede noder, flyttes samtlige aktuelt markerede noder synkront med samme relative delta $(\Delta x, \Delta y)$.
@@ -35,7 +35,7 @@ Gøre det muligt for brugeren at markere og flytte flere diagramnoder ad gangen 
 
 ## 📋 Acceptance Criteria
 - [x] **AC1 - Ctrl/Cmd + Klik Multi-select**: Ved klik på en node med tastatur-modifikatoren `Ctrl` eller `Cmd` aktiv toggles nodens tilstedeværelse i udvalget (`selected_node_ids: HashSet<NodeId>`).
-- [x] **AC2 - Marquee / Box Drag-Select**: Klik og træk på tomt lærred genererer en synlig markeringsramme (theme stroke & dæmpet fill). Noder inden for rammen vælges ved release.
+- [x] **AC2 - Marquee / Box Drag-Select**: Klik og træk på tomt lærred genererer en synlig markeringsramme (theme stroke & dæmpet fill). Kun noder der er fuldt omsluttet af rammen vælges ved release (delvist overlappede noder ignoreres).
 - [x] **AC3 - Synkron Flytning af Noder**: Ved træk i en markeret node forskyder alle aktuelt markerede noder sig med identisk $(\Delta x, \Delta y)$.
 - [x] **AC4 - Grid Snapping ved Bulk Move**: Snap-to-grid beregnes konsistent for positionerne.
 - [x] **AC5 - Afmarkering**: Almindeligt klik på tomt lærred uden `Ctrl`/`Cmd` nulstiller markeringen.
@@ -56,6 +56,7 @@ Gøre det muligt for brugeren at markere og flytte flere diagramnoder ad gangen 
 - 2026-09-21: Oprettet opgavepakke efter sparring med brugeren.
 - 2026-10-01: Påbegyndt eksekvering via TDD (SPEC -> RED -> GREEN -> REFACTOR -> GAUNTLET).
 - 2026-10-01: Implementeret multi-node selection, marquee drag-select, og bulk move med grid snapping. Alle enhedstests og accepttests verificeret. Opgave markeret DONE.
+- 2026-10-01: Skærpet marquee drag-select til fuld omslutning (containment) efter feedback fra bruger, så delvist overlappede noder ikke fejlagtigt inkluderes.
 
 ---
 
