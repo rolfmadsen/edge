@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 040: Multi-Node Markering og Bulk Forskydning på Diagram Lærred (Ctrl+Klik & Drag-Select)"
 description: "Masse-markering via Ctrl/Cmd+Klik og rektangulær drag-select samt synkron parallelforskydning af flere noder på lærredet for begrebs- og informationsmodel"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-21T21:30:00Z" }
 tags: [canvas, selection, multi-select, bulk-move, drag-select, marquee, ergonomics]
 ---
 
 # Task 040: Multi-Node Markering og Bulk Forskydning på Diagram Lærred (Ctrl+Klik & Drag-Select)
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🚀 `NEW FEATURE`  
 **Oprettet**: `2026-09-21`  
 **Scope**: `src/ui/diagram_canvas.rs`, `src/ui/concept_model_view.rs`, `src/ui/information_model_view.rs`, `src/ui/app.rs`, `tests/acceptance.rs`
@@ -34,13 +34,13 @@ Gøre det muligt for brugeren at markere og flytte flere diagramnoder ad gangen 
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Ctrl/Cmd + Klik Multi-select**: Ved klik på en node med tastatur-modifikatoren `Ctrl` eller `Cmd` aktiv toggles nodens tilstedeværelse i udvalget (`selected_node_ids: HashSet<NodeId>`).
-- [ ] **AC2 - Marquee / Box Drag-Select**: Klik og træk på tomt lærred genererer en synlig markeringsramme (theme stroke & dæmpet fill). Noder inden for rammen vælges ved release.
-- [ ] **AC3 - Synkron Flytning af Noder**: Ved træk i en markeret node forskyder alle aktuelt markerede noder sig med identisk $(\Delta x, \Delta y)$.
-- [ ] **AC4 - Grid Snapping ved Bulk Move**: Snap-to-grid beregnes konsistent for positionerne.
-- [ ] **AC5 - Afmarkering**: Almindeligt klik på tomt lærred uden `Ctrl`/`Cmd` nulstiller markeringen.
-- [ ] **AC6 - Bevarelse af Eksisterende Canvas-Funktioner**: Enkelt-node træk, forbindelseshåndtag (connect-handle drag), dobbeltklik og panorering (Space + træk el. midterklik) fungerer uændret.
-- [ ] **AC7 - Verifikation via Accepttest**: `test_task_040_canvas_multi_node_selection_and_bulk_move` beviser at både Ctrl-klik, marquee-udvælgelse og koordinatforskydning af multiple noder fungerer fejlfrit.
+- [x] **AC1 - Ctrl/Cmd + Klik Multi-select**: Ved klik på en node med tastatur-modifikatoren `Ctrl` eller `Cmd` aktiv toggles nodens tilstedeværelse i udvalget (`selected_node_ids: HashSet<NodeId>`).
+- [x] **AC2 - Marquee / Box Drag-Select**: Klik og træk på tomt lærred genererer en synlig markeringsramme (theme stroke & dæmpet fill). Noder inden for rammen vælges ved release.
+- [x] **AC3 - Synkron Flytning af Noder**: Ved træk i en markeret node forskyder alle aktuelt markerede noder sig med identisk $(\Delta x, \Delta y)$.
+- [x] **AC4 - Grid Snapping ved Bulk Move**: Snap-to-grid beregnes konsistent for positionerne.
+- [x] **AC5 - Afmarkering**: Almindeligt klik på tomt lærred uden `Ctrl`/`Cmd` nulstiller markeringen.
+- [x] **AC6 - Bevarelse af Eksisterende Canvas-Funktioner**: Enkelt-node træk, forbindelseshåndtag (connect-handle drag), dobbeltklik og panorering (Space + træk el. midterklik) fungerer uændret.
+- [x] **AC7 - Verifikation via Accepttest**: `test_task_040_canvas_multi_node_selection_and_bulk_move` beviser at både Ctrl-klik, marquee-udvælgelse og koordinatforskydning af multiple noder fungerer fejlfrit.
 
 ---
 
@@ -55,6 +55,7 @@ Gøre det muligt for brugeren at markere og flytte flere diagramnoder ad gangen 
 ## 📝 Revisions
 - 2026-09-21: Oprettet opgavepakke efter sparring med brugeren.
 - 2026-10-01: Påbegyndt eksekvering via TDD (SPEC -> RED -> GREEN -> REFACTOR -> GAUNTLET).
+- 2026-10-01: Implementeret multi-node selection, marquee drag-select, og bulk move med grid snapping. Alle enhedstests og accepttests verificeret. Opgave markeret DONE.
 
 ---
 
