@@ -556,6 +556,164 @@ impl InformationClass {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClassRelation {
+    #[serde(default = "Uuid::new_v4")]
+    id: Uuid,
+    from_class: Uuid,
+    to_class: Uuid,
+    kind: RelationKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    label: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_port: Option<PortSide>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    target_port: Option<PortSide>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    directed: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_multiplicity: Option<Multiplicity>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    target_multiplicity: Option<Multiplicity>,
+}
+
+impl ClassRelation {
+    pub fn new(
+        from_class: Uuid,
+        to_class: Uuid,
+        kind: RelationKind,
+        label: Option<String>,
+    ) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            from_class,
+            to_class,
+            kind,
+            label,
+            source_port: None,
+            target_port: None,
+            directed: if kind == RelationKind::Association {
+                Some(true)
+            } else {
+                None
+            },
+            source_multiplicity: None,
+            target_multiplicity: None,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_multiplicities(
+        from_class: Uuid,
+        to_class: Uuid,
+        kind: RelationKind,
+        label: Option<String>,
+        source_port: Option<PortSide>,
+        target_port: Option<PortSide>,
+        directed: Option<bool>,
+        source_multiplicity: Option<Multiplicity>,
+        target_multiplicity: Option<Multiplicity>,
+    ) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            from_class,
+            to_class,
+            kind,
+            label,
+            source_port,
+            target_port,
+            directed,
+            source_multiplicity,
+            target_multiplicity,
+        }
+    }
+
+    pub fn id(&self) -> Uuid {
+        self.id
+    }
+
+    pub fn from_class(&self) -> Uuid {
+        self.from_class
+    }
+
+    pub fn to_class(&self) -> Uuid {
+        self.to_class
+    }
+
+    pub fn kind(&self) -> RelationKind {
+        self.kind
+    }
+
+    pub fn set_kind(&mut self, kind: RelationKind) {
+        self.kind = kind;
+        if kind == RelationKind::Association && self.directed.is_none() {
+            self.directed = Some(true);
+        }
+    }
+
+    pub fn label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+
+    pub fn set_label(&mut self, label: Option<String>) {
+        self.label = label;
+    }
+
+    pub fn source_port(&self) -> Option<PortSide> {
+        self.source_port
+    }
+
+    pub fn target_port(&self) -> Option<PortSide> {
+        self.target_port
+    }
+
+    pub fn set_ports(&mut self, source_port: Option<PortSide>, target_port: Option<PortSide>) {
+        self.source_port = source_port;
+        self.target_port = target_port;
+    }
+
+    pub fn is_directed(&self) -> bool {
+        if self.kind == RelationKind::Association {
+            self.directed.unwrap_or(true)
+        } else {
+            false
+        }
+    }
+
+    pub fn directed(&self) -> Option<bool> {
+        self.directed
+    }
+
+    pub fn set_directed(&mut self, directed: bool) {
+        self.directed = Some(directed);
+    }
+
+    pub fn source_multiplicity(&self) -> Option<Multiplicity> {
+        self.source_multiplicity
+    }
+
+    pub fn set_source_multiplicity(&mut self, mult: Option<Multiplicity>) {
+        self.source_multiplicity = mult;
+    }
+
+    pub fn target_multiplicity(&self) -> Option<Multiplicity> {
+        self.target_multiplicity
+    }
+
+    pub fn set_target_multiplicity(&mut self, mult: Option<Multiplicity>) {
+        self.target_multiplicity = mult;
+    }
+
+    pub fn reverse(&mut self) {
+        std::mem::swap(&mut self.from_class, &mut self.to_class);
+        std::mem::swap(&mut self.source_port, &mut self.target_port);
+        std::mem::swap(
+            &mut self.source_multiplicity,
+            &mut self.target_multiplicity,
+        );
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct InformationModel {
     classes: Vec<InformationClass>,
@@ -563,6 +721,8 @@ pub struct InformationModel {
     enumerations: Vec<InformationEnumeration>,
     #[serde(default)]
     structured_types: Vec<StructuredDataType>,
+    #[serde(default)]
+    relations: Vec<ClassRelation>,
 }
 
 impl InformationModel {
@@ -571,7 +731,65 @@ impl InformationModel {
             classes: Vec::new(),
             enumerations: Vec::new(),
             structured_types: Vec::new(),
+            relations: Vec::new(),
         }
+    }
+
+    pub fn relations(&self) -> &[ClassRelation] {
+        &self.relations
+    }
+
+    pub fn relations_mut(&mut self) -> &mut Vec<ClassRelation> {
+        &mut self.relations
+    }
+
+    pub fn add_relation(&mut self, relation: ClassRelation) -> Uuid {
+        let id = relation.id();
+        if let Some(existing) = self.relations.iter_mut().find(|r| {
+            r.from_class == relation.from_class
+                && r.to_class == relation.to_class
+                && r.kind == relation.kind
+        }) {
+            *existing = relation;
+            return existing.id();
+        }
+        self.relations.push(relation);
+        id
+    }
+
+    pub fn remove_relation(&mut self, from_class: Uuid, to_class: Uuid) -> bool {
+        let prev_len = self.relations.len();
+        self.relations
+            .retain(|r| !(r.from_class == from_class && r.to_class == to_class));
+        self.relations.len() < prev_len
+    }
+
+    pub fn find_relation(&self, from_class: Uuid, to_class: Uuid) -> Option<&ClassRelation> {
+        self.relations
+            .iter()
+            .find(|r| r.from_class == from_class && r.to_class == to_class)
+    }
+
+    pub fn find_relation_mut(
+        &mut self,
+        from_class: Uuid,
+        to_class: Uuid,
+    ) -> Option<&mut ClassRelation> {
+        self.relations
+            .iter_mut()
+            .find(|r| r.from_class == from_class && r.to_class == to_class)
+    }
+
+    pub fn relations_for_class(&self, class_id: Uuid) -> Vec<&ClassRelation> {
+        self.relations
+            .iter()
+            .filter(|r| r.from_class == class_id || r.to_class == class_id)
+            .collect()
+    }
+
+    pub fn remove_relations_for_class(&mut self, class_id: Uuid) {
+        self.relations
+            .retain(|r| r.from_class != class_id && r.to_class != class_id);
     }
 
     pub fn classes(&self) -> &[InformationClass] {

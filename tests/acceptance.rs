@@ -7769,3 +7769,197 @@ fn test_task_040_canvas_multi_node_selection_and_bulk_move() {
     assert!(app.project().concept_graph().find_node(cid1).is_none());
     assert!(app.project().concept_graph().find_node(cid2).is_none());
 }
+
+#[test]
+fn test_task_041_persistent_class_relations_across_canvas_removal() {
+    let mut app = App::new_with_path(None);
+    let _ = app.update(Message::SelectTab(kant::ui::app::Tab::InformationModel));
+
+    // 1. Opret to klasser i informationsmodellen
+    let class_a = InformationClass::new("Køretøj");
+    let class_b = InformationClass::new("Motor");
+    let class_a_id = class_a.id();
+    let class_b_id = class_b.id();
+
+    app.project_mut().information_model_mut().add_class(class_a);
+    app.project_mut().information_model_mut().add_class(class_b);
+
+    // 2. Tilføj begge klasser til canvas
+    let _ = app.update(Message::AddClassToDiagram(class_a_id));
+    let _ = app.update(Message::AddClassToDiagram(class_b_id));
+
+    let node_a_id = app
+        .project()
+        .information_graph()
+        .find_node_by_class(class_a_id)
+        .expect("Klasse A skal have en node på lærredet")
+        .id();
+    let node_b_id = app
+        .project()
+        .information_graph()
+        .find_node_by_class(class_b_id)
+        .expect("Klasse B skal have en node på lærredet")
+        .id();
+
+    // 3. Opret en relation mellem Klasse A og Klasse B
+    let _ = app.update(Message::AddClassRelation(
+        node_a_id,
+        node_b_id,
+        RelationKind::Association,
+        Some("har".to_string()),
+    ));
+    // Sæt multipliciteter på relationen
+    let _ = app.update(Message::InfoUpdateEdgeSourceMultiplicity(
+        node_a_id,
+        node_b_id,
+        Some(Multiplicity::exactly_one()),
+    ));
+    let _ = app.update(Message::InfoUpdateEdgeTargetMultiplicity(
+        node_a_id,
+        node_b_id,
+        Some(Multiplicity::zero_or_more()),
+    ));
+
+    // Verificer initial relationstilstand
+    assert_eq!(
+        app.project().information_graph().edges().len(),
+        1,
+        "Der skal være 1 kant på lærredet"
+    );
+    assert_eq!(
+        app.project().information_model().relations().len(),
+        1,
+        "Der skal være 1 persistent relation i modellen"
+    );
+
+    let initial_rel = &app.project().information_model().relations()[0];
+    assert_eq!(initial_rel.kind(), RelationKind::Association);
+    assert_eq!(initial_rel.label(), Some("har"));
+    assert_eq!(
+        initial_rel.source_multiplicity(),
+        Some(Multiplicity::exactly_one())
+    );
+    assert_eq!(
+        initial_rel.target_multiplicity(),
+        Some(Multiplicity::zero_or_more())
+    );
+
+    // 4. AC1: Fjern Klasse A fra diagrammet (RemoveClassFromDiagram)
+    let _ = app.update(Message::RemoveClassFromDiagram(node_a_id));
+
+    // Verificer at lærredet har 0 kanter og kun 1 node (Klasse B)
+    assert_eq!(
+        app.project().information_graph().nodes().len(),
+        1,
+        "Kun Klasse B skal forblive på lærredet"
+    );
+    assert_eq!(
+        app.project().information_graph().edges().len(),
+        0,
+        "Ingen kanter skal tegnes på lærredet når Klasse A er fjernet"
+    );
+
+    // AC1 Assertion: Relationen skal forblive fuldt bevaret i informationsmodellen
+    assert_eq!(
+        app.project().information_model().relations().len(),
+        1,
+        "AC1: Relationen skal fortsat være bevaret semantisk i informationsmodellen"
+    );
+    let preserved_rel = &app.project().information_model().relations()[0];
+    assert_eq!(preserved_rel.kind(), RelationKind::Association);
+    assert_eq!(preserved_rel.label(), Some("har"));
+    assert_eq!(
+        preserved_rel.source_multiplicity(),
+        Some(Multiplicity::exactly_one())
+    );
+    assert_eq!(
+        preserved_rel.target_multiplicity(),
+        Some(Multiplicity::zero_or_more())
+    );
+
+    // Inspector check: relations_for_class for den fjernede klasse skal returnere relationen
+    assert_eq!(
+        app.project().information_model().relations_for_class(class_a_id).len(),
+        1,
+        "AC1: relations_for_class skal returnere relationen for den skjulte klasse"
+    );
+
+    // 5. AC2: Genindsæt Klasse A på lærredet via AddClassToDiagram
+    let _ = app.update(Message::AddClassToDiagram(class_a_id));
+
+    assert_eq!(
+        app.project().information_graph().nodes().len(),
+        2,
+        "Begge klasser skal nu være på lærredet"
+    );
+
+    // AC2 Assertion: Relationen skal automatisk genopstå på lærredet
+    assert_eq!(
+        app.project().information_graph().edges().len(),
+        1,
+        "AC2: Kanten skal automatisk genopstå på lærredet med alle sine egenskaber"
+    );
+    let restored_edge = &app.project().information_graph().edges()[0];
+    assert_eq!(restored_edge.kind(), RelationKind::Association);
+    assert_eq!(restored_edge.label(), Some("har"));
+    assert_eq!(
+        restored_edge.source_multiplicity(),
+        Some(Multiplicity::exactly_one())
+    );
+    assert_eq!(
+        restored_edge.target_multiplicity(),
+        Some(Multiplicity::zero_or_more())
+    );
+
+    // 6. AC3: Eksplicit sletning af relation
+    let restored_from = restored_edge.from();
+    let restored_to = restored_edge.to();
+    let _ = app.update(Message::DeleteClassRelation(restored_from, restored_to));
+
+    assert_eq!(
+        app.project().information_graph().edges().len(),
+        0,
+        "AC3: Kanten skal være fjernet fra lærredet efter sletning"
+    );
+    assert_eq!(
+        app.project().information_model().relations().len(),
+        0,
+        "AC3: Relationen skal være fjernet permanent fra modellen efter sletning"
+    );
+
+    // 7. AC4: Sletning af klasse kaskaderer
+    // Opret en ny relation
+    let _ = app.update(Message::AddClassRelation(
+        restored_from,
+        restored_to,
+        RelationKind::Generalization,
+        None,
+    ));
+    assert_eq!(app.project().information_model().relations().len(), 1);
+    assert_eq!(app.project().information_graph().edges().len(), 1);
+
+    // Slet Klasse A permanent
+    let _ = app.update(Message::DeleteInformationClass(class_a_id));
+    assert_eq!(
+        app.project().information_model().classes().len(),
+        1,
+        "Klasse A skal være slettet"
+    );
+    assert_eq!(
+        app.project().information_model().relations().len(),
+        0,
+        "AC4: Relationen skal kaskadeslettes permanent når klassen slettes"
+    );
+    assert_eq!(
+        app.project().information_graph().edges().len(),
+        0,
+        "AC4: Kanten på lærredet skal ligeledes være fjernet"
+    );
+
+    // 8. AC5: Bagudkompatibilitet - serialisering og migrering
+    let project_json = serde_json::to_string(app.project()).expect("Serialisering skal lykkes");
+    let deserialized: kant::features::model::ModelProject =
+        serde_json::from_str(&project_json).expect("Deserialisering skal lykkes");
+    assert_eq!(deserialized.information_model().classes().len(), 1);
+}
+
