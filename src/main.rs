@@ -26,6 +26,8 @@ fn main() -> iced::Result {
             icon: load_window_icon(),
             ..Default::default()
         })
-        .antialiasing(false)
+        // 4x MSAA antialiasing giver silkebløde vektorlinjer og kurver på Linux og macOS.
+        // På Windows holdes det deaktiveret for at undgå GPU DX12 swapchain-stalls under Aero Snap (ADR 010).
+        .antialiasing(cfg!(not(target_os = "windows")))
         .run()
 }

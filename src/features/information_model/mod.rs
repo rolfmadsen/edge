@@ -632,6 +632,10 @@ impl ClassRelation {
         self.id
     }
 
+    pub fn set_id(&mut self, id: Uuid) {
+        self.id = id;
+    }
+
     pub fn from_class(&self) -> Uuid {
         self.from_class
     }
@@ -964,15 +968,6 @@ impl InformationModel {
                 }
             }
         }
-        let all_enum_ids: std::collections::HashSet<Uuid> =
-            self.enumerations.iter().map(|e| e.id()).collect();
-        self.relations.retain(|rel| {
-            if rel.kind() == RelationKind::Dependency && all_enum_ids.contains(&rel.to_class()) {
-                desired_deps.contains(&(rel.from_class(), rel.to_class()))
-            } else {
-                true
-            }
-        });
         for (from, to) in desired_deps {
             if self.find_relation(from, to).is_none() {
                 self.relations.push(ClassRelation::new(

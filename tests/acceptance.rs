@@ -8471,3 +8471,127 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
     );
 }
 
+#[test]
+fn test_enumeration_relations_persisted_and_not_dropped_on_sync_or_restart() {
+    use kant::features::concept_model::RelationKind;
+    use kant::features::information_model::{
+        ClassRelation, InformationClass, InformationEnumeration,
+    };
+    use kant::ui::app::App;
+
+    let mut app = App::new_with_path(None);
+
+    // 1. Opret klasse "Repo" uden attributter
+    let repo_class = InformationClass::new("Repo");
+    let repo_id = app
+        .project_mut()
+        .information_model_mut()
+        .add_class(repo_class);
+
+    // 2. Opret enumeration "Enumeration2"
+    let enumeration =
+        InformationEnumeration::new("Enumeration2", vec!["aktiv".to_string()]);
+    let enum_id = app
+        .project_mut()
+        .information_model_mut()
+        .add_enumeration(enumeration);
+
+    // 3. Tilføj begge til informationsdiagrammet
+    let repo_node_id = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node_at(repo_id, 100.0, 100.0, 0);
+    let enum_node_id = app
+        .project_mut()
+        .information_graph_mut()
+        .add_node_at(enum_id, 300.0, 100.0, 1);
+
+    // 4. Etabler relation fra Repo til Enumeration2 (ligesom ved drag-to-connect på canvas)
+    let rel = ClassRelation::new(
+        repo_id,
+        enum_id,
+        RelationKind::Dependency,
+        Some("«use»".to_string()),
+    );
+    app.project_mut()
+        .information_model_mut()
+        .add_relation(rel);
+    app.project_mut()
+        .information_graph_mut()
+        .add_relation(
+            repo_node_id,
+            enum_node_id,
+            RelationKind::Dependency,
+            Some("«use»".to_string()),
+        );
+
+    assert_eq!(
+        app.project().information_model().relations().len(),
+        1,
+        "Der skal være 1 relation i information_model"
+    );
+    assert_eq!(
+        app.project().information_graph().edges().len(),
+        1,
+        "Der skal være 1 kant på diagrammet"
+    );
+
+    // 5. Kør sync_information_graph (dette sker ved enhver UI-ændring, tab-skift og ved opstart)
+    app.project_mut().sync_information_graph();
+
+    assert_eq!(
+        app.project().information_model().relations().len(),
+        1,
+        "Relationen må IKKE slettes af sync_information_graph selvom klassen ingen attributter har"
+    );
+    assert_eq!(
+        app.project().information_graph().edges().len(),
+        1,
+        "Kanten må IKKE forsvinde fra diagrammet ved sync_information_graph"
+    );
+
+    // 6. Gem og genindlæs fra dekomponeret format (.kant)
+    let temp_dir = std::env::temp_dir().join(format!("kant_enum_rel_test_{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+
+    kant::features::model::decomposed::save_decomposed(app.project(), &temp_dir)
+        .expect("save_decomposed skal lykkes");
+
+    let mut loaded_project = kant::features::model::decomposed::load_decomposed(&temp_dir)
+        .expect("load_decomposed skal lykkes");
+
+    let _ = std::fs::remove_dir_all(&temp_dir);
+
+    // 7. Verificer at relation og edge er bevaret efter genindlæsning og synkronisering
+    assert_eq!(
+        loaded_project.information_model().relations().len(),
+        1,
+        "Relationen skal overleve lagring og genindlæsning"
+    );
+    let loaded_rel = &loaded_project.information_model().relations()[0];
+    assert_eq!(loaded_rel.from_class(), repo_id);
+    assert_eq!(loaded_rel.to_class(), enum_id);
+    assert_eq!(loaded_rel.kind(), RelationKind::Dependency);
+    assert_eq!(loaded_rel.label(), Some("«use»"));
+
+    assert_eq!(
+        loaded_project.information_graph().edges().len(),
+        1,
+        "Diagramkanten skal overleve lagring og genindlæsning"
+    );
+
+    // 8. Kør endnu en sync på det indlæste projekt (simulerer app startup)
+    loaded_project.sync_information_graph();
+    assert_eq!(
+        loaded_project.information_model().relations().len(),
+        1,
+        "Relationen skal fortsat bestå efter sync på det indlæste projekt"
+    );
+    assert_eq!(
+        loaded_project.information_graph().edges().len(),
+        1,
+        "Diagramkanten skal fortsat bestå efter sync på det indlæste projekt"
+    );
+}
+
+

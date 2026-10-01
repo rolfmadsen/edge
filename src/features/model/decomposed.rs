@@ -432,7 +432,7 @@ pub fn load_decomposed(root_path: &Path) -> Result<ModelProject, StorageError> {
                             project.concept_graph_mut().edges_mut().push(edge);
                         }
                         DecomposedRelation::ClassRelation {
-                            id: _,
+                            id,
                             from,
                             to,
                             kind,
@@ -443,7 +443,7 @@ pub fn load_decomposed(root_path: &Path) -> Result<ModelProject, StorageError> {
                             source_multiplicity,
                             target_multiplicity,
                         } => {
-                            let rel = ClassRelation::with_multiplicities(
+                            let mut rel = ClassRelation::with_multiplicities(
                                 from,
                                 to,
                                 kind,
@@ -454,6 +454,7 @@ pub fn load_decomposed(root_path: &Path) -> Result<ModelProject, StorageError> {
                                 source_multiplicity,
                                 target_multiplicity,
                             );
+                            rel.set_id(id);
                             project.information_model_mut().add_relation(rel);
                         }
                     }
