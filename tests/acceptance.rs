@@ -795,24 +795,46 @@ fn test_canvas_ergonomics_zoom_pan_grid() {
     assert!((world_before.x - world_after.x).abs() < 0.001);
     assert!((world_before.y - world_after.y).abs() < 0.001);
 
-    // 3. Test flydende bevægelse uden snap-to-grid i App (Task 064)
+    // 3. Test Magnetisk Snap-to-Grid i App (Always-On)
     assert!(
-        !app.is_snap_to_grid_enabled(),
-        "Snap to grid skal være slået fra som default"
+        app.is_snap_to_grid_enabled(),
+        "Snap to grid skal være slået til som default (Always-On)"
     );
 
-    // Flyt node til arbitrære koordinater (137.4, 91.2) - skal forblive flydende uden magnetisk snapping
+    // Flyt node til arbitrære koordinater (137.4, 91.2) - skal snappe til (140.0, 100.0)
     let _ = app.update(Message::GraphNodeMoved(node_id, 137.4, 91.2));
     let moved_node = app.project().concept_graph().find_node(node_id).unwrap();
     assert_eq!(
         moved_node.x(),
-        137.4,
-        "Node x skal bevares præcist uden magnetisk grid snapping"
+        140.0,
+        "Node x skal snappe til nærmeste multiplum af 20"
     );
     assert_eq!(
         moved_node.y(),
-        91.2,
-        "Node y skal bevares præcist uden magnetisk grid snapping"
+        100.0,
+        "Node y skal snappe til nærmeste multiplum af 20"
+    );
+
+    // Verificer at alle 4 hjørner rammer gitterpunkter
+    assert_eq!(
+        (moved_node.x() + moved_node.width()) % GRID_SIZE,
+        0.0,
+        "Top-højre hjørne"
+    );
+    assert_eq!(
+        (moved_node.y() + moved_node.height()) % GRID_SIZE,
+        0.0,
+        "Bund-venstre hjørne"
+    );
+    assert_eq!(
+        (moved_node.x() + moved_node.width()) % GRID_SIZE,
+        0.0,
+        "Bund-højre x"
+    );
+    assert_eq!(
+        (moved_node.y() + moved_node.height()) % GRID_SIZE,
+        0.0,
+        "Bund-højre y"
     );
 
     // 4. Test Zoom-kontroller i App
@@ -8161,7 +8183,7 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         "AC1: Opret enumeration fra canvas-værktøjslinjen skal placere noden direkte på canvas"
     );
 
-    // 2. AC2: Drag-and-Drop af begreber på Begrebsdiagram uden gitter-snapping
+    // 2. AC2: Drag-and-Drop af begreber på Begrebsdiagram med Always-On gitter-snapping
     let concept = Concept::new("Station", "Togstation", BelongsToDomain::Yes);
     let concept_id = app.project_mut().add_concept(concept).expect("Tilføj begreb");
     if let Some(node) = app.project().concept_graph().find_node_by_concept(concept_id) {
@@ -8173,7 +8195,7 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         "Begrebet må ikke være på diagrammet før det trækkes/tilføjes"
     );
 
-    // Drop begreb på canvas ved (253.7, 184.2)
+    // Drop begreb på canvas ved (253.7, 184.2) - snapper til (260.0, 180.0)
     let _ = app.update(Message::AddConceptToDiagramAt(concept_id, 253.7, 184.2));
     assert!(
         app.project().concept_graph().is_concept_on_diagram(concept_id),
@@ -8189,13 +8211,13 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
     };
     assert_eq!(
         node_x,
-        253.7,
-        "AC2: Noden skal placeres præcist ved drop-position x (ingen gitter-snapping)"
+        260.0,
+        "AC2: Noden skal snappe til nærmeste 20px gitterpunkt x"
     );
     assert_eq!(
         node_y,
-        184.2,
-        "AC2: Noden skal placeres præcist ved drop-position y (ingen gitter-snapping)"
+        180.0,
+        "AC2: Noden skal snappe til nærmeste 20px gitterpunkt y"
     );
 
     // Must NOT: Duplikerede noder må IKKE oprettes hvis der droppes igen
@@ -8207,7 +8229,7 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         "Must NOT: Duplikerede noder må ikke oprettes hvis et allerede tilføjet begreb droppes igen"
     );
 
-    // 3. AC3: Drag-and-Drop af Klasser og Enumerationer på Informationsmodel uden gitter-snapping
+    // 3. AC3: Drag-and-Drop af Klasser og Enumerationer på Informationsmodel med gitter-snapping
     let cls = InformationClass::new("Spor");
     let class_id = app.project_mut().information_model_mut().add_class(cls);
     assert!(
@@ -8215,7 +8237,7 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         "Klassen må ikke være på informationsdiagrammet endnu"
     );
 
-    // Drop klasse på informationslærredet ved (312.4, 215.8)
+    // Drop klasse på informationslærredet ved (312.4, 215.8) - snapper til (320.0, 220.0)
     let _ = app.update(Message::AddClassToDiagramAt(class_id, 312.4, 215.8));
     assert!(
         app.project().information_graph().is_class_on_diagram(class_id),
@@ -8231,16 +8253,16 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
     };
     assert_eq!(
         class_x,
-        312.4,
-        "AC3: Klassenoden skal have præcis x position"
+        320.0,
+        "AC3: Klassenoden skal snappe til nærmeste 20px gitterpunkt x"
     );
     assert_eq!(
         class_y,
-        215.8,
-        "AC3: Klassenoden skal have præcis y position"
+        220.0,
+        "AC3: Klassenoden skal snappe til nærmeste 20px gitterpunkt y"
     );
 
-    // Drop anden enumeration på informationslærredet ved (411.3, 155.6)
+    // Drop anden enumeration på informationslærredet ved (411.3, 155.6) - snapper til (420.0, 160.0)
     let enum2 = kant::features::information_model::InformationEnumeration::new(
         "SignalStatus",
         vec!["roed".to_string(), "groen".to_string()],
@@ -8264,13 +8286,13 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
     };
     assert_eq!(
         enum_x,
-        411.3,
-        "AC3: Enumeration-noden skal have præcis x position"
+        420.0,
+        "AC3: Enumeration-noden skal snappe til nærmeste 20px gitterpunkt x"
     );
     assert_eq!(
         enum_y,
-        155.6,
-        "AC3: Enumeration-noden skal have præcis y position"
+        160.0,
+        "AC3: Enumeration-noden skal snappe til nærmeste 20px gitterpunkt y"
     );
 
     // Must NOT: Gentaget drop duplikerer ikke klasse/enumeration noder
@@ -8300,7 +8322,7 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         "AC4: 1-klik '+' tilføjelse af begreb skal fortsat fungere"
     );
 
-    // 5. AC5: Sanering af gitter-snapping ved flytning
+    // 5. AC5: Always-On gitter-snapping ved flytning
     let _ = app.update(Message::GraphNodeMoved(concept_node_id, 137.4, 91.2));
     let moved_node = app
         .project()
@@ -8309,13 +8331,13 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         .unwrap();
     assert_eq!(
         moved_node.x(),
-        137.4,
-        "AC5: Node x skal ikke længere snappe til nærmeste multiplum af 20"
+        140.0,
+        "AC5: Node x skal altid snappe magnetisk til nærmeste multiplum af 20"
     );
     assert_eq!(
         moved_node.y(),
-        91.2,
-        "AC5: Node y skal ikke længere snappe til nærmeste multiplum af 20"
+        100.0,
+        "AC5: Node y skal altid snappe magnetisk til nærmeste multiplum af 20"
     );
 }
 

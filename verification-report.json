@@ -6,38 +6,38 @@
   "task_contract": {
     "task_id": "064-drag-and-drop-palette-to-canvas-and-canvas-toolbar-refinements",
     "task_title": "Task 064: Drag-and-Drop fra Palet til Canvas og Værktøjslinje Harmonering",
-    "task_digest": "514ea4aa999dd503b68ee10af7b46475eec06dd092ac432c17d11bf5913ca1f9",
+    "task_digest": "787f37ae5cf5ad4bc47e3fdc1fee31198a2d4d3b934d5b6839fd1fb4e56576f4",
     "acceptance_criteria": [
       "**AC1 - Canvas Værktøjslinje Harmonering**: Knappen `+ Opret enumeration` er placeret i værktøjslinjen over Informationsmodel-canvas sammen med `+ Opret klasse` og `+ Opret Relation`. Venstrepalettens header for Enumerationer er ensrettet med Klasser (ingen overflødig `+ Opret`-knap i headeren).",
-      "**AC2 - Drag-and-Drop af Begreber på Begrebsdiagram**: Ikke-placerede begreber i Begrebsdiagrammets palet kan trækkes ud på diagramcanvas og placeres ved markørens slip-position (verdenskoordinater under hensyntagen til zoom og pan).",
-      "**AC3 - Drag-and-Drop af Klasser og Enumerationer på Informationsmodel**: Ikke-placerede klasser og enumerationer i Informationsmodellens palet kan trækkes ud på UML-canvas og placeres ved markørens slip-position.",
+      "**AC2 - Drag-and-Drop af Begreber på Begrebsdiagram**: Ikke-placerede begreber i Begrebsdiagrammets palet kan trækkes ud på diagramcanvas og placeres ved markørens slip-position med magnetisk snapping til 20 px gitteret (verdenskoordinater under hensyntagen til zoom og pan).",
+      "**AC3 - Drag-and-Drop af Klasser og Enumerationer på Informationsmodel**: Ikke-placerede klasser og enumerationer i Informationsmodellens palet kan trækkes ud på UML-canvas og placeres ved markørens slip-position med magnetisk snapping til 20 px gitteret.",
       "**AC4 - Bevarelse af 1-klik `+` Tilføjelse**: Det eksisterende `+` ikon i paletten for u-tilføjede elementer bevares som et hurtigt 1-klik alternativ, der placerer elementet i viewportens centrum eller ledigt område.",
-      "**AC5 - Sanering af Snap-to-Grid**: Knappen \"Snap: Til/Fra\" og tilhørende snap-to-grid tilstand og beregninger er fjernet fra UI og canvas-interaktioner for både Begrebsdiagram og Informationsmodel. Noder flyttes med jævn, præcis positionering.",
-      "**AC6 - Accepttest Verifikation**: En samlet accepttest `test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements` validerer værktøjslinjeknapper, drop-adfærd og fraværet af gitter-snapping."
+      "**AC5 - Always-On Snap-to-Grid**: Knappen \"Snap: Til/Fra\" er fjernet fra værktøjslinjen, så gitter-snapping er en fast, permanent standard (Always-On), der ikke kan deaktiveres. Både drop og flytning snapper magnetisk til 20 px gitteret.",
+      "**AC6 - Accepttest Verifikation**: En samlet accepttest `test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements` validerer værktøjslinjeknapper, drop-adfærd og den permanente Always-On gitter-snapping."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "03a1424f4826b901d092a77ed6199f7e5ce4860adc5255de77856197e6108b2f",
-    "source_manifest_digest_pre": "9aef07b9972bd501d5811f2f82b3168c6f041edc4b0d249dd52bc97a1971499a",
-    "source_manifest_digest_post": "9aef07b9972bd501d5811f2f82b3168c6f041edc4b0d249dd52bc97a1971499a",
+    "source_content_digest": "3dbe30d7cdf37b863ec0af923a2cf9c2f95cb8baec20295485c77ae0060d3ce3",
+    "source_manifest_digest_pre": "88fae5b246c1b31425cddc21aa614a5133b51101c2534a2c0268b4dcaee56c0d",
+    "source_manifest_digest_post": "88fae5b246c1b31425cddc21aa614a5133b51101c2534a2c0268b4dcaee56c0d",
     "config_digest": "9f9f8304aa4405e0b1a2da53443791b70a70b6d2d8890415846866b3559ea458",
-    "task_digest": "514ea4aa999dd503b68ee10af7b46475eec06dd092ac432c17d11bf5913ca1f9",
+    "task_digest": "787f37ae5cf5ad4bc47e3fdc1fee31198a2d4d3b934d5b6839fd1fb4e56576f4",
     "policy_digest": "0f852424413423caad922699edfa6975806eb7d22902f207ef0d93da05ca5065",
     "check_definitions_digest": "dd50656a3cb4808ad5a7096762f6729b2503e0d6f90c203a5819983ef61167c2",
     "included_files_count": 138,
     "vcs": {
       "type": "git",
-      "head": "a077614",
-      "commit": "a077614",
+      "head": "950ad99",
+      "commit": "950ad99",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-10-01T20:13:15Z",
-    "finished_at": "2026-10-01T20:13:20Z",
-    "total_duration_seconds": 4.693882944,
+    "started_at": "2026-10-01T20:18:58Z",
+    "finished_at": "2026-10-01T20:19:04Z",
+    "total_duration_seconds": 5.29561275,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -50,7 +50,7 @@
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.025842673,
+      "duration_seconds": 0.025571612,
       "optional": false,
       "passed": true,
       "log_digest": "bb99eecf7da47bb699e08b5414193ade3c049ead245334b322a8ca6aff367842"
@@ -59,37 +59,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.748678989,
+      "duration_seconds": 1.025809895,
       "optional": true,
       "passed": true,
-      "log_digest": "838de56d1ad9104c2355bdc4c327786e894dc910de3d10fb70e6c943420c1e16"
+      "log_digest": "800341dc2ad818f43ab5f61255c9c212a5bc2f313ac90bf90bc68f6e88ae892a"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.638639447,
+      "duration_seconds": 0.904655719,
       "optional": true,
       "passed": true,
-      "log_digest": "9607547574daf4babdec20c60111b2c6d0b7f06f05573631dc6c203520f2099a"
+      "log_digest": "f2537b8d07d11dfcfff270e7c31267f380c8eae1be90e176df935755ba0e5bb9"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 2.707993031,
+      "duration_seconds": 2.7741067040000003,
       "optional": false,
       "passed": true,
-      "log_digest": "b002a3bbc711a1f31dc19188bcbf633b1dc23664ade9e08872817c11a6b811e3"
+      "log_digest": "989c4c9d399d427eaf7369cf35ab8ed1ff87630c1339ed0115fa91b5da2c0439"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.544309143,
+      "duration_seconds": 0.539436156,
       "optional": false,
       "passed": true,
-      "log_digest": "a257490fe3119ae36fdce5e7a19c8f21c5fa75af9ac917f7e4853739ddee672a"
+      "log_digest": "3e4932c7bf9b0c6110e7a0b51cb30847b97de8ebe7b120d03fa5942cf7fbbd32"
     }
   ],
   "diagnostics": []

@@ -1000,7 +1000,7 @@ impl App {
                         quick_create: None,
                         is_inline_graph_editing: false,
                         canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
-                        snap_to_grid: false,
+                        snap_to_grid: true,
                         is_space_pressed: false,
                         palette_drag: None,
                         last_cursor_pos: Point::ORIGIN,
@@ -1013,7 +1013,7 @@ impl App {
                         info_class_search: String::new(),
                         info_canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
                         info_relation_dialog: None,
-                        info_snap_to_grid: false,
+                        info_snap_to_grid: true,
                         concept_model_search: String::new(),
                         metadata_modal: None,
                         active_menu: None,
@@ -1065,7 +1065,7 @@ impl App {
             quick_create: None,
             is_inline_graph_editing: false,
             canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
-            snap_to_grid: false,
+            snap_to_grid: true,
             is_space_pressed: false,
             palette_drag: None,
             last_cursor_pos: Point::ORIGIN,
@@ -1078,7 +1078,7 @@ impl App {
             info_class_search: String::new(),
             info_canvas_viewport: crate::ui::graph_canvas::CanvasViewport::default(),
             info_relation_dialog: None,
-            info_snap_to_grid: false,
+            info_snap_to_grid: true,
             concept_model_search: String::new(),
             metadata_modal: None,
             active_menu: None,
@@ -3760,7 +3760,10 @@ impl App {
                 _ => {}
             },
             Message::GraphNodeMoved(node_id, x, y) => {
-                let (final_x, final_y) = (x, y);
+                let final_x = (x / crate::features::concept_model::GRID_SIZE).round()
+                    * crate::features::concept_model::GRID_SIZE;
+                let final_y = (y / crate::features::concept_model::GRID_SIZE).round()
+                    * crate::features::concept_model::GRID_SIZE;
                 let cg = self.project.concept_graph_mut();
                 cg.update_node_position(node_id, final_x, final_y);
 
@@ -3774,7 +3777,18 @@ impl App {
                 self.trigger_autosave();
             }
             Message::GraphNodesMoved(moves) => {
-                let computed_moves: Vec<(NodeId, f32, f32)> = moves;
+                let computed_moves: Vec<(NodeId, f32, f32)> = moves
+                    .into_iter()
+                    .map(|(node_id, x, y)| {
+                        (
+                            node_id,
+                            (x / crate::features::concept_model::GRID_SIZE).round()
+                                * crate::features::concept_model::GRID_SIZE,
+                            (y / crate::features::concept_model::GRID_SIZE).round()
+                                * crate::features::concept_model::GRID_SIZE,
+                        )
+                    })
+                    .collect();
 
                 {
                     let cg = self.project.concept_graph_mut();
@@ -3953,7 +3967,11 @@ impl App {
                     .is_concept_on_diagram(concept_id)
                 {
                     if let Some(concept) = self.project.get_concept(concept_id).cloned() {
-                        let new_id = self.project.concept_graph_mut().add_node_at(&concept, x, y);
+                        let snapped_x = (x / crate::features::concept_model::GRID_SIZE).round()
+                            * crate::features::concept_model::GRID_SIZE;
+                        let snapped_y = (y / crate::features::concept_model::GRID_SIZE).round()
+                            * crate::features::concept_model::GRID_SIZE;
+                        let new_id = self.project.concept_graph_mut().add_node_at(&concept, snapped_x, snapped_y);
                         self.selected_graph_node_id = Some(new_id);
                         self.broadcast_mutation(
                             &crate::features::collab::protocol::ModelMutation::ConceptDiagramNodeAdded(
@@ -3963,8 +3981,8 @@ impl App {
                         self.broadcast_mutation(
                             &crate::features::collab::protocol::ModelMutation::NodeMoved {
                                 id: concept_id,
-                                x,
-                                y,
+                                x: snapped_x,
+                                y: snapped_y,
                             },
                         );
                         self.trigger_autosave();
@@ -4175,7 +4193,10 @@ impl App {
             Message::CreateInformationClassAt(x, y) => {
                 let class = InformationClass::new("");
                 let id = self.project.information_model_mut().add_class(class);
-                let (nx, ny) = (x, y);
+                let nx = (x / crate::features::concept_model::GRID_SIZE).round()
+                    * crate::features::concept_model::GRID_SIZE;
+                let ny = (y / crate::features::concept_model::GRID_SIZE).round()
+                    * crate::features::concept_model::GRID_SIZE;
                 let node_id = self
                     .project
                     .information_graph_mut()
@@ -4584,10 +4605,12 @@ impl App {
                     .information_model_mut()
                     .add_enumeration(e.clone());
                 let val_count = e.values().len();
-                let cx = center_world.x
-                    - crate::features::information_model::DEFAULT_CLASS_NODE_WIDTH / 2.0;
-                let cy = center_world.y
-                    - crate::features::information_model::calculate_class_node_height(0) / 2.0;
+                let cx = ((center_world.x
+                    - crate::features::information_model::DEFAULT_CLASS_NODE_WIDTH / 2.0)
+                    / crate::features::concept_model::GRID_SIZE).round() * crate::features::concept_model::GRID_SIZE;
+                let cy = ((center_world.y
+                    - crate::features::information_model::calculate_class_node_height(0) / 2.0)
+                    / crate::features::concept_model::GRID_SIZE).round() * crate::features::concept_model::GRID_SIZE;
                 let node_id = self
                     .project
                     .information_graph_mut()
@@ -4755,10 +4778,14 @@ impl App {
                         .get_enumeration(enum_id)
                         .map(|e| e.values().len())
                         .unwrap_or(0);
+                    let snapped_x = (x / crate::features::concept_model::GRID_SIZE).round()
+                        * crate::features::concept_model::GRID_SIZE;
+                    let snapped_y = (y / crate::features::concept_model::GRID_SIZE).round()
+                        * crate::features::concept_model::GRID_SIZE;
                     let node_id = self
                         .project
                         .information_graph_mut()
-                        .add_node_at(enum_id, x, y, val_count);
+                        .add_node_at(enum_id, snapped_x, snapped_y, val_count);
                     self.project.sync_information_graph();
                     self.reroute_info_graph_edges();
                     self.selected_info_enum_id = Some(enum_id);
@@ -4771,8 +4798,8 @@ impl App {
                     self.broadcast_mutation(
                         &crate::features::collab::protocol::ModelMutation::NodeMoved {
                             id: enum_id,
-                            x,
-                            y,
+                            x: snapped_x,
+                            y: snapped_y,
                         },
                     );
                     self.trigger_autosave();
@@ -4870,10 +4897,14 @@ impl App {
                         .get_class(class_id)
                         .map(|c| c.attributes().len())
                         .unwrap_or(0);
+                    let snapped_x = (x / crate::features::concept_model::GRID_SIZE).round()
+                        * crate::features::concept_model::GRID_SIZE;
+                    let snapped_y = (y / crate::features::concept_model::GRID_SIZE).round()
+                        * crate::features::concept_model::GRID_SIZE;
                     let node_id = self
                         .project
                         .information_graph_mut()
-                        .add_node_at(class_id, x, y, attr_count);
+                        .add_node_at(class_id, snapped_x, snapped_y, attr_count);
                     self.project.sync_information_graph();
                     self.reroute_info_graph_edges();
                     self.selected_info_class_id = Some(class_id);
@@ -4886,8 +4917,8 @@ impl App {
                     self.broadcast_mutation(
                         &crate::features::collab::protocol::ModelMutation::NodeMoved {
                             id: class_id,
-                            x,
-                            y,
+                            x: snapped_x,
+                            y: snapped_y,
                         },
                     );
                     self.trigger_autosave();
@@ -4913,8 +4944,10 @@ impl App {
                 self.trigger_autosave();
             }
             Message::UpdateClassNodePosition(node_id, x, y) => {
-                let final_x = x;
-                let final_y = y;
+                let final_x = (x / crate::features::concept_model::GRID_SIZE).round()
+                    * crate::features::concept_model::GRID_SIZE;
+                let final_y = (y / crate::features::concept_model::GRID_SIZE).round()
+                    * crate::features::concept_model::GRID_SIZE;
                 let ig = self.project.information_graph_mut();
                 ig.update_node_position(node_id, final_x, final_y);
                 let class_id_opt = ig.find_node(node_id).map(|n| n.class_id());
@@ -4934,7 +4967,15 @@ impl App {
             Message::UpdateClassNodesPositions(moves) => {
                 let computed_moves: Vec<(NodeId, f32, f32)> = moves
                     .iter()
-                    .map(|&(node_id, x, y)| (node_id, x, y))
+                    .map(|&(node_id, x, y)| {
+                        (
+                            node_id,
+                            (x / crate::features::concept_model::GRID_SIZE).round()
+                                * crate::features::concept_model::GRID_SIZE,
+                            (y / crate::features::concept_model::GRID_SIZE).round()
+                                * crate::features::concept_model::GRID_SIZE,
+                        )
+                    })
                     .collect();
 
                 let mut broadcasts: Vec<(Uuid, f32, f32)> = Vec::new();

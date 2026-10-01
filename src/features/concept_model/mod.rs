@@ -373,11 +373,13 @@ impl ConceptGraph {
     }
 
     pub fn add_node_at(&mut self, concept: &Concept, x: f32, y: f32) -> NodeId {
+        let snapped_x = (x / GRID_SIZE).round() * GRID_SIZE;
+        let snapped_y = (y / GRID_SIZE).round() * GRID_SIZE;
         if let Some(existing) = self.find_node_by_concept_mut(concept.id()) {
-            existing.set_position(x, y);
+            existing.set_position(snapped_x, snapped_y);
             return existing.id();
         }
-        let node = DiagramNode::new(concept, x, y);
+        let node = DiagramNode::new(concept, snapped_x, snapped_y);
         let id = node.id();
         self.nodes.push(node);
         id
@@ -464,7 +466,9 @@ impl ConceptGraph {
 
     pub fn update_node_position(&mut self, id: NodeId, x: f32, y: f32) {
         if let Some(node) = self.find_node_mut(id) {
-            node.set_position(x, y);
+            let snapped_x = (x / GRID_SIZE).round() * GRID_SIZE;
+            let snapped_y = (y / GRID_SIZE).round() * GRID_SIZE;
+            node.set_position(snapped_x, snapped_y);
         }
     }
 
