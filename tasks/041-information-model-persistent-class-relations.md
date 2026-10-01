@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 041: Bevarelse af Klasserelationer og Associationer ved Fjernelse fra Canvas"
 description: "Sikring af at relationer mellem klasser i informationsmodellen bevares semantisk og genoprettes automatisk på lærredet, hvis en klasse fjernes og senere genindsættes"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-21T21:30:00Z" }
 tags: [information-model, relations, associations, canvas, persistence, semantics]
 ---
 
 # Task 041: Bevarelse af Klasserelationer og Associationer ved Fjernelse fra Canvas
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🔄 `ENHANCEMENT`  
 **Oprettet**: `2026-09-21`  
 **Scope**: `src/features/information_model/mod.rs`, `src/features/model/mod.rs`, `src/ui/app.rs`, `src/ui/information_model_view.rs`, `tests/acceptance.rs`
@@ -31,12 +31,12 @@ I henhold til UML og FDA-retningslinjer for informationsmodellering er relatione
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Relationer bevares ved skjul/fjern fra lærred**: Når `RemoveClassFromDiagram(node_id)` udløses, bevares relationens data (type, multipliciteter, retningspil og label) i modellen.
-- [ ] **AC2 - Automatisk genopståen på Canvas**: Når en tidligere fjernet klasse genindsættes på lærredet (via paletten "Tilføj til diagram"), synliggøres relationer automatisk for alle modstående klasser, der også befinder sig på lærredet.
-- [ ] **AC3 - Eksplicit sletning af relation**: Brugeren kan fortsat slette en relation permanent, når det ønskes (uden at skulle fjerne klassen fra modellen).
-- [ ] **AC4 - Sletning af klasse kaskaderer**: Hvis en klasse slettes permanent fra projektet (`DeleteInformationClass`), opryddes dens tilhørende relationer permanent.
-- [ ] **AC5 - Bagudkompatibilitet**: Eksisterende `.kant.json` projektfiler indlæses uden fejl eller tab af data.
-- [ ] **AC6 - Verifikation via Accepttest**: `test_task_041_persistent_class_relations_across_canvas_removal` beviser at relationer overlever fjernelse og genindsættelse på lærredet.
+- [x] **AC1 - Relationer bevares ved skjul/fjern fra lærred**: Når `RemoveClassFromDiagram(node_id)` udløses, bevares relationens data (type, multipliciteter, retningspil og label) i modellen.
+- [x] **AC2 - Automatisk genopståen på Canvas**: Når en tidligere fjernet klasse genindsættes på lærredet (via paletten "Tilføj til diagram"), synliggøres relationer automatisk for alle modstående klasser, der også befinder sig på lærredet.
+- [x] **AC3 - Eksplicit sletning af relation**: Brugeren kan fortsat slette en relation permanent, når det ønskes (uden at skulle fjerne klassen fra modellen).
+- [x] **AC4 - Sletning af klasse kaskaderer**: Hvis en klasse slettes permanent fra projektet (`DeleteInformationClass`), opryddes dens tilhørende relationer permanent.
+- [x] **AC5 - Bagudkompatibilitet**: Eksisterende `.kant.json` projektfiler indlæses uden fejl eller tab af data.
+- [x] **AC6 - Verifikation via Accepttest**: `test_task_041_persistent_class_relations_across_canvas_removal` beviser at relationer overlever fjernelse og genindsættelse på lærredet.
 
 ---
 
@@ -49,6 +49,7 @@ I henhold til UML og FDA-retningslinjer for informationsmodellering er relatione
 
 ## 📝 Revisions
 - 2026-09-21: Oprettet opgavepakke efter sparring med brugeren.
+- 2026-10-01: Implementeret semantisk ClassRelation i InformationModel, automatisk synkronisering til ClassGraph, migration af ældre filer, og verifikation med accepttest. Markeringsstatus sat til DONE.
 
 ---
 
