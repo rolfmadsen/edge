@@ -8173,3 +8173,163 @@ fn test_task_063_controlled_vocabulary_enumeration_ui_and_canvas() {
         "Enumeration-noden skal være fjernet fra diagrammet"
     );
 }
+
+#[test]
+fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::information_model::InformationClass;
+    use kant::ui::app::{App, Message};
+
+    let mut app = App::new_with_path(None);
+
+    // 1. AC1: Værktøjslinje Harmonering - Opret enumeration ved center på informationsmodel canvas
+    let _ = app.update(Message::CreateInformationEnumerationAtCenter);
+    assert_eq!(
+        app.project().information_model().enumerations().len(),
+        1,
+        "AC1: Der skal være oprettet 1 enumeration i information_model"
+    );
+    let enum_id = app.project().information_model().enumerations()[0].id();
+    assert!(
+        app.project().information_graph().is_class_on_diagram(enum_id),
+        "AC1: Opret enumeration fra canvas-værktøjslinjen skal placere noden direkte på canvas"
+    );
+
+    // 2. AC2: Drag-and-Drop af begreber på Begrebsdiagram uden gitter-snapping
+    let concept = Concept::new("Station", "Togstation", BelongsToDomain::Yes);
+    let concept_id = app.project_mut().add_concept(concept).expect("Tilføj begreb");
+    assert!(
+        !app.project().concept_graph().is_concept_on_diagram(concept_id),
+        "Begrebet må ikke være på diagrammet før det trækkes/tilføjes"
+    );
+
+    // Drop begreb på canvas ved (253.7, 184.2)
+    let _ = app.update(Message::AddConceptToDiagramAt(concept_id, 253.7, 184.2));
+    assert!(
+        app.project().concept_graph().is_concept_on_diagram(concept_id),
+        "AC2: Begrebet skal være tilføjet til begrebsdiagrammet efter drop"
+    );
+    let concept_node = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(concept_id)
+        .expect("Concept node skal findes");
+    assert_eq!(
+        concept_node.x(),
+        253.7,
+        "AC2: Noden skal placeres præcist ved drop-position x (ingen gitter-snapping)"
+    );
+    assert_eq!(
+        concept_node.y(),
+        184.2,
+        "AC2: Noden skal placeres præcist ved drop-position y (ingen gitter-snapping)"
+    );
+
+    // Must NOT: Duplikerede noder må IKKE oprettes hvis der droppes igen
+    let initial_node_count = app.project().concept_graph().node_count();
+    let _ = app.update(Message::AddConceptToDiagramAt(concept_id, 300.0, 300.0));
+    assert_eq!(
+        app.project().concept_graph().node_count(),
+        initial_node_count,
+        "Must NOT: Duplikerede noder må ikke oprettes hvis et allerede tilføjet begreb droppes igen"
+    );
+
+    // 3. AC3: Drag-and-Drop af Klasser og Enumerationer på Informationsmodel uden gitter-snapping
+    let cls = InformationClass::new("Spor");
+    let class_id = app.project().information_model_mut().add_class(cls);
+    assert!(
+        !app.project().information_graph().is_class_on_diagram(class_id),
+        "Klassen må ikke være på informationsdiagrammet endnu"
+    );
+
+    // Drop klasse på informationslærredet ved (312.4, 215.8)
+    let _ = app.update(Message::AddClassToDiagramAt(class_id, 312.4, 215.8));
+    assert!(
+        app.project().information_graph().is_class_on_diagram(class_id),
+        "AC3: Klassen skal findes på informationsdiagrammet efter drop"
+    );
+    let class_node = app
+        .project()
+        .information_graph()
+        .find_node_by_class(class_id)
+        .expect("Klassenode skal findes");
+    assert_eq!(
+        class_node.x(),
+        312.4,
+        "AC3: Klassenoden skal have præcis x position"
+    );
+    assert_eq!(
+        class_node.y(),
+        215.8,
+        "AC3: Klassenoden skal have præcis y position"
+    );
+
+    // Drop anden enumeration på informationslærredet ved (411.3, 155.6)
+    let enum2 = kant::features::information_model::InformationEnumeration::new(
+        "SignalStatus",
+        vec!["roed".to_string(), "groen".to_string()],
+    );
+    let enum2_id = app
+        .project()
+        .information_model_mut()
+        .add_enumeration(enum2);
+    let _ = app.update(Message::AddEnumerationToDiagramAt(enum2_id, 411.3, 155.6));
+    assert!(
+        app.project().information_graph().is_class_on_diagram(enum2_id),
+        "AC3: Enumerationen skal findes på informationsdiagrammet efter drop"
+    );
+    let enum_node = app
+        .project()
+        .information_graph()
+        .find_node_by_class(enum2_id)
+        .expect("Enumeration-node skal findes");
+    assert_eq!(
+        enum_node.x(),
+        411.3,
+        "AC3: Enumeration-noden skal have præcis x position"
+    );
+    assert_eq!(
+        enum_node.y(),
+        155.6,
+        "AC3: Enumeration-noden skal have præcis y position"
+    );
+
+    // Must NOT: Gentaget drop duplikerer ikke klasse/enumeration noder
+    let initial_info_nodes = app.project().information_graph().node_count();
+    let _ = app.update(Message::AddClassToDiagramAt(class_id, 500.0, 500.0));
+    let _ = app.update(Message::AddEnumerationToDiagramAt(enum2_id, 500.0, 500.0));
+    assert_eq!(
+        app.project().information_graph().node_count(),
+        initial_info_nodes,
+        "Must NOT: Duplikerede noder må ikke oprettes på informationsdiagrammet"
+    );
+
+    // 4. AC4: Bevarelse af 1-klik '+' tilføjelse
+    let concept_quick = Concept::new("Perron", "Perron til passagerer", BelongsToDomain::Yes);
+    let c_quick_id = app.project_mut().add_concept(concept_quick).unwrap();
+    let _ = app.update(Message::AddConceptToDiagram(c_quick_id));
+    assert!(
+        app.project().concept_graph().is_concept_on_diagram(c_quick_id),
+        "AC4: 1-klik '+' tilføjelse af begreb skal fortsat fungere"
+    );
+
+    // 5. AC5: Sanering af gitter-snapping ved flytning
+    let moved_concept_node_id = concept_node.id();
+    let _ = app.update(Message::GraphNodeMoved(moved_concept_node_id, 137.4, 91.2));
+    let moved_node = app
+        .project()
+        .concept_graph()
+        .find_node(moved_concept_node_id)
+        .unwrap();
+    assert_eq!(
+        moved_node.x(),
+        137.4,
+        "AC5: Node x skal ikke længere snappe til nærmeste multiplum af 20"
+    );
+    assert_eq!(
+        moved_node.y(),
+        91.2,
+        "AC5: Node y skal ikke længere snappe til nærmeste multiplum af 20"
+    );
+}
+
