@@ -1063,10 +1063,11 @@ where
                                 let (nw, nh) = n.size();
                                 let node_max_x = nx + nw;
                                 let node_max_y = ny + nh;
-                                node_max_x >= min_x
-                                    && nx <= max_x
-                                    && node_max_y >= min_y
-                                    && ny <= max_y
+                                // Kun noder der er fuldt omsluttet af markeringsrammen vælges
+                                nx >= min_x
+                                    && node_max_x <= max_x
+                                    && ny >= min_y
+                                    && node_max_y <= max_y
                             })
                             .map(|n| n.id())
                             .collect();
