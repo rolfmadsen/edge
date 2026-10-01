@@ -3,6 +3,12 @@ use crate::features::concepts::Concept;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+pub mod linter;
+pub use linter::{
+    is_lower_camel_case, is_upper_camel_case, NamingConvention, NamingIssue, NamingIssueKind,
+    NamingLinter, NamingSeverity, NamingTarget,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PrimitiveType {
     CharacterString,
@@ -118,14 +124,6 @@ impl Multiplicity {
 impl std::fmt::Display for Multiplicity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_display_string())
-    }
-}
-
-pub fn is_lower_camel_case(s: &str) -> bool {
-    let mut chars = s.chars();
-    match chars.next() {
-        Some(c) => c.is_ascii_lowercase(),
-        None => false,
     }
 }
 

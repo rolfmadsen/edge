@@ -7344,11 +7344,18 @@ fn test_task_061_naming_convention_linter_and_ui_feedback() {
         .expect("Skal fange snake_case på klasse");
     assert_eq!(class_issue_snake.target, NamingTarget::Class);
     assert_eq!(class_issue_snake.convention, NamingConvention::UpperCamelCase);
+    assert_eq!(class_issue_snake.kind, NamingIssueKind::ContainsUnderscore);
     assert!(class_issue_snake.rule.contains("19"));
     assert_eq!(
         class_issue_snake.suggested_fix.as_deref(),
         Some("EthjuletCykel")
     );
+
+    assert!(NamingLinter::check_enumeration_name("KøretøjType").is_none());
+    assert!(NamingLinter::check_enumeration_name("køretøj_type").is_some());
+
+    assert!(NamingLinter::check_structured_type_name("AdresseStruktur").is_none());
+    assert!(NamingLinter::check_structured_type_name("adresse_struktur").is_some());
 
     let class_issue_space = NamingLinter::check_class_name("Ethjulet Cykel")
         .expect("Skal fange mellemrum i klassenavn");
@@ -7367,10 +7374,11 @@ fn test_task_061_naming_convention_linter_and_ui_feedback() {
     assert!(NamingLinter::check_attribute_name("førsteRegistrering").is_none());
     assert!(NamingLinter::check_attribute_name("cvrNummer").is_none());
 
-    let attr_issue_upper = NamingLinter::check_attribute_name("Stelnummer")
+    let attr_issue_upper: NamingIssue = NamingLinter::check_attribute_name("Stelnummer")
         .expect("Skal fange stort forbogstav på attribut");
     assert_eq!(attr_issue_upper.target, NamingTarget::Attribute);
     assert_eq!(attr_issue_upper.convention, NamingConvention::LowerCamelCase);
+    assert_eq!(attr_issue_upper.kind, NamingIssueKind::NotLowerCamelCase);
     assert!(attr_issue_upper.rule.contains("19"));
     assert_eq!(
         attr_issue_upper.suggested_fix.as_deref(),

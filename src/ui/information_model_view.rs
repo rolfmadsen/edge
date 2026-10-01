@@ -1,8 +1,7 @@
 use crate::features::concept_model::{NodeId, RelationKind};
 use crate::features::concepts::Concept;
 use crate::features::information_model::{
-    is_lower_camel_case, ClassGraph, InformationClass, InformationModel, Multiplicity,
-    PrimitiveType,
+    ClassGraph, InformationClass, InformationModel, Multiplicity, NamingLinter, PrimitiveType,
 };
 use crate::ui::app::{
     AttributeConceptOption, ConceptOption, Message, NodeOption, RelationDialogState,
@@ -651,7 +650,7 @@ pub fn view<'a>(
                     Space::new().height(0).into()
                 };
 
-            let label_input = column![
+            let mut label_col = column![
                 crate::ui::inspector_panel::section_header("Associationsnavn (valgfri)"),
                 text_input("f.eks. omfatter, ejer...", edge.label().unwrap_or(""))
                     .id("info_edge_label_input")
@@ -661,6 +660,22 @@ pub fn view<'a>(
                     .width(Length::Fill),
             ]
             .spacing(4);
+
+            if let Some(lbl) = edge.label() {
+                if let Some(issue) = NamingLinter::check_association_label(lbl) {
+                    let mut msg = format!("⚠️ {}: {}", issue.rule, issue.message);
+                    if let Some(fix) = &issue.suggested_fix {
+                        msg.push_str(&format!(" (Forslag: {})", fix));
+                    }
+                    label_col = label_col.push(
+                        text(msg)
+                            .size(10.0)
+                            .color(Color::from_rgb(0.85, 0.55, 0.1)),
+                    );
+                }
+            }
+
+            let label_input = label_col;
 
             let actions = row![button(text("🗑️ Slet relation").size(11))
                 .style(danger_button_style)
@@ -693,12 +708,31 @@ pub fn view<'a>(
             let is_on_canvas = class_graph.is_class_on_diagram(class_id);
 
             // Klassenavn & beskrivelse
-            let name_input = text_input("Klassenavn...", class.name())
-                .id("info_class_name_input")
-                .style(modern_input_style)
-                .size(13.0)
-                .on_input(move |s| Message::UpdateInformationClassName(class_id, s))
-                .padding([4, 6]);
+            let mut name_col = column![
+                text_input("Klassenavn...", class.name())
+                    .id("info_class_name_input")
+                    .style(modern_input_style)
+                    .size(13.0)
+                    .on_input(move |s| Message::UpdateInformationClassName(class_id, s))
+                    .padding([4, 6]),
+            ]
+            .spacing(4);
+
+            if let Some(issue) = NamingLinter::check_class_name(class.name()) {
+                if !class.name().trim().is_empty() {
+                    let mut msg = format!("⚠️ {}: {}", issue.rule, issue.message);
+                    if let Some(fix) = &issue.suggested_fix {
+                        msg.push_str(&format!(" (Forslag: {})", fix));
+                    }
+                    name_col = name_col.push(
+                        text(msg)
+                            .size(10.5)
+                            .color(Color::from_rgb(0.85, 0.55, 0.1)),
+                    );
+                }
+            }
+
+            let name_input = name_col;
 
             let desc_input = text_input("Beskrivelse...", class.description().unwrap_or(""))
                 .style(modern_input_style)
@@ -815,8 +849,6 @@ pub fn view<'a>(
                     .unwrap_or(PrimitiveType::CharacterString);
                 let mult_val = attr.multiplicity();
 
-                let is_name_valid = is_lower_camel_case(&name_val);
-
                 let linked_concept_id = attr.concept_ids().first().copied();
                 let linked_concept =
                     linked_concept_id.and_then(|cid| concepts.iter().find(|c| c.id() == cid));
@@ -912,12 +944,18 @@ pub fn view<'a>(
                     attr_col = attr_col.push(badge);
                 }
 
-                if !is_name_valid && !name_val.is_empty() {
-                    attr_col = attr_col.push(
-                        text("⚠️ FDA §6.3: Bør være lowerCamelCase")
-                            .size(10)
-                            .color(Color::from_rgb(0.85, 0.55, 0.1)),
-                    );
+                if let Some(issue) = NamingLinter::check_attribute_name(&name_val) {
+                    if !name_val.trim().is_empty() {
+                        let mut msg = format!("⚠️ {}: {}", issue.rule, issue.message);
+                        if let Some(fix) = &issue.suggested_fix {
+                            msg.push_str(&format!(" (Forslag: {})", fix));
+                        }
+                        attr_col = attr_col.push(
+                            text(msg)
+                                .size(10.0)
+                                .color(Color::from_rgb(0.85, 0.55, 0.1)),
+                        );
+                    }
                 }
 
                 let attr_card = container(attr_col)
