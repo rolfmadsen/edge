@@ -5756,7 +5756,7 @@ impl App {
         let tab_pill_bar = container(
             row![
                 tab_item(Tab::ConceptList, "1. Begrebsliste"),
-                tab_item(Tab::ConceptModel, "2. Begrebsmodel (Graf)"),
+                tab_item(Tab::ConceptModel, "2. Begrebsdiagram"),
                 tab_item(Tab::InformationModel, "3. Informationsmodel"),
             ]
             .spacing(2)

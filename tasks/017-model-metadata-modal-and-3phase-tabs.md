@@ -15,8 +15,8 @@ tags: [ui, metadata, model-cover, tabs, fda-phases, modal]
 
 ## 🎯 Formål
 1. Reorganisere hovednavigationen så den afspejler FDA Modelreglernes 3 faser uden en forstyrrende metadata-fane:
-   - `1. Begrebsliste (Bilag D & E)`
-   - `2. Begrebsmodel (Graf)`
+   - `1. Begrebsliste`
+   - `2. Begrebsdiagram`
    - `3. Informationsmodel`
 2. Etablere en dedikeret knap i top-headeren (`📋 Modelomslag` / `⚙️ Modelmetadata`) ved siden af modeltitlen, som åbner en modal dialog til redigering af modelprojektets omslag og metadata.
 3. Gøre alle metadatafelter redigerbare i modalen:
