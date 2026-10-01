@@ -7297,3 +7297,30 @@ fn test_task_060_machine_readable_model_interchange_xmi_skos_and_shacl() {
     let _ = app.update(Message::ExportModelSkosDialog);
     let _ = app.update(Message::ExportModelShaclDialog);
 }
+
+#[test]
+fn test_task_062_windows_software_rendering_and_backend_resolution() {
+    use kant::ui::platform::resolve_default_iced_backend;
+
+    // AC1: På Windows uden sat ICED_BACKEND skal "tiny-skia" vælges
+    assert_eq!(
+        resolve_default_iced_backend(true, None),
+        Some("tiny-skia"),
+        "På Windows skal tiny-skia vælges som robust standard hvis ingen backend er specificeret"
+    );
+
+    // AC1: På Windows med eksplicit ICED_BACKEND skal den respekteres (ingen default overskrivning)
+    assert_eq!(
+        resolve_default_iced_backend(true, Some("wgpu")),
+        None,
+        "Hvis brugeren har sat ICED_BACKEND=wgpu, må default-funktionen ikke overskrive det"
+    );
+
+    // AC1: På ikke-Windows (Linux, macOS) skal der ikke gennemtvinges tiny-skia som default
+    assert_eq!(
+        resolve_default_iced_backend(false, None),
+        None,
+        "På Unix/macOS skal Iced have lov til at benytte systemets standard renderer"
+    );
+}
+
