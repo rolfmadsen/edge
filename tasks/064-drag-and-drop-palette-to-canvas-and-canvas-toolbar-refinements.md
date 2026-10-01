@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 064: Drag-and-Drop fra Palet til Canvas og Værktøjslinje Harmonering"
 description: "Drag-and-drop af begreber, klasser og enumerations fra venstrepalet til diagramcanvas i Begrebsdiagram og Informationsmodel, flytning af + Opret enumeration til canvas-værktøjslinjen, samt sanering af Snap: Til/Fra knap og gitter-snapping"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-10-01T21:05:00Z" }
 tags: [canvas, drag-and-drop, palette, ui, toolbar, ergonomics, information-model, concept-model]
 ---
 
 # Task 064: Drag-and-Drop fra Palet til Canvas og Værktøjslinje Harmonering
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: `🔄 ENHANCEMENT`  
 **Oprettet**: `2026-10-01`  
 **Scope**: `src/ui/`, `src/features/`, `tests/`
@@ -35,12 +35,12 @@ Forbedre diagram-ergonomien og ensrette brugergrænsefladen på tværs af Begreb
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Canvas Værktøjslinje Harmonering**: Knappen `+ Opret enumeration` er placeret i værktøjslinjen over Informationsmodel-canvas sammen med `+ Opret klasse` og `+ Opret Relation`. Venstrepalettens header for Enumerationer er ensrettet med Klasser (ingen overflødig `+ Opret`-knap i headeren).
-- [ ] **AC2 - Drag-and-Drop af Begreber på Begrebsdiagram**: Ikke-placerede begreber i Begrebsdiagrammets palet kan trækkes ud på diagramcanvas og placeres ved markørens slip-position (verdenskoordinater under hensyntagen til zoom og pan).
-- [ ] **AC3 - Drag-and-Drop af Klasser og Enumerationer på Informationsmodel**: Ikke-placerede klasser og enumerationer i Informationsmodellens palet kan trækkes ud på UML-canvas og placeres ved markørens slip-position.
-- [ ] **AC4 - Bevarelse af 1-klik `+` Tilføjelse**: Det eksisterende `+` ikon i paletten for u-tilføjede elementer bevares som et hurtigt 1-klik alternativ, der placerer elementet i viewportens centrum eller ledigt område.
-- [ ] **AC5 - Sanering af Snap-to-Grid**: Knappen "Snap: Til/Fra" og tilhørende snap-to-grid tilstand og beregninger er fjernet fra UI og canvas-interaktioner for både Begrebsdiagram og Informationsmodel. Noder flyttes med jævn, præcis positionering.
-- [ ] **AC6 - Accepttest Verifikation**: En samlet accepttest `test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements` validerer værktøjslinjeknapper, drop-adfærd og fraværet af gitter-snapping.
+- [x] **AC1 - Canvas Værktøjslinje Harmonering**: Knappen `+ Opret enumeration` er placeret i værktøjslinjen over Informationsmodel-canvas sammen med `+ Opret klasse` og `+ Opret Relation`. Venstrepalettens header for Enumerationer er ensrettet med Klasser (ingen overflødig `+ Opret`-knap i headeren).
+- [x] **AC2 - Drag-and-Drop af Begreber på Begrebsdiagram**: Ikke-placerede begreber i Begrebsdiagrammets palet kan trækkes ud på diagramcanvas og placeres ved markørens slip-position (verdenskoordinater under hensyntagen til zoom og pan).
+- [x] **AC3 - Drag-and-Drop af Klasser og Enumerationer på Informationsmodel**: Ikke-placerede klasser og enumerationer i Informationsmodellens palet kan trækkes ud på UML-canvas og placeres ved markørens slip-position.
+- [x] **AC4 - Bevarelse af 1-klik `+` Tilføjelse**: Det eksisterende `+` ikon i paletten for u-tilføjede elementer bevares som et hurtigt 1-klik alternativ, der placerer elementet i viewportens centrum eller ledigt område.
+- [x] **AC5 - Sanering af Snap-to-Grid**: Knappen "Snap: Til/Fra" og tilhørende snap-to-grid tilstand og beregninger er fjernet fra UI og canvas-interaktioner for både Begrebsdiagram og Informationsmodel. Noder flyttes med jævn, præcis positionering.
+- [x] **AC6 - Accepttest Verifikation**: En samlet accepttest `test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements` validerer værktøjslinjeknapper, drop-adfærd og fraværet af gitter-snapping.
 
 ---
 
