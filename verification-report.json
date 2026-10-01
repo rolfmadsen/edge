@@ -19,9 +19,9 @@
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "3dbe30d7cdf37b863ec0af923a2cf9c2f95cb8baec20295485c77ae0060d3ce3",
-    "source_manifest_digest_pre": "88fae5b246c1b31425cddc21aa614a5133b51101c2534a2c0268b4dcaee56c0d",
-    "source_manifest_digest_post": "88fae5b246c1b31425cddc21aa614a5133b51101c2534a2c0268b4dcaee56c0d",
+    "source_content_digest": "dbcde6571630cb935bc99182ac7a5709d063e3db74f0d86900a20a681995db0e",
+    "source_manifest_digest_pre": "2d53bcc53a44372e24b02f758ac69b5212f718416107ebdb56a2e15eb4435df4",
+    "source_manifest_digest_post": "2d53bcc53a44372e24b02f758ac69b5212f718416107ebdb56a2e15eb4435df4",
     "config_digest": "9f9f8304aa4405e0b1a2da53443791b70a70b6d2d8890415846866b3559ea458",
     "task_digest": "787f37ae5cf5ad4bc47e3fdc1fee31198a2d4d3b934d5b6839fd1fb4e56576f4",
     "policy_digest": "0f852424413423caad922699edfa6975806eb7d22902f207ef0d93da05ca5065",
@@ -29,15 +29,15 @@
     "included_files_count": 138,
     "vcs": {
       "type": "git",
-      "head": "950ad99",
-      "commit": "950ad99",
+      "head": "f077ec6",
+      "commit": "f077ec6",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-10-01T20:18:58Z",
-    "finished_at": "2026-10-01T20:19:04Z",
-    "total_duration_seconds": 5.29561275,
+    "started_at": "2026-10-01T20:34:42Z",
+    "finished_at": "2026-10-01T20:34:48Z",
+    "total_duration_seconds": 5.932809176,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -50,7 +50,7 @@
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.025571612,
+      "duration_seconds": 0.021937817,
       "optional": false,
       "passed": true,
       "log_digest": "bb99eecf7da47bb699e08b5414193ade3c049ead245334b322a8ca6aff367842"
@@ -59,37 +59,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 1.025809895,
+      "duration_seconds": 1.357774313,
       "optional": true,
       "passed": true,
-      "log_digest": "800341dc2ad818f43ab5f61255c9c212a5bc2f313ac90bf90bc68f6e88ae892a"
+      "log_digest": "4d89232aebdfb6c944c882e1f50d251428a5718316bccb8d2eef580ea80605f1"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.904655719,
+      "duration_seconds": 0.87343369,
       "optional": true,
       "passed": true,
-      "log_digest": "f2537b8d07d11dfcfff270e7c31267f380c8eae1be90e176df935755ba0e5bb9"
+      "log_digest": "183f8409286bd4a5baec1f5d32a97e70b74c13ca497da7ff958ba02840a406c5"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 2.7741067040000003,
+      "duration_seconds": 3.09170112,
       "optional": false,
       "passed": true,
-      "log_digest": "989c4c9d399d427eaf7369cf35ab8ed1ff87630c1339ed0115fa91b5da2c0439"
+      "log_digest": "830330a2fea69ce659ffd3b04ee44cf0e0e2992678547ddba1409b669e643927"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.539436156,
+      "duration_seconds": 0.565088498,
       "optional": false,
       "passed": true,
-      "log_digest": "3e4932c7bf9b0c6110e7a0b51cb30847b97de8ebe7b120d03fa5942cf7fbbd32"
+      "log_digest": "2719b95c629e6e271657b8ea6b328a8010812cb1f48c85347aa563aa20e12f46"
     }
   ],
   "diagnostics": []
