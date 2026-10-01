@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 061: Naming Convention Linter (FDA §19)"
 description: "Aktiv linter der håndhæver FDA Regel 19 navnekonventioner: UpperCamelCase på klasser og lowerCamelCase på attributter og associationsender"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-30T23:09:00Z" }
 tags: [fda, linter, naming-conventions, §19, UpperCamelCase, lowerCamelCase]
 ---
 
 # Task 061: Naming Convention Linter (FDA §19)
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🚀 NEW FEATURE`
 **Oprettet**: `2026-09-30`
 **Scope**: `src/features/information_model/linter.rs`, `src/features/information_model/mod.rs`, `src/ui/information_model_view.rs`, `tests/acceptance.rs`
@@ -36,11 +36,11 @@ Håndhæve FDA Modelregel 19 (*Brug standardiserede konventioner for angivelse a
    - Ikke-blokerende: advarsler forhindrer ikke gemning.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - UpperCamelCase Linter for Klasser**: En `NamingLinter::check_class_name(name) -> Option<NamingIssue>` returnerer advarsel hvis klassenavnet ikke er UpperCamelCase.
-- [ ] **AC2 - lowerCamelCase Linter for Attributter**: `NamingLinter::check_attribute_name(name) -> Option<NamingIssue>` returnerer advarsel hvis attributnavnet ikke er lowerCamelCase.
-- [ ] **AC3 - lowerCamelCase Linter for Associations-Labels**: Edge labels i informationsmodellen valideres mod lowerCamelCase.
-- [ ] **AC4 - UI Advarsler i Inspektøren**: Visuel feedback (ikon + tooltip) ved klassenavne og attributnavne der bryder konventionen.
-- [ ] **AC5 - Enhedstest**: Automatiserede tests for UpperCamelCase- og lowerCamelCase-detektering med positive og negative eksempler.
+- [x] **AC1 - UpperCamelCase Linter for Klasser**: En `NamingLinter::check_class_name(name) -> Option<NamingIssue>` returnerer advarsel hvis klassenavnet ikke er UpperCamelCase.
+- [x] **AC2 - lowerCamelCase Linter for Attributter**: `NamingLinter::check_attribute_name(name) -> Option<NamingIssue>` returnerer advarsel hvis attributnavnet ikke er lowerCamelCase.
+- [x] **AC3 - lowerCamelCase Linter for Associations-Labels**: Edge labels i informationsmodellen valideres mod lowerCamelCase.
+- [x] **AC4 - UI Advarsler i Inspektøren**: Visuel feedback (ikon + tooltip) ved klassenavne og attributnavne der bryder konventionen.
+- [x] **AC5 - Enhedstest**: Automatiserede tests for UpperCamelCase- og lowerCamelCase-detektering med positive og negative eksempler.
 
 ## 🚫 Must NOT
 - Må IKKE blokere gemning eller eksport ved navnefejl (kun vejledende advarsler).
@@ -49,6 +49,7 @@ Håndhæve FDA Modelregel 19 (*Brug standardiserede konventioner for angivelse a
 
 ## 📝 Revisions
 - 2026-09-30: Oprettet opgavepakke efter FDA compliance review af Kant v0.4.0.
+- 2026-10-01: Implementeret FDA Regel 19 NamingLinter, UI advarsler i inspektør og accepttests.
 
 ## 🧪 Verifikation
 - `cargo check --workspace`
