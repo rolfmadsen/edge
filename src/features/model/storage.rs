@@ -57,11 +57,14 @@ impl ProjectStorage {
     /// Indlæser et FDA modelprojekt fra disk og validerer samtlige begreber.
     pub fn load_from_file(path: &Path) -> Result<ModelProject, StorageError> {
         let content = fs::read_to_string(path)?;
-        let project: ModelProject = serde_json::from_str(&content)?;
+        let mut project: ModelProject = serde_json::from_str(&content)?;
 
         for concept in project.concepts() {
             ConceptValidator::validate(concept)?;
         }
+
+        project.migrate_information_graph_edges_to_model();
+        project.sync_information_graph();
 
         Ok(project)
     }

@@ -531,6 +531,11 @@ impl ModelProject {
             .sync_with_information_model(&self.information_model);
     }
 
+    pub fn migrate_information_graph_edges_to_model(&mut self) {
+        self.information_graph
+            .migrate_edges_to_model(&mut self.information_model);
+    }
+
     pub fn get_concept(&self, id: Uuid) -> Option<&Concept> {
         self.concepts.iter().find(|c| c.id() == id)
     }

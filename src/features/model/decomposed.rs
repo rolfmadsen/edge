@@ -1,7 +1,7 @@
 use crate::features::concept_model::{DiagramEdge, DiagramNode, PortSide, RelationKind};
 use crate::features::concepts::{Concept, ConceptValidator};
 use crate::features::information_model::{
-    ClassDiagramEdge, ClassDiagramNode, InformationClass, Multiplicity,
+    ClassDiagramNode, ClassRelation, InformationClass, Multiplicity,
 };
 use crate::features::model::storage::StorageError;
 use crate::features::model::{ModelMetadata, ModelProject};
@@ -222,20 +222,47 @@ pub fn save_decomposed(project: &ModelProject, root_path: &Path) -> Result<(), S
         atomic_write_file(&file_path, &json)?;
     }
 
-    for edge in project.information_graph().edges() {
-        let rel_id = deterministic_uuid(&format!("class:{}:{}", edge.from(), edge.to()));
+    let mut info_rels: Vec<ClassRelation> = project.information_model().relations().to_vec();
+    if info_rels.is_empty() && !project.information_graph().edges().is_empty() {
+        for edge in project.information_graph().edges() {
+            let from_class = project
+                .information_graph()
+                .find_node(edge.from())
+                .map(|n| n.class_id())
+                .unwrap_or(edge.from());
+            let to_class = project
+                .information_graph()
+                .find_node(edge.to())
+                .map(|n| n.class_id())
+                .unwrap_or(edge.to());
+            info_rels.push(ClassRelation::with_multiplicities(
+                from_class,
+                to_class,
+                edge.kind(),
+                edge.label().map(String::from),
+                edge.source_port(),
+                edge.target_port(),
+                edge.directed(),
+                edge.source_multiplicity(),
+                edge.target_multiplicity(),
+            ));
+        }
+    }
+
+    for rel in info_rels {
+        let rel_id = rel.id();
         active_relation_ids.insert(rel_id);
         let decomposed_rel = DecomposedRelation::ClassRelation {
             id: rel_id,
-            from: edge.from(),
-            to: edge.to(),
-            kind: edge.kind(),
-            label: edge.label().map(|s| s.to_string()),
-            source_port: edge.source_port(),
-            target_port: edge.target_port(),
-            directed: edge.directed(),
-            source_multiplicity: edge.source_multiplicity(),
-            target_multiplicity: edge.target_multiplicity(),
+            from: rel.from_class(),
+            to: rel.to_class(),
+            kind: rel.kind(),
+            label: rel.label().map(|s| s.to_string()),
+            source_port: rel.source_port(),
+            target_port: rel.target_port(),
+            directed: rel.directed(),
+            source_multiplicity: rel.source_multiplicity(),
+            target_multiplicity: rel.target_multiplicity(),
         };
         let file_path = relations_dir.join(format!("{}.json", rel_id));
         let json = to_deterministic_json(&decomposed_rel)?;
@@ -389,7 +416,7 @@ pub fn load_decomposed(root_path: &Path) -> Result<ModelProject, StorageError> {
                             source_multiplicity,
                             target_multiplicity,
                         } => {
-                            let edge = ClassDiagramEdge::with_multiplicities(
+                            let rel = ClassRelation::with_multiplicities(
                                 from,
                                 to,
                                 kind,
@@ -400,13 +427,15 @@ pub fn load_decomposed(root_path: &Path) -> Result<ModelProject, StorageError> {
                                 source_multiplicity,
                                 target_multiplicity,
                             );
-                            project.information_graph_mut().edges_mut().push(edge);
+                            project.information_model_mut().add_relation(rel);
                         }
                     }
                 }
             }
         }
     }
+
+    project.sync_information_graph();
 
     Ok(project)
 }

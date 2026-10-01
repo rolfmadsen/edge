@@ -9,7 +9,7 @@ use crate::features::git::{
     ChangeAction, DomainChangeEvent, DomainEventMapper, GitService, PullResult, RepoSyncStatus,
 };
 use crate::features::information_model::{
-    Attribute, InformationClass, Multiplicity, PrimitiveType,
+    Attribute, ClassRelation, InformationClass, Multiplicity, PrimitiveType,
 };
 use crate::features::model::storage::ProjectStorage;
 use crate::features::model::{
@@ -1599,6 +1599,16 @@ impl App {
                     self.project
                         .information_graph_mut()
                         .add_node(class_id, attr_count);
+                    self.project.sync_information_graph();
+                    let ig = self.project.information_graph_mut();
+                    let nodes: Vec<crate::features::concept_model::DiagramNode> =
+                        ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
+                    let edges: Vec<crate::features::concept_model::DiagramEdge> =
+                        ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
+                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
+                    for r in routes {
+                        ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                    }
                 }
             }
             ClassDiagramNodeRemoved(class_id) => {
@@ -1676,77 +1686,78 @@ impl App {
                 target_multiplicity,
                 directed,
             } => {
-                let ig = self.project.information_graph();
-                if let (Some(from_node), Some(to_node)) = (
-                    ig.find_node_by_class(from_class),
-                    ig.find_node_by_class(to_class),
-                ) {
-                    let from_id = from_node.id();
-                    let to_id = to_node.id();
-                    if self
-                        .project
-                        .information_graph()
-                        .find_edge(from_id, to_id)
-                        .is_none()
-                    {
-                        self.project
-                            .information_graph_mut()
-                            .add_relation_with_multiplicities(
-                                from_id,
-                                to_id,
-                                kind,
-                                label,
-                                source_multiplicity,
-                                target_multiplicity,
-                            );
-                        if let Some(dir) = directed {
-                            self.project
-                                .information_graph_mut()
-                                .update_edge_directed(from_id, to_id, dir);
-                        }
-                    } else if let Some(edge) = self
-                        .project
-                        .information_graph_mut()
-                        .find_edge_mut(from_id, to_id)
-                    {
-                        edge.set_kind(kind);
-                        edge.set_label(label);
-                        edge.set_source_multiplicity(source_multiplicity);
-                        edge.set_target_multiplicity(target_multiplicity);
-                        if let Some(dir) = directed {
-                            edge.set_directed(dir);
-                        }
-                    }
-                    let ig = self.project.information_graph_mut();
+                let rel = ClassRelation::with_multiplicities(
+                    from_class,
+                    to_class,
+                    kind,
+                    label,
+                    None,
+                    None,
+                    directed,
+                    source_multiplicity,
+                    target_multiplicity,
+                );
+                self.project.information_model_mut().add_relation(rel);
+                self.project.sync_information_graph();
+                let routes = {
+                    let ig = self.project.information_graph();
                     let nodes: Vec<crate::features::concept_model::DiagramNode> =
                         ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
                     let edges: Vec<crate::features::concept_model::DiagramEdge> =
                         ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
-                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
-                    for r in routes {
-                        ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
-                    }
+                    crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges)
+                };
+                for r in &routes {
+                    self.project.information_graph_mut().update_edge_ports(
+                        r.from,
+                        r.to,
+                        Some(r.from_side),
+                        Some(r.to_side),
+                    );
+                }
+                let port_updates: Vec<_> = {
+                    let ig = self.project.information_graph();
+                    routes
+                        .into_iter()
+                        .map(|r| {
+                            let fc = ig.find_node(r.from).map(|n| n.class_id()).unwrap_or(r.from);
+                            let tc = ig.find_node(r.to).map(|n| n.class_id()).unwrap_or(r.to);
+                            (fc, tc, r.from_side, r.to_side)
+                        })
+                        .collect()
+                };
+                for (fc, tc, from_side, to_side) in port_updates {
+                    self.project.information_model_mut().update_relation_ports(
+                        fc,
+                        tc,
+                        Some(from_side),
+                        Some(to_side),
+                    );
                 }
             }
             ClassRelationDeleted {
                 from_class,
                 to_class,
             } => {
+                self.project
+                    .information_model_mut()
+                    .remove_relation(from_class, to_class);
                 let ig = self.project.information_graph();
-                if let (Some(from_node), Some(to_node)) = (
-                    ig.find_node_by_class(from_class),
-                    ig.find_node_by_class(to_class),
-                ) {
-                    let from_id = from_node.id();
-                    let to_id = to_node.id();
-                    self.project
-                        .information_graph_mut()
-                        .remove_relation(from_id, to_id);
-                    if self.selected_info_edge == Some((from_id, to_id))
-                        || self.selected_info_edge == Some((to_id, from_id))
-                    {
-                        self.selected_info_edge = None;
-                    }
+                let from_id = ig
+                    .find_node_by_class(from_class)
+                    .map(|n| n.id())
+                    .unwrap_or(from_class);
+                let to_id = ig
+                    .find_node_by_class(to_class)
+                    .map(|n| n.id())
+                    .unwrap_or(to_class);
+                self.project
+                    .information_graph_mut()
+                    .remove_relation(from_id, to_id);
+                if self.selected_info_edge == Some((from_id, to_id))
+                    || self.selected_info_edge == Some((to_id, from_id))
+                {
+                    self.selected_info_edge = None;
                 }
             }
             NodeMoved { id, x, y } => {
@@ -4397,6 +4408,42 @@ impl App {
                     .project
                     .information_graph_mut()
                     .add_node(class_id, attr_count);
+                self.project.sync_information_graph();
+                let routes = {
+                    let ig = self.project.information_graph();
+                    let nodes: Vec<crate::features::concept_model::DiagramNode> =
+                        ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
+                    let edges: Vec<crate::features::concept_model::DiagramEdge> =
+                        ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
+                    crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges)
+                };
+                for r in &routes {
+                    self.project.information_graph_mut().update_edge_ports(
+                        r.from,
+                        r.to,
+                        Some(r.from_side),
+                        Some(r.to_side),
+                    );
+                }
+                let port_updates: Vec<_> = {
+                    let ig = self.project.information_graph();
+                    routes
+                        .into_iter()
+                        .map(|r| {
+                            let fc = ig.find_node(r.from).map(|n| n.class_id()).unwrap_or(r.from);
+                            let tc = ig.find_node(r.to).map(|n| n.class_id()).unwrap_or(r.to);
+                            (fc, tc, r.from_side, r.to_side)
+                        })
+                        .collect()
+                };
+                for (fc, tc, from_side, to_side) in port_updates {
+                    self.project.information_model_mut().update_relation_ports(
+                        fc,
+                        tc,
+                        Some(from_side),
+                        Some(to_side),
+                    );
+                }
                 self.selected_info_class_id = Some(class_id);
                 self.selected_info_graph_node_id = Some(node_id);
                 self.broadcast_mutation(
@@ -4538,21 +4585,57 @@ impl App {
                     let from_class = graph.find_node(from).unwrap().class_id();
                     let to_class = graph.find_node(to).unwrap().class_id();
                     if graph.find_edge(from, to).is_none() {
+                        let rel = ClassRelation::new(
+                            from_class,
+                            to_class,
+                            RelationKind::Association,
+                            None,
+                        );
+                        self.project.information_model_mut().add_relation(rel);
                         self.project.information_graph_mut().add_relation(
                             from,
                             to,
                             RelationKind::Association,
                             None,
                         );
-                        let ig = self.project.information_graph_mut();
-                        let nodes: Vec<crate::features::concept_model::DiagramNode> =
-                            ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
-                        let edges: Vec<crate::features::concept_model::DiagramEdge> =
-                            ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
-                        let routes =
-                            crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
-                        for r in routes {
-                            ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
+                        let routes = {
+                            let ig = self.project.information_graph();
+                            let nodes: Vec<crate::features::concept_model::DiagramNode> =
+                                ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
+                            let edges: Vec<crate::features::concept_model::DiagramEdge> =
+                                ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
+                            crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges)
+                        };
+                        for r in &routes {
+                            self.project.information_graph_mut().update_edge_ports(
+                                r.from,
+                                r.to,
+                                Some(r.from_side),
+                                Some(r.to_side),
+                            );
+                        }
+                        let port_updates: Vec<_> = {
+                            let ig = self.project.information_graph();
+                            routes
+                                .into_iter()
+                                .map(|r| {
+                                    let fc = ig
+                                        .find_node(r.from)
+                                        .map(|n| n.class_id())
+                                        .unwrap_or(r.from);
+                                    let tc =
+                                        ig.find_node(r.to).map(|n| n.class_id()).unwrap_or(r.to);
+                                    (fc, tc, r.from_side, r.to_side)
+                                })
+                                .collect()
+                        };
+                        for (fc, tc, from_side, to_side) in port_updates {
+                            self.project.information_model_mut().update_relation_ports(
+                                fc,
+                                tc,
+                                Some(from_side),
+                                Some(to_side),
+                            );
                         }
                         self.broadcast_mutation(
                             &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
@@ -4610,6 +4693,9 @@ impl App {
                     .update_edge_kind(from, to, kind)
                 {
                     if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                        self.project
+                            .information_model_mut()
+                            .update_relation_kind(fc, tc, kind);
                         self.broadcast_mutation(
                             &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
                                 from_class: fc,
@@ -4668,6 +4754,11 @@ impl App {
                     .update_edge_label(from, to, lbl.clone())
                 {
                     if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                        self.project.information_model_mut().update_relation_label(
+                            fc,
+                            tc,
+                            lbl.clone(),
+                        );
                         self.broadcast_mutation(
                             &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
                                 from_class: fc,
@@ -4700,6 +4791,9 @@ impl App {
                     .update_edge_source_multiplicity(from, to, mult)
                 {
                     if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                        self.project
+                            .information_model_mut()
+                            .update_relation_source_multiplicity(fc, tc, mult);
                         if let Some(edge) = self.project.information_graph().find_edge(from, to) {
                             self.broadcast_mutation(
                                 &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
@@ -4734,6 +4828,9 @@ impl App {
                     .update_edge_target_multiplicity(from, to, mult)
                 {
                     if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                        self.project
+                            .information_model_mut()
+                            .update_relation_target_multiplicity(fc, tc, mult);
                         if let Some(edge) = self.project.information_graph().find_edge(from, to) {
                             self.broadcast_mutation(
                                 &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
@@ -4768,6 +4865,9 @@ impl App {
                     .update_edge_directed(from, to, directed)
                 {
                     if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                        self.project
+                            .information_model_mut()
+                            .update_relation_directed(fc, tc, directed);
                         if let Some(edge) = self.project.information_graph().find_edge(from, to) {
                             self.broadcast_mutation(
                                 &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
@@ -4803,6 +4903,9 @@ impl App {
                 {
                     self.selected_info_edge = Some((to, from));
                     if let (Some(fc), Some(tc)) = (from_class, to_class) {
+                        self.project
+                            .information_model_mut()
+                            .reverse_relation(fc, tc);
                         self.broadcast_mutation(
                             &crate::features::collab::protocol::ModelMutation::ClassRelationDeleted {
                                 from_class: fc,
@@ -4827,6 +4930,26 @@ impl App {
                 }
             }
             Message::AddClassRelation(from, to, kind, label) => {
+                let from_class = self
+                    .project
+                    .information_graph()
+                    .find_node(from)
+                    .map(|n| n.class_id())
+                    .unwrap_or(from);
+                let to_class = self
+                    .project
+                    .information_graph()
+                    .find_node(to)
+                    .map(|n| n.class_id())
+                    .unwrap_or(to);
+                self.project.information_model_mut().add_relation(
+                    crate::features::information_model::ClassRelation::new(
+                        from_class,
+                        to_class,
+                        kind,
+                        label.clone(),
+                    ),
+                );
                 self.project
                     .information_graph_mut()
                     .add_relation(from, to, kind, label);
@@ -4837,28 +4960,31 @@ impl App {
                     .project
                     .information_graph()
                     .find_node(from)
-                    .map(|n| n.class_id());
+                    .map(|n| n.class_id())
+                    .unwrap_or(from);
                 let to_class = self
                     .project
                     .information_graph()
                     .find_node(to)
-                    .map(|n| n.class_id());
+                    .map(|n| n.class_id())
+                    .unwrap_or(to);
                 self.project
                     .information_graph_mut()
                     .remove_relation(from, to);
+                self.project
+                    .information_model_mut()
+                    .remove_relation(from_class, to_class);
                 if self.selected_info_edge == Some((from, to))
                     || self.selected_info_edge == Some((to, from))
                 {
                     self.selected_info_edge = None;
                 }
-                if let (Some(fc), Some(tc)) = (from_class, to_class) {
-                    self.broadcast_mutation(
-                        &crate::features::collab::protocol::ModelMutation::ClassRelationDeleted {
-                            from_class: fc,
-                            to_class: tc,
-                        },
-                    );
-                }
+                self.broadcast_mutation(
+                    &crate::features::collab::protocol::ModelMutation::ClassRelationDeleted {
+                        from_class,
+                        to_class,
+                    },
+                );
                 self.trigger_autosave();
             }
             Message::InfoCanvasViewportChanged(vp) => {
@@ -4960,8 +5086,14 @@ impl App {
                                         (dlg.source_multiplicity, dlg.target_multiplicity)
                                     };
                                 let graph = self.project.information_graph();
-                                let from_class = graph.find_node(from.id).map(|n| n.class_id());
-                                let to_class = graph.find_node(to.id).map(|n| n.class_id());
+                                let from_class = graph
+                                    .find_node(from.id)
+                                    .map(|n| n.class_id())
+                                    .unwrap_or(from.id);
+                                let to_class = graph
+                                    .find_node(to.id)
+                                    .map(|n| n.class_id())
+                                    .unwrap_or(to.id);
                                 self.project
                                     .information_graph_mut()
                                     .add_relation_with_multiplicities(
@@ -4972,38 +5104,82 @@ impl App {
                                         src_mult,
                                         tgt_mult,
                                     );
-                                let ig = self.project.information_graph_mut();
-                                let nodes: Vec<crate::features::concept_model::DiagramNode> =
-                                    ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
-                                let edges: Vec<crate::features::concept_model::DiagramEdge> =
-                                    ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
-                                let routes =
-                                    crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges);
-                                for r in routes {
-                                    ig.update_edge_ports(
+                                let routes = {
+                                    let ig = self.project.information_graph();
+                                    let nodes: Vec<crate::features::concept_model::DiagramNode> =
+                                        ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
+                                    let edges: Vec<crate::features::concept_model::DiagramEdge> =
+                                        ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
+                                    crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges)
+                                };
+                                for r in &routes {
+                                    self.project.information_graph_mut().update_edge_ports(
                                         r.from,
                                         r.to,
                                         Some(r.from_side),
                                         Some(r.to_side),
                                     );
                                 }
-                                if let (Some(fc), Some(tc)) = (from_class, to_class) {
-                                    self.broadcast_mutation(
-                                        &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
-                                            from_class: fc,
-                                            to_class: tc,
-                                            kind: dlg.kind,
-                                            label,
-                                            source_multiplicity: src_mult,
-                                            target_multiplicity: tgt_mult,
-                                            directed: if dlg.kind == RelationKind::Association {
-                                                Some(true)
-                                            } else {
-                                                None
-                                            },
-                                        },
+                                let port_updates: Vec<_> = {
+                                    let ig = self.project.information_graph();
+                                    routes
+                                        .into_iter()
+                                        .map(|r| {
+                                            let fc = ig
+                                                .find_node(r.from)
+                                                .map(|n| n.class_id())
+                                                .unwrap_or(r.from);
+                                            let tc = ig
+                                                .find_node(r.to)
+                                                .map(|n| n.class_id())
+                                                .unwrap_or(r.to);
+                                            (fc, tc, r.from_side, r.to_side)
+                                        })
+                                        .collect()
+                                };
+                                for (fc, tc, from_side, to_side) in port_updates {
+                                    self.project.information_model_mut().update_relation_ports(
+                                        fc,
+                                        tc,
+                                        Some(from_side),
+                                        Some(to_side),
                                     );
                                 }
+                                let (source_port, target_port) = self
+                                    .project
+                                    .information_graph()
+                                    .find_edge(from.id, to.id)
+                                    .map(|e| (e.source_port(), e.target_port()))
+                                    .unwrap_or((None, None));
+                                let directed = if dlg.kind == RelationKind::Association {
+                                    Some(true)
+                                } else {
+                                    None
+                                };
+                                self.project.information_model_mut().add_relation(
+                                    crate::features::information_model::ClassRelation::with_multiplicities(
+                                        from_class,
+                                        to_class,
+                                        dlg.kind,
+                                        label.clone(),
+                                        source_port,
+                                        target_port,
+                                        directed,
+                                        src_mult,
+                                        tgt_mult,
+                                    ),
+                                );
+                                self.broadcast_mutation(
+                                    &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
+                                        from_class,
+                                        to_class,
+                                        kind: dlg.kind,
+                                        label,
+                                        source_multiplicity: src_mult,
+                                        target_multiplicity: tgt_mult,
+                                        directed,
+                                    },
+                                );
                                 self.info_relation_dialog = None;
                                 self.trigger_autosave();
                             }

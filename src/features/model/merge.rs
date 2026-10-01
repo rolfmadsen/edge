@@ -1,7 +1,7 @@
 use crate::features::concept_model::{DiagramEdge, DiagramNode};
 use crate::features::concepts::Concept;
 use crate::features::information_model::{
-    Attribute, ClassDiagramEdge, ClassDiagramNode, InformationClass,
+    Attribute, ClassDiagramNode, ClassRelation, InformationClass,
 };
 use crate::features::model::{ModelMetadata, ModelProject};
 use std::collections::{HashMap, HashSet};
@@ -735,39 +735,123 @@ fn merge_class_edges(
         .map(|c| c.id())
         .collect();
 
-    let base_edges: Vec<_> = base.information_graph().edges().to_vec();
-    let our_edges: Vec<_> = ours.information_graph().edges().to_vec();
-    let their_edges: Vec<_> = theirs.information_graph().edges().to_vec();
-
-    let mut result_edges: Vec<ClassDiagramEdge> = Vec::new();
-
-    for edge in our_edges {
-        if valid_class_ids.contains(&edge.from())
-            && valid_class_ids.contains(&edge.to())
-            && !result_edges
-                .iter()
-                .any(|e| e.from() == edge.from() && e.to() == edge.to() && e.kind() == edge.kind())
-        {
-            result_edges.push(edge);
+    // 1. Merge semantiske relationer i information_model
+    let mut base_rels = base.information_model().relations().to_vec();
+    if base_rels.is_empty() {
+        for e in base.information_graph().edges() {
+            let from = base
+                .information_graph()
+                .find_node(e.from())
+                .map(|n| n.class_id())
+                .unwrap_or(e.from());
+            let to = base
+                .information_graph()
+                .find_node(e.to())
+                .map(|n| n.class_id())
+                .unwrap_or(e.to());
+            base_rels.push(ClassRelation::with_multiplicities(
+                from,
+                to,
+                e.kind(),
+                e.label().map(String::from),
+                e.source_port(),
+                e.target_port(),
+                e.directed(),
+                e.source_multiplicity(),
+                e.target_multiplicity(),
+            ));
         }
     }
 
-    for edge in their_edges {
-        if valid_class_ids.contains(&edge.from()) && valid_class_ids.contains(&edge.to()) {
-            let was_in_base = base_edges
-                .iter()
-                .any(|e| e.from() == edge.from() && e.to() == edge.to() && e.kind() == edge.kind());
+    let mut our_rels = ours.information_model().relations().to_vec();
+    if our_rels.is_empty() {
+        for e in ours.information_graph().edges() {
+            let from = ours
+                .information_graph()
+                .find_node(e.from())
+                .map(|n| n.class_id())
+                .unwrap_or(e.from());
+            let to = ours
+                .information_graph()
+                .find_node(e.to())
+                .map(|n| n.class_id())
+                .unwrap_or(e.to());
+            our_rels.push(ClassRelation::with_multiplicities(
+                from,
+                to,
+                e.kind(),
+                e.label().map(String::from),
+                e.source_port(),
+                e.target_port(),
+                e.directed(),
+                e.source_multiplicity(),
+                e.target_multiplicity(),
+            ));
+        }
+    }
+
+    let mut their_rels = theirs.information_model().relations().to_vec();
+    if their_rels.is_empty() {
+        for e in theirs.information_graph().edges() {
+            let from = theirs
+                .information_graph()
+                .find_node(e.from())
+                .map(|n| n.class_id())
+                .unwrap_or(e.from());
+            let to = theirs
+                .information_graph()
+                .find_node(e.to())
+                .map(|n| n.class_id())
+                .unwrap_or(e.to());
+            their_rels.push(ClassRelation::with_multiplicities(
+                from,
+                to,
+                e.kind(),
+                e.label().map(String::from),
+                e.source_port(),
+                e.target_port(),
+                e.directed(),
+                e.source_multiplicity(),
+                e.target_multiplicity(),
+            ));
+        }
+    }
+
+    let mut result_rels: Vec<ClassRelation> = Vec::new();
+    for rel in our_rels {
+        if valid_class_ids.contains(&rel.from_class())
+            && valid_class_ids.contains(&rel.to_class())
+            && !result_rels.iter().any(|r| {
+                r.from_class() == rel.from_class()
+                    && r.to_class() == rel.to_class()
+                    && r.kind() == rel.kind()
+            })
+        {
+            result_rels.push(rel);
+        }
+    }
+
+    for rel in their_rels {
+        if valid_class_ids.contains(&rel.from_class()) && valid_class_ids.contains(&rel.to_class())
+        {
+            let was_in_base = base_rels.iter().any(|r| {
+                r.from_class() == rel.from_class()
+                    && r.to_class() == rel.to_class()
+                    && r.kind() == rel.kind()
+            });
             if !was_in_base
-                && !result_edges.iter().any(|e| {
-                    e.from() == edge.from() && e.to() == edge.to() && e.kind() == edge.kind()
+                && !result_rels.iter().any(|r| {
+                    r.from_class() == rel.from_class()
+                        && r.to_class() == rel.to_class()
+                        && r.kind() == rel.kind()
                 })
             {
-                result_edges.push(edge);
+                result_rels.push(rel);
             }
         }
     }
 
-    *merged.information_graph_mut().edges_mut() = result_edges;
+    *merged.information_model_mut().relations_mut() = result_rels;
 }
 
 fn merge_diagram_nodes(

@@ -1012,48 +1012,36 @@ pub fn view<'a>(
             };
 
             // Tilknyttede relationer for denne klasse
-            let connected_edges: Vec<_> =
-                if let Some(node) = class_graph.find_node_by_class(class_id) {
-                    let node_id = node.id();
-                    class_graph
-                        .edges()
-                        .iter()
-                        .filter(|e| e.from() == node_id || e.to() == node_id)
-                        .collect()
-                } else {
-                    Vec::new()
-                };
+            let connected_relations = info_model.relations_for_class(class_id);
 
             let mut relations_col = column![text("Tilknyttede relationer:")
                 .size(11)
                 .color(ThemeColors::SLATE_700),]
             .spacing(4);
 
-            if connected_edges.is_empty() {
+            if connected_relations.is_empty() {
                 relations_col = relations_col.push(
                     text("(ingen relationer)")
                         .size(11)
                         .color(ThemeColors::TEXT_MUTED),
                 );
             } else {
-                for edge in connected_edges {
-                    let from_class = class_graph
-                        .find_node(edge.from())
-                        .and_then(|n| info_model.get_class(n.class_id()))
+                for rel in connected_relations {
+                    let from_class = info_model
+                        .get_class(rel.from_class())
                         .map(|c| c.name())
                         .unwrap_or("?");
-                    let to_class = class_graph
-                        .find_node(edge.to())
-                        .and_then(|n| info_model.get_class(n.class_id()))
+                    let to_class = info_model
+                        .get_class(rel.to_class())
                         .map(|c| c.name())
                         .unwrap_or("?");
 
-                    let desc = match edge.kind() {
+                    let desc = match rel.kind() {
                         RelationKind::Generalization => {
                             format!("{} ⮞ {}", from_class, to_class)
                         }
                         RelationKind::Association => {
-                            if let Some(lbl) = edge.label() {
+                            if let Some(lbl) = rel.label() {
                                 format!("{} ──({})── {}", from_class, lbl, to_class)
                             } else {
                                 format!("{} ── {}", from_class, to_class)
@@ -1067,8 +1055,8 @@ pub fn view<'a>(
                         }
                     };
 
-                    let edge_from = edge.from();
-                    let edge_to = edge.to();
+                    let rel_from = rel.from_class();
+                    let rel_to = rel.to_class();
                     let edge_row = row![
                         text(desc)
                             .size(11)
@@ -1076,7 +1064,7 @@ pub fn view<'a>(
                             .width(Length::Fill),
                         button(text("🗑️").size(11))
                             .style(danger_button_style)
-                            .on_press(Message::DeleteClassRelation(edge_from, edge_to))
+                            .on_press(Message::DeleteClassRelation(rel_from, rel_to))
                             .padding([2, 5]),
                     ]
                     .spacing(4)

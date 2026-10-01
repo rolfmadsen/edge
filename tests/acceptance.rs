@@ -7879,7 +7879,10 @@ fn test_task_041_persistent_class_relations_across_canvas_removal() {
 
     // Inspector check: relations_for_class for den fjernede klasse skal returnere relationen
     assert_eq!(
-        app.project().information_model().relations_for_class(class_a_id).len(),
+        app.project()
+            .information_model()
+            .relations_for_class(class_a_id)
+            .len(),
         1,
         "AC1: relations_for_class skal returnere relationen for den skjulte klasse"
     );
@@ -7962,4 +7965,3 @@ fn test_task_041_persistent_class_relations_across_canvas_removal() {
         serde_json::from_str(&project_json).expect("Deserialisering skal lykkes");
     assert_eq!(deserialized.information_model().classes().len(), 1);
 }
-

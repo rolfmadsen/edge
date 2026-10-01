@@ -707,10 +707,7 @@ impl ClassRelation {
     pub fn reverse(&mut self) {
         std::mem::swap(&mut self.from_class, &mut self.to_class);
         std::mem::swap(&mut self.source_port, &mut self.target_port);
-        std::mem::swap(
-            &mut self.source_multiplicity,
-            &mut self.target_multiplicity,
-        );
+        std::mem::swap(&mut self.source_multiplicity, &mut self.target_multiplicity);
     }
 }
 
@@ -792,6 +789,104 @@ impl InformationModel {
             .retain(|r| r.from_class != class_id && r.to_class != class_id);
     }
 
+    pub fn update_relation_kind(
+        &mut self,
+        from_class: Uuid,
+        to_class: Uuid,
+        kind: RelationKind,
+    ) -> bool {
+        if let Some(rel) = self.find_relation_mut(from_class, to_class) {
+            rel.set_kind(kind);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update_relation_label(
+        &mut self,
+        from_class: Uuid,
+        to_class: Uuid,
+        label: Option<String>,
+    ) -> bool {
+        if let Some(rel) = self.find_relation_mut(from_class, to_class) {
+            rel.set_label(label);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update_relation_source_multiplicity(
+        &mut self,
+        from_class: Uuid,
+        to_class: Uuid,
+        mult: Option<Multiplicity>,
+    ) -> bool {
+        if let Some(rel) = self.find_relation_mut(from_class, to_class) {
+            rel.set_source_multiplicity(mult);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update_relation_target_multiplicity(
+        &mut self,
+        from_class: Uuid,
+        to_class: Uuid,
+        mult: Option<Multiplicity>,
+    ) -> bool {
+        if let Some(rel) = self.find_relation_mut(from_class, to_class) {
+            rel.set_target_multiplicity(mult);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update_relation_directed(
+        &mut self,
+        from_class: Uuid,
+        to_class: Uuid,
+        directed: bool,
+    ) -> bool {
+        if let Some(rel) = self.find_relation_mut(from_class, to_class) {
+            rel.set_directed(directed);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn update_relation_ports(
+        &mut self,
+        from_class: Uuid,
+        to_class: Uuid,
+        source_port: Option<PortSide>,
+        target_port: Option<PortSide>,
+    ) -> bool {
+        if let Some(rel) = self.find_relation_mut(from_class, to_class) {
+            rel.set_ports(source_port, target_port);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn reverse_relation(&mut self, from_class: Uuid, to_class: Uuid) -> bool {
+        if let Some(pos) = self
+            .relations
+            .iter()
+            .position(|r| r.from_class == from_class && r.to_class == to_class)
+        {
+            self.relations[pos].reverse();
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn classes(&self) -> &[InformationClass] {
         &self.classes
     }
@@ -820,6 +915,7 @@ impl InformationModel {
     }
 
     pub fn remove_class(&mut self, id: Uuid) -> Option<InformationClass> {
+        self.remove_relations_for_class(id);
         if let Some(pos) = self.classes.iter().position(|c| c.id() == id) {
             Some(self.classes.remove(pos))
         } else {
@@ -942,7 +1038,7 @@ pub struct ClassDiagramNode {
 impl ClassDiagramNode {
     pub fn new(class_id: Uuid, x: f32, y: f32, attr_count: usize) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: class_id,
             class_id,
             x,
             y,
@@ -1432,14 +1528,102 @@ impl ClassGraph {
         let valid_class_ids: Vec<Uuid> = info_model.classes().iter().map(|c| c.id()).collect();
         self.nodes
             .retain(|n| valid_class_ids.contains(&n.class_id()));
-        let valid_node_ids: std::collections::HashSet<NodeId> =
-            self.nodes.iter().map(|n| n.id()).collect();
-        self.edges
-            .retain(|e| valid_node_ids.contains(&e.from()) && valid_node_ids.contains(&e.to()));
+
+        // Normaliser eventuelle ældre noder hvor node.id != node.class_id
+        for node in &mut self.nodes {
+            if node.id != node.class_id {
+                let old_id = node.id;
+                let new_id = node.class_id;
+                node.id = new_id;
+                for edge in &mut self.edges {
+                    if edge.from == old_id {
+                        edge.from = new_id;
+                    }
+                    if edge.to == old_id {
+                        edge.to = new_id;
+                    }
+                }
+            }
+        }
 
         for node in &mut self.nodes {
             if let Some(class) = info_model.get_class(node.class_id()) {
                 node.update_dimensions(class.attributes().len());
+            }
+        }
+
+        // Synkroniser kanter fra semantiske relationer i info_model
+        let mut expected_edges: Vec<ClassDiagramEdge> = Vec::new();
+        for rel in info_model.relations() {
+            if let (Some(from_node), Some(to_node)) = (
+                self.find_node_by_class(rel.from_class()),
+                self.find_node_by_class(rel.to_class()),
+            ) {
+                let from_id = from_node.id();
+                let to_id = to_node.id();
+                if let Some(existing) = self.find_edge(from_id, to_id) {
+                    let mut updated = existing.clone();
+                    updated.set_kind(rel.kind());
+                    updated.set_label(rel.label().map(String::from));
+                    if rel.source_port().is_some() || rel.target_port().is_some() {
+                        updated.set_ports(rel.source_port(), rel.target_port());
+                    }
+                    if let Some(d) = rel.directed() {
+                        updated.set_directed(d);
+                    }
+                    updated.set_source_multiplicity(rel.source_multiplicity());
+                    updated.set_target_multiplicity(rel.target_multiplicity());
+                    expected_edges.push(updated);
+                } else {
+                    let edge = ClassDiagramEdge::with_multiplicities(
+                        from_id,
+                        to_id,
+                        rel.kind(),
+                        rel.label().map(String::from),
+                        rel.source_port(),
+                        rel.target_port(),
+                        rel.directed(),
+                        rel.source_multiplicity(),
+                        rel.target_multiplicity(),
+                    );
+                    expected_edges.push(edge);
+                }
+            }
+        }
+
+        if info_model.relations().is_empty() && !self.edges.is_empty() {
+            let valid_node_ids: std::collections::HashSet<NodeId> =
+                self.nodes.iter().map(|n| n.id()).collect();
+            self.edges
+                .retain(|e| valid_node_ids.contains(&e.from()) && valid_node_ids.contains(&e.to()));
+        } else {
+            self.edges = expected_edges;
+        }
+    }
+
+    pub fn migrate_edges_to_model(&self, info_model: &mut InformationModel) {
+        if info_model.relations().is_empty() && !self.edges.is_empty() {
+            for edge in &self.edges {
+                let from_class = self
+                    .find_node(edge.from())
+                    .map(|n| n.class_id())
+                    .unwrap_or(edge.from());
+                let to_class = self
+                    .find_node(edge.to())
+                    .map(|n| n.class_id())
+                    .unwrap_or(edge.to());
+                let rel = ClassRelation::with_multiplicities(
+                    from_class,
+                    to_class,
+                    edge.kind(),
+                    edge.label().map(String::from),
+                    edge.source_port(),
+                    edge.target_port(),
+                    edge.directed(),
+                    edge.source_multiplicity(),
+                    edge.target_multiplicity(),
+                );
+                info_model.add_relation(rel);
             }
         }
     }
