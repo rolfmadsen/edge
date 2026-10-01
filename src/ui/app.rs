@@ -3575,7 +3575,8 @@ impl App {
                         }
                         self.trigger_autosave();
                     } else if !self.selected_info_graph_node_ids.is_empty() {
-                        let to_remove: Vec<NodeId> = self.selected_info_graph_node_ids.drain().collect();
+                        let to_remove: Vec<NodeId> =
+                            self.selected_info_graph_node_ids.drain().collect();
                         self.selected_info_graph_node_id = None;
                         self.selected_info_class_id = None;
                         for node_id in to_remove {
@@ -4483,7 +4484,8 @@ impl App {
                         ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
                     let d_edges: Vec<crate::features::concept_model::DiagramEdge> =
                         ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
-                    let routes = crate::ui::edge_router::EdgeRouter::route_edges(&d_nodes, &d_edges);
+                    let routes =
+                        crate::ui::edge_router::EdgeRouter::route_edges(&d_nodes, &d_edges);
                     for r in routes {
                         ig.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
                     }
@@ -4508,7 +4510,8 @@ impl App {
             }
             Message::SelectInfoGraphNodes(ids) => {
                 self.selected_info_graph_node_ids = ids;
-                self.selected_info_graph_node_id = self.selected_info_graph_node_ids.iter().next().copied();
+                self.selected_info_graph_node_id =
+                    self.selected_info_graph_node_ids.iter().next().copied();
                 self.selected_info_edge = None;
                 if let Some(nid) = self.selected_info_graph_node_id {
                     if let Some(node) = self.project.information_graph().find_node(nid) {

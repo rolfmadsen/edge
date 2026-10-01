@@ -405,6 +405,9 @@ fn distance_to_segment(p: Point, a: Point, b: Point) -> f32 {
 
 type EdgeSelectHandler<'a, Message> = Box<dyn Fn(Option<(NodeId, NodeId)>) -> Message + 'a>;
 type EdgeCreateHandler<'a, Message> = Box<dyn Fn(NodeId, NodeId) -> Message + 'a>;
+type SelectionChangeHandler<'a, Message> =
+    Box<dyn Fn(std::collections::HashSet<NodeId>) -> Message + 'a>;
+type NodesMovedHandler<'a, Message> = Box<dyn Fn(Vec<(NodeId, f32, f32)>) -> Message + 'a>;
 
 /// Unificeret DiagramCanvas-komponent med pluggable node-rendering
 pub struct DiagramCanvas<'a, Message, N, E, R>
@@ -423,11 +426,11 @@ where
     is_space_pressed: bool,
     render_node: R,
     on_node_selected: Box<dyn Fn(Option<NodeId>) -> Message + 'a>,
-    on_selection_changed: Option<Box<dyn Fn(std::collections::HashSet<NodeId>) -> Message + 'a>>,
+    on_selection_changed: Option<SelectionChangeHandler<'a, Message>>,
     on_edge_selected: Option<EdgeSelectHandler<'a, Message>>,
     on_edge_created: Option<EdgeCreateHandler<'a, Message>>,
     on_node_moved: Box<dyn Fn(NodeId, f32, f32) -> Message + 'a>,
-    on_nodes_moved: Option<Box<dyn Fn(Vec<(NodeId, f32, f32)>) -> Message + 'a>>,
+    on_nodes_moved: Option<NodesMovedHandler<'a, Message>>,
     on_canvas_double_clicked: Box<dyn Fn(f32, f32) -> Message + 'a>,
     on_node_double_clicked: Box<dyn Fn(NodeId) -> Message + 'a>,
     on_viewport_changed: Box<dyn Fn(CanvasViewport) -> Message + 'a>,
@@ -778,8 +781,7 @@ where
                             } else {
                                 let first = new_selection.iter().next().copied();
                                 return Some(
-                                    Action::publish((self.on_node_selected)(first))
-                                        .and_capture(),
+                                    Action::publish((self.on_node_selected)(first)).and_capture(),
                                 );
                             }
                         } else {
@@ -932,8 +934,10 @@ where
                     let raw_dx = world_pos.x - bulk.start_world_pos.x;
                     let raw_dy = world_pos.y - bulk.start_world_pos.y;
 
-                    let (delta_x, delta_y) = if let Some(&(_, (lx, ly))) =
-                        bulk.initial_positions.iter().find(|(id, _)| *id == bulk.leader_id)
+                    let (delta_x, delta_y) = if let Some(&(_, (lx, ly))) = bulk
+                        .initial_positions
+                        .iter()
+                        .find(|(id, _)| *id == bulk.leader_id)
                     {
                         if self.snap_to_grid {
                             let target_x = lx + raw_dx;
@@ -1056,24 +1060,28 @@ where
                                 let (nw, nh) = n.size();
                                 let node_max_x = nx + nw;
                                 let node_max_y = ny + nh;
-                                node_max_x >= min_x && nx <= max_x && node_max_y >= min_y && ny <= max_y
+                                node_max_x >= min_x
+                                    && nx <= max_x
+                                    && node_max_y >= min_y
+                                    && ny <= max_y
                             })
                             .map(|n| n.id())
                             .collect();
 
-                        let new_selection = if state.modifiers.control() || state.modifiers.command()
-                        {
-                            let mut combined = state.selected_node_ids.clone();
-                            combined.extend(selected_in_box);
-                            combined
-                        } else {
-                            selected_in_box
-                        };
+                        let new_selection =
+                            if state.modifiers.control() || state.modifiers.command() {
+                                let mut combined = state.selected_node_ids.clone();
+                                combined.extend(selected_in_box);
+                                combined
+                            } else {
+                                selected_in_box
+                            };
                         state.selected_node_ids = new_selection.clone();
 
                         if let Some(ref on_selection_changed) = self.on_selection_changed {
                             return Some(
-                                Action::publish((on_selection_changed)(new_selection)).and_capture(),
+                                Action::publish((on_selection_changed)(new_selection))
+                                    .and_capture(),
                             );
                         } else {
                             let first = new_selection.iter().next().copied();
@@ -1283,7 +1291,9 @@ where
             }
 
             // Forbindelseshåndtag (connect handle) på primær valgt node
-            if is_selected && (self.selected_node_id == Some(node.id()) || self.selected_node_ids.len() <= 1) {
+            if is_selected
+                && (self.selected_node_id == Some(node.id()) || self.selected_node_ids.len() <= 1)
+            {
                 let (nx, ny) = node.position();
                 let (nw, nh) = node.size();
                 let handle_center = Point::new(nx + nw, ny + nh / 2.0);

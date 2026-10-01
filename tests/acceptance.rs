@@ -7451,15 +7451,38 @@ fn test_task_040_canvas_multi_node_selection_and_bulk_move() {
     use iced::{Point, Rectangle, Size};
     use kant::features::concept_model::{DiagramEdge, DiagramNode, NodeId, GRID_SIZE};
     use kant::ui::app::{App, Message};
-    use kant::ui::diagram_canvas::{render_concept_node, CanvasViewport, DiagramCanvas, DiagramCanvasState};
+    use kant::ui::diagram_canvas::{
+        render_concept_node, CanvasViewport, DiagramCanvas, DiagramCanvasState,
+    };
     use std::collections::HashSet;
     use std::sync::{Arc, Mutex};
     use uuid::Uuid;
 
     // 1. Setup 3 noder på et diagram
-    let n1 = DiagramNode::custom(Uuid::new_v4(), "Begreb 1".to_string(), 100.0, 100.0, 120.0, 60.0);
-    let n2 = DiagramNode::custom(Uuid::new_v4(), "Begreb 2".to_string(), 300.0, 100.0, 120.0, 60.0);
-    let n3 = DiagramNode::custom(Uuid::new_v4(), "Begreb 3".to_string(), 500.0, 100.0, 120.0, 60.0);
+    let n1 = DiagramNode::custom(
+        Uuid::new_v4(),
+        "Begreb 1".to_string(),
+        100.0,
+        100.0,
+        120.0,
+        60.0,
+    );
+    let n2 = DiagramNode::custom(
+        Uuid::new_v4(),
+        "Begreb 2".to_string(),
+        300.0,
+        100.0,
+        120.0,
+        60.0,
+    );
+    let n3 = DiagramNode::custom(
+        Uuid::new_v4(),
+        "Begreb 3".to_string(),
+        500.0,
+        100.0,
+        120.0,
+        60.0,
+    );
     let nodes = vec![n1.clone(), n2.clone(), n3.clone()];
     let edges: Vec<DiagramEdge> = vec![];
 
@@ -7515,8 +7538,16 @@ fn test_task_040_canvas_multi_node_selection_and_bulk_move() {
     // AC2: Marquee / Rektangulær Drag-Select
     state.modifiers = iced::keyboard::Modifiers::empty();
     let empty_drag_start = Point::new(50.0, 50.0);
-    let _ = canvas.update(&mut state, &press_left, bounds, Cursor::Available(empty_drag_start));
-    assert!(state.marquee.is_some(), "AC2: Drag på tomt lærred skal initialisere marquee-tilstand");
+    let _ = canvas.update(
+        &mut state,
+        &press_left,
+        bounds,
+        Cursor::Available(empty_drag_start),
+    );
+    assert!(
+        state.marquee.is_some(),
+        "AC2: Drag på tomt lærred skal initialisere marquee-tilstand"
+    );
 
     // Flyt mus til (450.0, 200.0) så både n1 og n2 omsluttes, men n3 (ved 500) er udenfor
     let drag_pos = Point::new(450.0, 200.0);
@@ -7526,13 +7557,30 @@ fn test_task_040_canvas_multi_node_selection_and_bulk_move() {
 
     // Slip musen for at afslutte marquee select
     let release_left = Event::Mouse(iced::mouse::Event::ButtonReleased(Button::Left));
-    let _ = canvas.update(&mut state, &release_left, bounds, Cursor::Available(drag_pos));
-    assert!(state.marquee.is_none(), "AC2: Marquee skal afsluttes ved ButtonReleased");
+    let _ = canvas.update(
+        &mut state,
+        &release_left,
+        bounds,
+        Cursor::Available(drag_pos),
+    );
+    assert!(
+        state.marquee.is_none(),
+        "AC2: Marquee skal afsluttes ved ButtonReleased"
+    );
     {
         let sel = current_selection.lock().unwrap();
-        assert!(sel.contains(&n1.id()), "AC2: n1 skal være valgt via marquee");
-        assert!(sel.contains(&n2.id()), "AC2: n2 skal være valgt via marquee");
-        assert!(!sel.contains(&n3.id()), "AC2: n3 udenfor marquee må IKKE være valgt");
+        assert!(
+            sel.contains(&n1.id()),
+            "AC2: n1 skal være valgt via marquee"
+        );
+        assert!(
+            sel.contains(&n2.id()),
+            "AC2: n2 skal være valgt via marquee"
+        );
+        assert!(
+            !sel.contains(&n3.id()),
+            "AC2: n3 udenfor marquee må IKKE være valgt"
+        );
     }
 
     // AC3 & AC4: Synkron Flytning og Grid Snapping
@@ -7560,37 +7608,91 @@ fn test_task_040_canvas_multi_node_selection_and_bulk_move() {
 
     let mut drag_state = DiagramCanvasState::default();
     // Start træk på n1 ved (120, 120)
-    let _ = canvas_selected.update(&mut drag_state, &press_left, bounds, Cursor::Available(click_n1));
+    let _ = canvas_selected.update(
+        &mut drag_state,
+        &press_left,
+        bounds,
+        Cursor::Available(click_n1),
+    );
     // Træk 40 px til højre og 60 px ned
     let drag_target = Point::new(160.0, 180.0);
-    let drag_move = Event::Mouse(iced::mouse::Event::CursorMoved { position: drag_target });
-    let _ = canvas_selected.update(&mut drag_state, &drag_move, bounds, Cursor::Available(drag_target));
+    let drag_move = Event::Mouse(iced::mouse::Event::CursorMoved {
+        position: drag_target,
+    });
+    let _ = canvas_selected.update(
+        &mut drag_state,
+        &drag_move,
+        bounds,
+        Cursor::Available(drag_target),
+    );
 
     {
         let updates = moved_nodes.lock().unwrap();
-        assert_eq!(updates.len(), 2, "AC3: Begge markerede noder skal modtage flytte-opdatering");
-        let n1_up = updates.iter().find(|(id, _, _)| *id == n1.id()).expect("n1 skal opdateres");
-        let n2_up = updates.iter().find(|(id, _, _)| *id == n2.id()).expect("n2 skal opdateres");
+        assert_eq!(
+            updates.len(),
+            2,
+            "AC3: Begge markerede noder skal modtage flytte-opdatering"
+        );
+        let n1_up = updates
+            .iter()
+            .find(|(id, _, _)| *id == n1.id())
+            .expect("n1 skal opdateres");
+        let n2_up = updates
+            .iter()
+            .find(|(id, _, _)| *id == n2.id())
+            .expect("n2 skal opdateres");
 
         let delta_x1 = n1_up.1 - 100.0;
         let delta_y1 = n1_up.2 - 100.0;
         let delta_x2 = n2_up.1 - 300.0;
         let delta_y2 = n2_up.2 - 100.0;
 
-        assert_eq!(delta_x1, delta_x2, "AC3: Noder skal parallelforskydes med identisk delta X");
-        assert_eq!(delta_y1, delta_y2, "AC3: Noder skal parallelforskydes med identisk delta Y");
+        assert_eq!(
+            delta_x1, delta_x2,
+            "AC3: Noder skal parallelforskydes med identisk delta X"
+        );
+        assert_eq!(
+            delta_y1, delta_y2,
+            "AC3: Noder skal parallelforskydes med identisk delta Y"
+        );
 
         // AC4: Grid snapping
-        assert_eq!(n1_up.1 % GRID_SIZE, 0.0, "AC4: n1 X skal snappe til GRID_SIZE");
-        assert_eq!(n1_up.2 % GRID_SIZE, 0.0, "AC4: n1 Y skal snappe til GRID_SIZE");
-        assert_eq!(n2_up.1 % GRID_SIZE, 0.0, "AC4: n2 X skal snappe til GRID_SIZE");
-        assert_eq!(n2_up.2 % GRID_SIZE, 0.0, "AC4: n2 Y skal snappe til GRID_SIZE");
+        assert_eq!(
+            n1_up.1 % GRID_SIZE,
+            0.0,
+            "AC4: n1 X skal snappe til GRID_SIZE"
+        );
+        assert_eq!(
+            n1_up.2 % GRID_SIZE,
+            0.0,
+            "AC4: n1 Y skal snappe til GRID_SIZE"
+        );
+        assert_eq!(
+            n2_up.1 % GRID_SIZE,
+            0.0,
+            "AC4: n2 X skal snappe til GRID_SIZE"
+        );
+        assert_eq!(
+            n2_up.2 % GRID_SIZE,
+            0.0,
+            "AC4: n2 Y skal snappe til GRID_SIZE"
+        );
     }
 
     // AC5: Afmarkering ved klik på tomt lærred uden Ctrl
     let empty_click = Point::new(50.0, 50.0);
-    let _ = canvas.update(&mut state, &press_left, bounds, Cursor::Available(empty_click));
-    let _ = canvas.update(&mut state, &release_left, bounds, Cursor::Available(empty_click));
+    let _ = canvas.update(
+        &mut state,
+        &press_left,
+        bounds,
+        Cursor::Available(empty_click),
+    );
+    let _ = canvas.update(
+        &mut state,
+        &release_left,
+        bounds,
+        Cursor::Available(empty_click),
+    );
     assert!(
         current_selection.lock().unwrap().is_empty(),
         "AC5: Klik på tomt lærred skal nulstille markering"
