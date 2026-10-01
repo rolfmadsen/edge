@@ -165,7 +165,12 @@ impl NamingLinter {
 
     /// Tjekker et klassenavn jf. FDA Modelregel 19
     pub fn check_class_name(name: &str) -> Option<NamingIssue> {
-        Self::check_upper_camel_case(name, NamingTarget::Class, "Klassenavn", Self::RULE_FDA_19_CLASS)
+        Self::check_upper_camel_case(
+            name,
+            NamingTarget::Class,
+            "Klassenavn",
+            Self::RULE_FDA_19_CLASS,
+        )
     }
 
     /// Tjekker et enumerationsnavn jf. FDA Modelregel 19
@@ -219,7 +224,12 @@ impl NamingLinter {
             NamingIssueKind::ContainsHyphen
         } else if name.chars().next().map(|c| c.is_numeric()).unwrap_or(false) {
             NamingIssueKind::LeadingDigit
-        } else if name.chars().next().map(|c| c.is_lowercase()).unwrap_or(false) {
+        } else if name
+            .chars()
+            .next()
+            .map(|c| c.is_lowercase())
+            .unwrap_or(false)
+        {
             NamingIssueKind::NotUpperCamelCase
         } else if name.chars().any(|c| !c.is_alphanumeric()) {
             NamingIssueKind::ContainsDisallowedCharacters
@@ -277,7 +287,12 @@ impl NamingLinter {
             NamingIssueKind::ContainsHyphen
         } else if name.chars().next().map(|c| c.is_numeric()).unwrap_or(false) {
             NamingIssueKind::LeadingDigit
-        } else if name.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+        } else if name
+            .chars()
+            .next()
+            .map(|c| c.is_uppercase())
+            .unwrap_or(false)
+        {
             NamingIssueKind::NotLowerCamelCase
         } else if name.chars().any(|c| !c.is_alphanumeric()) {
             NamingIssueKind::ContainsDisallowedCharacters
@@ -325,9 +340,19 @@ impl NamingLinter {
             NamingIssueKind::ContainsUnderscore
         } else if label.contains('-') {
             NamingIssueKind::ContainsHyphen
-        } else if label.chars().next().map(|c| c.is_numeric()).unwrap_or(false) {
+        } else if label
+            .chars()
+            .next()
+            .map(|c| c.is_numeric())
+            .unwrap_or(false)
+        {
             NamingIssueKind::LeadingDigit
-        } else if label.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) {
+        } else if label
+            .chars()
+            .next()
+            .map(|c| c.is_uppercase())
+            .unwrap_or(false)
+        {
             NamingIssueKind::NotLowerCamelCase
         } else if label.chars().any(|c| !c.is_alphanumeric()) {
             NamingIssueKind::ContainsDisallowedCharacters
@@ -406,10 +431,7 @@ mod tests {
             NamingLinter::suggest_upper_camel_case("ethjulet cykel"),
             "EthjuletCykel"
         );
-        assert_eq!(
-            NamingLinter::suggest_upper_camel_case("cykel"),
-            "Cykel"
-        );
+        assert_eq!(NamingLinter::suggest_upper_camel_case("cykel"), "Cykel");
 
         assert_eq!(
             NamingLinter::suggest_lower_camel_case("Stelnummer"),

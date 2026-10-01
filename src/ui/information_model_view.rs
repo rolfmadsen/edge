@@ -667,11 +667,8 @@ pub fn view<'a>(
                     if let Some(fix) = &issue.suggested_fix {
                         msg.push_str(&format!(" (Forslag: {})", fix));
                     }
-                    label_col = label_col.push(
-                        text(msg)
-                            .size(10.0)
-                            .color(Color::from_rgb(0.85, 0.55, 0.1)),
-                    );
+                    label_col = label_col
+                        .push(text(msg).size(10.0).color(Color::from_rgb(0.85, 0.55, 0.1)));
                 }
             }
 
@@ -708,14 +705,12 @@ pub fn view<'a>(
             let is_on_canvas = class_graph.is_class_on_diagram(class_id);
 
             // Klassenavn & beskrivelse
-            let mut name_col = column![
-                text_input("Klassenavn...", class.name())
-                    .id("info_class_name_input")
-                    .style(modern_input_style)
-                    .size(13.0)
-                    .on_input(move |s| Message::UpdateInformationClassName(class_id, s))
-                    .padding([4, 6]),
-            ]
+            let mut name_col = column![text_input("Klassenavn...", class.name())
+                .id("info_class_name_input")
+                .style(modern_input_style)
+                .size(13.0)
+                .on_input(move |s| Message::UpdateInformationClassName(class_id, s))
+                .padding([4, 6]),]
             .spacing(4);
 
             if let Some(issue) = NamingLinter::check_class_name(class.name()) {
@@ -724,11 +719,8 @@ pub fn view<'a>(
                     if let Some(fix) = &issue.suggested_fix {
                         msg.push_str(&format!(" (Forslag: {})", fix));
                     }
-                    name_col = name_col.push(
-                        text(msg)
-                            .size(10.5)
-                            .color(Color::from_rgb(0.85, 0.55, 0.1)),
-                    );
+                    name_col =
+                        name_col.push(text(msg).size(10.5).color(Color::from_rgb(0.85, 0.55, 0.1)));
                 }
             }
 
@@ -950,11 +942,8 @@ pub fn view<'a>(
                         if let Some(fix) = &issue.suggested_fix {
                             msg.push_str(&format!(" (Forslag: {})", fix));
                         }
-                        attr_col = attr_col.push(
-                            text(msg)
-                                .size(10.0)
-                                .color(Color::from_rgb(0.85, 0.55, 0.1)),
-                        );
+                        attr_col = attr_col
+                            .push(text(msg).size(10.0).color(Color::from_rgb(0.85, 0.55, 0.1)));
                     }
                 }
 

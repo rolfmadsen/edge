@@ -7340,10 +7340,13 @@ fn test_task_061_naming_convention_linter_and_ui_feedback() {
     assert!(NamingLinter::check_class_name("Person").is_none());
     assert!(NamingLinter::check_class_name("CPR").is_none());
 
-    let class_issue_snake = NamingLinter::check_class_name("ethjulet_cykel")
-        .expect("Skal fange snake_case på klasse");
+    let class_issue_snake =
+        NamingLinter::check_class_name("ethjulet_cykel").expect("Skal fange snake_case på klasse");
     assert_eq!(class_issue_snake.target, NamingTarget::Class);
-    assert_eq!(class_issue_snake.convention, NamingConvention::UpperCamelCase);
+    assert_eq!(
+        class_issue_snake.convention,
+        NamingConvention::UpperCamelCase
+    );
     assert_eq!(class_issue_snake.kind, NamingIssueKind::ContainsUnderscore);
     assert!(class_issue_snake.rule.contains("19"));
     assert_eq!(
@@ -7364,8 +7367,8 @@ fn test_task_061_naming_convention_linter_and_ui_feedback() {
         Some("EthjuletCykel")
     );
 
-    let class_issue_lower = NamingLinter::check_class_name("cykel")
-        .expect("Skal fange lille forbogstav i klasse");
+    let class_issue_lower =
+        NamingLinter::check_class_name("cykel").expect("Skal fange lille forbogstav i klasse");
     assert_eq!(class_issue_lower.suggested_fix.as_deref(), Some("Cykel"));
 
     // AC2: lowerCamelCase Linter for Attributter
@@ -7377,7 +7380,10 @@ fn test_task_061_naming_convention_linter_and_ui_feedback() {
     let attr_issue_upper: NamingIssue = NamingLinter::check_attribute_name("Stelnummer")
         .expect("Skal fange stort forbogstav på attribut");
     assert_eq!(attr_issue_upper.target, NamingTarget::Attribute);
-    assert_eq!(attr_issue_upper.convention, NamingConvention::LowerCamelCase);
+    assert_eq!(
+        attr_issue_upper.convention,
+        NamingConvention::LowerCamelCase
+    );
     assert_eq!(attr_issue_upper.kind, NamingIssueKind::NotLowerCamelCase);
     assert!(attr_issue_upper.rule.contains("19"));
     assert_eq!(
@@ -7408,11 +7414,11 @@ fn test_task_061_naming_convention_linter_and_ui_feedback() {
     let assoc_issue_upper = NamingLinter::check_association_label("Omfatter")
         .expect("Skal fange stort forbogstav på associationslabel");
     assert_eq!(assoc_issue_upper.target, NamingTarget::AssociationEnd);
-    assert_eq!(assoc_issue_upper.convention, NamingConvention::LowerCamelCase);
     assert_eq!(
-        assoc_issue_upper.suggested_fix.as_deref(),
-        Some("omfatter")
+        assoc_issue_upper.convention,
+        NamingConvention::LowerCamelCase
     );
+    assert_eq!(assoc_issue_upper.suggested_fix.as_deref(), Some("omfatter"));
 
     let assoc_issue_snake = NamingLinter::check_association_label("omfatter_del")
         .expect("Skal fange snake_case på association");
@@ -7437,4 +7443,3 @@ fn test_task_061_naming_convention_linter_and_ui_feedback() {
         "Klassen skal fortsat kunne gemmes selvom navnet overtræder konventionen (ikke-blokerende linter)"
     );
 }
-
