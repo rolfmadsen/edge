@@ -1,6 +1,6 @@
 use crate::features::concept_model::RelationKind;
 use crate::features::concepts::Concept;
-use crate::features::information_model::{InformationClass, Multiplicity};
+use crate::features::information_model::{InformationClass, InformationEnumeration, Multiplicity};
 use crate::features::model::ModelProject;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -99,6 +99,9 @@ pub enum ModelMutation {
     InformationClassAdded(InformationClass),
     InformationClassUpdated(InformationClass),
     InformationClassDeleted(Uuid),
+    InformationEnumerationAdded(InformationEnumeration),
+    InformationEnumerationUpdated(InformationEnumeration),
+    InformationEnumerationDeleted(Uuid),
     ClassDiagramNodeAdded(Uuid),
     ClassDiagramNodeRemoved(Uuid),
     RelationAdded(Relation),
@@ -132,6 +135,7 @@ pub enum ModelMutation {
 
 /// Overordnet E2EE netværksprotokol for live kollaboration.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[allow(clippy::large_enum_variant)]
 pub enum CollabPayload {
     /// Komplet modelsnapshot ved tilslutning eller resynkronisering.
     Snapshot(ModelProject),

@@ -1,6 +1,9 @@
 use crate::features::concept_model::ConceptGraph;
 use crate::features::concepts::{Concept, ConceptValidator, ValidationError};
-use crate::features::information_model::{ClassGraph, InformationClass, InformationModel};
+use crate::features::information_model::{
+    ClassGraph, InformationClass, InformationDataType, InformationEnumeration, InformationModel,
+    PrimitiveType,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -522,11 +525,30 @@ impl ModelProject {
         removed
     }
 
+    pub fn remove_information_enumeration(&mut self, id: Uuid) -> Option<InformationEnumeration> {
+        let removed = self.information_model.remove_enumeration(id);
+        if removed.is_some() {
+            self.information_graph.remove_class_node(id);
+            for class in self.information_model.classes_mut() {
+                for attr in class.attributes_mut() {
+                    if let InformationDataType::Enumeration { enumeration_id } = attr.data_type() {
+                        if *enumeration_id == id {
+                            attr.set_data_type(PrimitiveType::CharacterString);
+                        }
+                    }
+                }
+            }
+            self.sync_information_graph();
+        }
+        removed
+    }
+
     pub fn sync_concept_graph(&mut self) {
         self.concept_graph.sync_with_concepts(&self.concepts);
     }
 
     pub fn sync_information_graph(&mut self) {
+        self.information_model.sync_attribute_dependencies();
         self.information_graph
             .sync_with_information_model(&self.information_model);
     }

@@ -9,7 +9,8 @@ use crate::features::git::{
     ChangeAction, DomainChangeEvent, DomainEventMapper, GitService, PullResult, RepoSyncStatus,
 };
 use crate::features::information_model::{
-    Attribute, ClassRelation, InformationClass, Multiplicity, PrimitiveType,
+    Attribute, ClassRelation, InformationClass, InformationDataType, InformationEnumeration,
+    Multiplicity, PrimitiveType,
 };
 use crate::features::model::storage::ProjectStorage;
 use crate::features::model::{
@@ -788,12 +789,25 @@ pub enum Message {
     AddAttributeToClass(Uuid),
     UpdateAttributeName(Uuid, Uuid, String),
     UpdateAttributeType(Uuid, Uuid, PrimitiveType),
+    UpdateAttributeDataType(Uuid, Uuid, InformationDataType),
     UpdateAttributeMultiplicity(Uuid, Uuid, Multiplicity),
     AddConceptToAttribute(Uuid, Uuid, ConceptOption),
     RemoveConceptFromAttribute(Uuid, Uuid, Uuid),
     SetAttributeConcept(Uuid, Uuid, Option<Uuid>),
     DeleteAttribute(Uuid, Uuid),
     InformationClassSearchChanged(String),
+
+    // Enumeration styring (Task 063)
+    CreateInformationEnumeration,
+    SelectInformationEnumeration(Option<Uuid>),
+    UpdateInformationEnumerationName(Uuid, String),
+    UpdateInformationEnumerationDefinition(Uuid, String),
+    AddValueToEnumeration(Uuid, String),
+    RemoveValueFromEnumeration(Uuid, String),
+    DeleteInformationEnumeration(Uuid),
+    AddEnumerationToDiagram(Uuid),
+    RemoveEnumerationFromDiagram(Uuid),
+    NewEnumValueInputChanged(String),
 
     // Informationsmodel Canvas & Studio (Task 011 & 014)
     AddClassToDiagram(Uuid),
@@ -847,6 +861,8 @@ pub struct App {
     snap_to_grid: bool,
     is_space_pressed: bool,
     selected_info_class_id: Option<Uuid>,
+    selected_info_enum_id: Option<Uuid>,
+    new_enum_value_input: String,
     selected_info_graph_node_id: Option<NodeId>,
     selected_info_graph_node_ids: std::collections::HashSet<NodeId>,
     selected_info_edge: Option<(NodeId, NodeId)>,
@@ -960,6 +976,8 @@ impl App {
                         snap_to_grid: true,
                         is_space_pressed: false,
                         selected_info_class_id: None,
+                        selected_info_enum_id: None,
+                        new_enum_value_input: String::new(),
                         selected_info_graph_node_id: None,
                         selected_info_graph_node_ids: std::collections::HashSet::new(),
                         selected_info_edge: None,
@@ -1021,6 +1039,8 @@ impl App {
             snap_to_grid: true,
             is_space_pressed: false,
             selected_info_class_id: None,
+            selected_info_enum_id: None,
+            new_enum_value_input: String::new(),
             selected_info_graph_node_id: None,
             selected_info_graph_node_ids: std::collections::HashSet::new(),
             selected_info_edge: None,
@@ -1235,6 +1255,10 @@ impl App {
         self.selected_info_class_id
     }
 
+    pub fn selected_info_enum_id(&self) -> Option<Uuid> {
+        self.selected_info_enum_id
+    }
+
     pub fn selected_info_graph_node_id(&self) -> Option<NodeId> {
         self.selected_info_graph_node_id
     }
@@ -1316,6 +1340,44 @@ impl App {
     /// Returnerer den aktuelle sekvensnummer-tæller — primært til test-inspektion.
     pub fn collab_seq_value(&self) -> u64 {
         self.collab_seq.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn reroute_info_graph_edges(&mut self) {
+        let routes = {
+            let ig = self.project.information_graph();
+            let nodes: Vec<crate::features::concept_model::DiagramNode> =
+                ig.nodes().iter().map(|n| n.to_diagram_node()).collect();
+            let edges: Vec<crate::features::concept_model::DiagramEdge> =
+                ig.edges().iter().map(|e| e.to_diagram_edge()).collect();
+            crate::ui::edge_router::EdgeRouter::route_edges(&nodes, &edges)
+        };
+        for r in &routes {
+            self.project.information_graph_mut().update_edge_ports(
+                r.from,
+                r.to,
+                Some(r.from_side),
+                Some(r.to_side),
+            );
+        }
+        let port_updates: Vec<_> = {
+            let ig = self.project.information_graph();
+            routes
+                .into_iter()
+                .map(|r| {
+                    let fc = ig.find_node(r.from).map(|n| n.class_id()).unwrap_or(r.from);
+                    let tc = ig.find_node(r.to).map(|n| n.class_id()).unwrap_or(r.to);
+                    (fc, tc, r.from_side, r.to_side)
+                })
+                .collect()
+        };
+        for (fc, tc, from_side, to_side) in port_updates {
+            self.project.information_model_mut().update_relation_ports(
+                fc,
+                tc,
+                Some(from_side),
+                Some(to_side),
+            );
+        }
     }
 
     pub fn set_collab_participant_count(&mut self, count: usize) {
@@ -1584,21 +1646,62 @@ impl App {
                     }
                 }
             }
+            InformationEnumerationAdded(e) => {
+                let enum_id = e.id();
+                if !self
+                    .project
+                    .information_model()
+                    .enumerations()
+                    .iter()
+                    .any(|x| x.id() == enum_id)
+                {
+                    self.project.information_model_mut().add_enumeration(e);
+                }
+            }
+            InformationEnumerationUpdated(e) => {
+                let enum_id = e.id();
+                let val_count = e.values().len();
+                if let Some(existing) = self
+                    .project
+                    .information_model_mut()
+                    .get_enumeration_mut(enum_id)
+                {
+                    *existing = e;
+                }
+                self.project
+                    .information_graph_mut()
+                    .update_class_dimensions(enum_id, val_count);
+            }
+            InformationEnumerationDeleted(enum_id) => {
+                self.project.remove_information_enumeration(enum_id);
+                if self.selected_info_enum_id == Some(enum_id) {
+                    self.selected_info_enum_id = None;
+                }
+                if let Some(nid) = self.selected_info_graph_node_id {
+                    if self.project.information_graph().find_node(nid).is_none() {
+                        self.selected_info_graph_node_id = None;
+                    }
+                }
+            }
             ClassDiagramNodeAdded(class_id) => {
                 if !self
                     .project
                     .information_graph()
                     .is_class_on_diagram(class_id)
                 {
-                    let attr_count = self
-                        .project
-                        .information_model()
-                        .get_class(class_id)
-                        .map(|c| c.attributes().len())
-                        .unwrap_or(0);
+                    let count =
+                        if let Some(c) = self.project.information_model().get_class(class_id) {
+                            c.attributes().len()
+                        } else if let Some(e) =
+                            self.project.information_model().get_enumeration(class_id)
+                        {
+                            e.values().len()
+                        } else {
+                            0
+                        };
                     self.project
                         .information_graph_mut()
-                        .add_node(class_id, attr_count);
+                        .add_node(class_id, count);
                     self.project.sync_information_graph();
                     let ig = self.project.information_graph_mut();
                     let nodes: Vec<crate::features::concept_model::DiagramNode> =
@@ -4277,21 +4380,55 @@ impl App {
                 }
             }
             Message::UpdateAttributeType(class_id, attr_id, dt) => {
-                if let Some(class) = self.project.information_model_mut().get_class_mut(class_id) {
+                let cls_opt = if let Some(class) =
+                    self.project.information_model_mut().get_class_mut(class_id)
+                {
                     if let Some(attr) = class
                         .attributes_mut()
                         .iter_mut()
                         .find(|a| a.id() == attr_id)
                     {
                         attr.set_data_type(dt);
-                        let cls = class.clone();
-                        self.broadcast_mutation(
-                            &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
-                                cls,
-                            ),
-                        );
-                        self.trigger_autosave();
                     }
+                    Some(class.clone())
+                } else {
+                    None
+                };
+                if let Some(cls) = cls_opt {
+                    self.project.sync_information_graph();
+                    self.reroute_info_graph_edges();
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                            cls,
+                        ),
+                    );
+                    self.trigger_autosave();
+                }
+            }
+            Message::UpdateAttributeDataType(class_id, attr_id, dt) => {
+                let cls_opt = if let Some(class) =
+                    self.project.information_model_mut().get_class_mut(class_id)
+                {
+                    if let Some(attr) = class
+                        .attributes_mut()
+                        .iter_mut()
+                        .find(|a| a.id() == attr_id)
+                    {
+                        attr.set_data_type(dt);
+                    }
+                    Some(class.clone())
+                } else {
+                    None
+                };
+                if let Some(cls) = cls_opt {
+                    self.project.sync_information_graph();
+                    self.reroute_info_graph_edges();
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::InformationClassUpdated(
+                            cls,
+                        ),
+                    );
+                    self.trigger_autosave();
                 }
             }
             Message::UpdateAttributeMultiplicity(class_id, attr_id, m) => {
@@ -4394,6 +4531,181 @@ impl App {
             }
             Message::InformationClassSearchChanged(q) => {
                 self.info_class_search = q;
+            }
+
+            // Enumeration styring (Task 063)
+            Message::CreateInformationEnumeration => {
+                let count = self.project.information_model().enumerations().len() + 1;
+                let enum_name = format!("Enumeration{}", count);
+                let e = InformationEnumeration::new(enum_name, Vec::new());
+                let enum_id = self
+                    .project
+                    .information_model_mut()
+                    .add_enumeration(e.clone());
+                self.selected_info_enum_id = Some(enum_id);
+                self.selected_info_class_id = None;
+                self.broadcast_mutation(
+                    &crate::features::collab::protocol::ModelMutation::InformationEnumerationAdded(
+                        e,
+                    ),
+                );
+                self.trigger_autosave();
+            }
+            Message::SelectInformationEnumeration(id) => {
+                self.selected_info_enum_id = id;
+                if id.is_some() {
+                    self.selected_info_class_id = None;
+                }
+            }
+            Message::UpdateInformationEnumerationName(enum_id, name) => {
+                let e_opt = if let Some(e) = self
+                    .project
+                    .information_model_mut()
+                    .get_enumeration_mut(enum_id)
+                {
+                    e.set_name(name);
+                    Some(e.clone())
+                } else {
+                    None
+                };
+                if let Some(e) = e_opt {
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::InformationEnumerationUpdated(e),
+                    );
+                    self.trigger_autosave();
+                }
+            }
+            Message::UpdateInformationEnumerationDefinition(enum_id, def) => {
+                let e_opt = if let Some(e) = self
+                    .project
+                    .information_model_mut()
+                    .get_enumeration_mut(enum_id)
+                {
+                    let d = if def.trim().is_empty() {
+                        None
+                    } else {
+                        Some(def)
+                    };
+                    e.set_definition(d);
+                    Some(e.clone())
+                } else {
+                    None
+                };
+                if let Some(e) = e_opt {
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::InformationEnumerationUpdated(e),
+                    );
+                    self.trigger_autosave();
+                }
+            }
+            Message::AddValueToEnumeration(enum_id, val) => {
+                let val_trimmed = val.trim().to_string();
+                if !val_trimmed.is_empty()
+                    && crate::features::information_model::NamingLinter::is_lower_camel_case(
+                        &val_trimmed,
+                    )
+                {
+                    let (val_count, e_clone) = if let Some(e) = self
+                        .project
+                        .information_model_mut()
+                        .get_enumeration_mut(enum_id)
+                    {
+                        e.add_value(val_trimmed);
+                        (Some(e.values().len()), Some(e.clone()))
+                    } else {
+                        (None, None)
+                    };
+                    if let (Some(val_count), Some(e)) = (val_count, e_clone) {
+                        self.project
+                            .information_graph_mut()
+                            .update_class_dimensions(enum_id, val_count);
+                        self.new_enum_value_input.clear();
+                        self.broadcast_mutation(
+                            &crate::features::collab::protocol::ModelMutation::InformationEnumerationUpdated(e),
+                        );
+                        self.trigger_autosave();
+                    }
+                }
+            }
+            Message::RemoveValueFromEnumeration(enum_id, val) => {
+                let (val_count, e_clone) = if let Some(e) = self
+                    .project
+                    .information_model_mut()
+                    .get_enumeration_mut(enum_id)
+                {
+                    e.remove_value(&val);
+                    (Some(e.values().len()), Some(e.clone()))
+                } else {
+                    (None, None)
+                };
+                if let (Some(val_count), Some(e)) = (val_count, e_clone) {
+                    self.project
+                        .information_graph_mut()
+                        .update_class_dimensions(enum_id, val_count);
+                    self.broadcast_mutation(
+                        &crate::features::collab::protocol::ModelMutation::InformationEnumerationUpdated(e),
+                    );
+                    self.trigger_autosave();
+                }
+            }
+            Message::DeleteInformationEnumeration(enum_id) => {
+                self.project.remove_information_enumeration(enum_id);
+                if self.selected_info_enum_id == Some(enum_id) {
+                    self.selected_info_enum_id = None;
+                }
+                if let Some(nid) = self.selected_info_graph_node_id {
+                    if self.project.information_graph().find_node(nid).is_none() {
+                        self.selected_info_graph_node_id = None;
+                    }
+                }
+                self.broadcast_mutation(
+                    &crate::features::collab::protocol::ModelMutation::InformationEnumerationDeleted(enum_id),
+                );
+                self.trigger_autosave();
+            }
+            Message::AddEnumerationToDiagram(enum_id) => {
+                let val_count = self
+                    .project
+                    .information_model()
+                    .get_enumeration(enum_id)
+                    .map(|e| e.values().len())
+                    .unwrap_or(0);
+                let node_id = self
+                    .project
+                    .information_graph_mut()
+                    .add_node(enum_id, val_count);
+                self.project.sync_information_graph();
+                self.reroute_info_graph_edges();
+                self.selected_info_enum_id = Some(enum_id);
+                self.selected_info_graph_node_id = Some(node_id);
+                self.broadcast_mutation(
+                    &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeAdded(
+                        enum_id,
+                    ),
+                );
+                self.trigger_autosave();
+            }
+            Message::RemoveEnumerationFromDiagram(enum_id) => {
+                let node_id_opt = self
+                    .project
+                    .information_graph()
+                    .find_node_by_class(enum_id)
+                    .map(|n| n.id());
+                if let Some(node_id) = node_id_opt {
+                    self.project.information_graph_mut().remove_node(node_id);
+                    if self.selected_info_graph_node_id == Some(node_id) {
+                        self.selected_info_graph_node_id = None;
+                    }
+                }
+                self.broadcast_mutation(
+                    &crate::features::collab::protocol::ModelMutation::ClassDiagramNodeRemoved(
+                        enum_id,
+                    ),
+                );
+                self.trigger_autosave();
+            }
+            Message::NewEnumValueInputChanged(s) => {
+                self.new_enum_value_input = s;
             }
 
             // Informationsmodel Canvas & Studio (Task 011)
@@ -4549,10 +4861,23 @@ impl App {
                 self.selected_info_edge = None;
                 if let Some(nid) = node_id_opt {
                     if let Some(node) = self.project.information_graph().find_node(nid) {
-                        self.selected_info_class_id = Some(node.class_id());
+                        let cid = node.class_id();
+                        if self
+                            .project
+                            .information_model()
+                            .get_enumeration(cid)
+                            .is_some()
+                        {
+                            self.selected_info_enum_id = Some(cid);
+                            self.selected_info_class_id = None;
+                        } else {
+                            self.selected_info_class_id = Some(cid);
+                            self.selected_info_enum_id = None;
+                        }
                     }
                 } else {
                     self.selected_info_class_id = None;
+                    self.selected_info_enum_id = None;
                 }
             }
             Message::SelectInfoGraphNodes(ids) => {
@@ -4562,10 +4887,23 @@ impl App {
                 self.selected_info_edge = None;
                 if let Some(nid) = self.selected_info_graph_node_id {
                     if let Some(node) = self.project.information_graph().find_node(nid) {
-                        self.selected_info_class_id = Some(node.class_id());
+                        let cid = node.class_id();
+                        if self
+                            .project
+                            .information_model()
+                            .get_enumeration(cid)
+                            .is_some()
+                        {
+                            self.selected_info_enum_id = Some(cid);
+                            self.selected_info_class_id = None;
+                        } else {
+                            self.selected_info_class_id = Some(cid);
+                            self.selected_info_enum_id = None;
+                        }
                     }
                 } else {
                     self.selected_info_class_id = None;
+                    self.selected_info_enum_id = None;
                 }
             }
             Message::InfoEdgeSelected(edge) => {
@@ -4585,18 +4923,38 @@ impl App {
                     let from_class = graph.find_node(from).unwrap().class_id();
                     let to_class = graph.find_node(to).unwrap().class_id();
                     if graph.find_edge(from, to).is_none() {
+                        let is_enum = self
+                            .project
+                            .information_model()
+                            .get_enumeration(from_class)
+                            .is_some()
+                            || self
+                                .project
+                                .information_model()
+                                .get_enumeration(to_class)
+                                .is_some();
+                        let initial_kind = if is_enum {
+                            RelationKind::Dependency
+                        } else {
+                            RelationKind::Association
+                        };
+                        let initial_label = if is_enum {
+                            Some("«use»".to_string())
+                        } else {
+                            None
+                        };
                         let rel = ClassRelation::new(
                             from_class,
                             to_class,
-                            RelationKind::Association,
-                            None,
+                            initial_kind,
+                            initial_label.clone(),
                         );
                         self.project.information_model_mut().add_relation(rel);
                         self.project.information_graph_mut().add_relation(
                             from,
                             to,
-                            RelationKind::Association,
-                            None,
+                            initial_kind,
+                            initial_label.clone(),
                         );
                         let routes = {
                             let ig = self.project.information_graph();
@@ -4641,8 +4999,8 @@ impl App {
                             &crate::features::collab::protocol::ModelMutation::ClassRelationAdded {
                                 from_class,
                                 to_class,
-                                kind: RelationKind::Association,
-                                label: None,
+                                kind: initial_kind,
+                                label: initial_label,
                                 source_multiplicity: None,
                                 target_multiplicity: None,
                                 directed: Some(true),
@@ -4667,6 +5025,25 @@ impl App {
                     .information_graph()
                     .find_node(to)
                     .map(|n| n.class_id());
+                let is_enum_rel = from_class
+                    .map(|c| {
+                        self.project
+                            .information_model()
+                            .get_enumeration(c)
+                            .is_some()
+                    })
+                    .unwrap_or(false)
+                    || to_class
+                        .map(|c| {
+                            self.project
+                                .information_model()
+                                .get_enumeration(c)
+                                .is_some()
+                        })
+                        .unwrap_or(false);
+                if is_enum_rel && kind != RelationKind::Dependency {
+                    return Task::none();
+                }
                 let label = self
                     .project
                     .information_graph()
@@ -5007,12 +5384,19 @@ impl App {
             Message::OpenInfoRelationDialog => {
                 let default_from = self.selected_info_graph_node_id.and_then(|id| {
                     self.project.information_graph().find_node(id).map(|n| {
-                        let name = self
+                        let name = if let Some(c) =
+                            self.project.information_model().get_class(n.class_id())
+                        {
+                            c.name().to_string()
+                        } else if let Some(e) = self
                             .project
                             .information_model()
-                            .get_class(n.class_id())
-                            .map(|c| c.name().to_string())
-                            .unwrap_or_else(|| "Klasse".to_string());
+                            .get_enumeration(n.class_id())
+                        {
+                            format!("{} (enum)", e.name())
+                        } else {
+                            "Element".to_string()
+                        };
                         NodeOption { id, label: name }
                     })
                 });
@@ -5094,6 +5478,22 @@ impl App {
                                     .find_node(to.id)
                                     .map(|n| n.class_id())
                                     .unwrap_or(to.id);
+                                let is_enum = self
+                                    .project
+                                    .information_model()
+                                    .get_enumeration(from_class)
+                                    .is_some()
+                                    || self
+                                        .project
+                                        .information_model()
+                                        .get_enumeration(to_class)
+                                        .is_some();
+                                if is_enum && dlg.kind != RelationKind::Dependency {
+                                    if let Some(d) = &mut self.info_relation_dialog {
+                                        d.error = Some("Relationer til/fra enumerationer skal være Dependency (jf. FDA §5.5)".to_string());
+                                    }
+                                    return Task::none();
+                                }
                                 self.project
                                     .information_graph_mut()
                                     .add_relation_with_multiplicities(
@@ -6865,10 +7265,12 @@ impl App {
                 self.project.information_graph(),
                 self.project.concepts(),
                 self.selected_info_class_id,
+                self.selected_info_enum_id,
                 self.selected_info_graph_node_id,
                 &self.selected_info_graph_node_ids,
                 self.selected_info_edge,
                 &self.info_class_search,
+                &self.new_enum_value_input,
                 self.info_canvas_viewport,
                 self.info_snap_to_grid,
                 self.is_space_pressed,

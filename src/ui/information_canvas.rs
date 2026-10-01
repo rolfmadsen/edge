@@ -3,8 +3,8 @@ use crate::features::information_model::{
     ClassDiagramEdge, ClassDiagramNode, ClassGraph, InformationModel,
 };
 pub use crate::ui::diagram_canvas::{
-    render_uml_class_node, CanvasViewport, ClickRecord, DiagramCanvas,
-    DiagramCanvasState as InformationCanvasState,
+    render_uml_class_node, render_uml_datatype_node, render_uml_enumeration_node, CanvasViewport,
+    ClickRecord, DiagramCanvas, DiagramCanvasState as InformationCanvasState,
 };
 use iced::mouse;
 use iced::widget::canvas::{Action, Event, Frame, Geometry, Program};
@@ -39,34 +39,46 @@ impl<'a, Message> InformationCanvas<'a, Message> {
                   node: &ClassDiagramNode,
                   is_selected: bool,
                   vp: CanvasViewport| {
-                let (class_name, attributes, is_borrowed, is_abstract) = model
-                    .get_class(node.class_id())
-                    .map(|c| {
-                        let attrs = c
-                            .attributes()
-                            .iter()
-                            .map(|a| {
-                                (
-                                    a.name().to_string(),
-                                    a.data_type().as_str().to_string(),
-                                    a.multiplicity().to_string(),
-                                    !a.concept_ids().is_empty(),
-                                )
-                            })
-                            .collect();
-                        (c.name(), attrs, !c.is_local(), c.is_abstract())
-                    })
-                    .unwrap_or(("", Vec::new(), false, false));
-                render_uml_class_node(
-                    frame,
-                    node,
-                    class_name,
-                    &attributes,
-                    is_borrowed,
-                    is_abstract,
-                    is_selected,
-                    vp,
-                );
+                if let Some(c) = model.get_class(node.class_id()) {
+                    let attrs: Vec<(String, String, String, bool)> = c
+                        .attributes()
+                        .iter()
+                        .map(|a| {
+                            (
+                                a.name().to_string(),
+                                a.data_type().display_name(model),
+                                a.multiplicity().to_string(),
+                                !a.concept_ids().is_empty(),
+                            )
+                        })
+                        .collect();
+                    render_uml_class_node(
+                        frame,
+                        node,
+                        c.name(),
+                        &attrs,
+                        !c.is_local(),
+                        c.is_abstract(),
+                        is_selected,
+                        vp,
+                    );
+                } else if let Some(e) = model.get_enumeration(node.class_id()) {
+                    render_uml_enumeration_node(frame, node, e.name(), e.values(), is_selected, vp);
+                } else if let Some(st) = model.get_structured_type(node.class_id()) {
+                    let attrs: Vec<(String, String, String, bool)> = st
+                        .attributes()
+                        .iter()
+                        .map(|a| {
+                            (
+                                a.name().to_string(),
+                                a.data_type().display_name(model),
+                                a.multiplicity().to_string(),
+                                !a.concept_ids().is_empty(),
+                            )
+                        })
+                        .collect();
+                    render_uml_datatype_node(frame, node, st.name(), &attrs, is_selected, vp);
+                }
             },
         );
 

@@ -946,10 +946,42 @@ impl InformationModel {
     }
 
     pub fn remove_enumeration(&mut self, id: Uuid) -> Option<InformationEnumeration> {
+        self.remove_relations_for_class(id);
         if let Some(pos) = self.enumerations.iter().position(|e| e.id() == id) {
             Some(self.enumerations.remove(pos))
         } else {
             None
+        }
+    }
+
+    pub fn sync_attribute_dependencies(&mut self) {
+        let mut desired_deps: std::collections::HashSet<(Uuid, Uuid)> =
+            std::collections::HashSet::new();
+        for class in &self.classes {
+            for attr in class.attributes() {
+                if let InformationDataType::Enumeration { enumeration_id } = attr.data_type() {
+                    desired_deps.insert((class.id(), *enumeration_id));
+                }
+            }
+        }
+        let all_enum_ids: std::collections::HashSet<Uuid> =
+            self.enumerations.iter().map(|e| e.id()).collect();
+        self.relations.retain(|rel| {
+            if rel.kind() == RelationKind::Dependency && all_enum_ids.contains(&rel.to_class()) {
+                desired_deps.contains(&(rel.from_class(), rel.to_class()))
+            } else {
+                true
+            }
+        });
+        for (from, to) in desired_deps {
+            if self.find_relation(from, to).is_none() {
+                self.relations.push(ClassRelation::new(
+                    from,
+                    to,
+                    RelationKind::Dependency,
+                    Some("«use»".to_string()),
+                ));
+            }
         }
     }
 
@@ -1525,9 +1557,11 @@ impl ClassGraph {
     }
 
     pub fn sync_with_information_model(&mut self, info_model: &InformationModel) {
-        let valid_class_ids: Vec<Uuid> = info_model.classes().iter().map(|c| c.id()).collect();
+        let mut valid_entity_ids: Vec<Uuid> = info_model.classes().iter().map(|c| c.id()).collect();
+        valid_entity_ids.extend(info_model.enumerations().iter().map(|e| e.id()));
+        valid_entity_ids.extend(info_model.structured_types().iter().map(|st| st.id()));
         self.nodes
-            .retain(|n| valid_class_ids.contains(&n.class_id()));
+            .retain(|n| valid_entity_ids.contains(&n.class_id()));
 
         // Normaliser eventuelle ældre noder hvor node.id != node.class_id
         for node in &mut self.nodes {
@@ -1549,6 +1583,10 @@ impl ClassGraph {
         for node in &mut self.nodes {
             if let Some(class) = info_model.get_class(node.class_id()) {
                 node.update_dimensions(class.attributes().len());
+            } else if let Some(e) = info_model.get_enumeration(node.class_id()) {
+                node.update_dimensions(e.values().len());
+            } else if let Some(st) = info_model.get_structured_type(node.class_id()) {
+                node.update_dimensions(st.attributes().len());
             }
         }
 

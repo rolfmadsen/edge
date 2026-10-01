@@ -62,6 +62,7 @@ pub fn is_lower_camel_case(s: &str) -> bool {
 impl NamingLinter {
     pub const RULE_FDA_19_CLASS: &'static str = "FDA Modelregel 19 (§19.1)";
     pub const RULE_FDA_19_ATTR: &'static str = "FDA Modelregel 19 (§19.2)";
+    pub const RULE_FDA_TABEL_B: &'static str = "FDA Tabel B";
 
     /// Validerer om en streng opfylder UpperCamelCase (PascalCase):
     /// - Må ikke være tom.
@@ -319,6 +320,74 @@ impl NamingLinter {
                 name
             ),
             rule: Self::RULE_FDA_19_ATTR,
+            suggested_fix,
+        })
+    }
+
+    /// Tjekker en enumerationsværdi jf. FDA Tabel B (skal være lowerCamelCase)
+    pub fn check_enumeration_value(value: &str) -> Option<NamingIssue> {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            return Some(NamingIssue {
+                target: NamingTarget::Enumeration,
+                convention: NamingConvention::LowerCamelCase,
+                kind: NamingIssueKind::EmptyName,
+                severity: NamingSeverity::Warning,
+                message: "Enumerationsværdi må ikke være tom.".to_string(),
+                rule: Self::RULE_FDA_TABEL_B,
+                suggested_fix: None,
+            });
+        }
+
+        if Self::is_lower_camel_case(trimmed) {
+            return None;
+        }
+
+        let kind = if value.contains(char::is_whitespace) {
+            NamingIssueKind::ContainsWhitespace
+        } else if value.contains('_') {
+            NamingIssueKind::ContainsUnderscore
+        } else if value.contains('-') {
+            NamingIssueKind::ContainsHyphen
+        } else if value
+            .chars()
+            .next()
+            .map(|c| c.is_numeric())
+            .unwrap_or(false)
+        {
+            NamingIssueKind::LeadingDigit
+        } else if value
+            .chars()
+            .next()
+            .map(|c| c.is_uppercase())
+            .unwrap_or(false)
+        {
+            NamingIssueKind::NotLowerCamelCase
+        } else if value.chars().any(|c| !c.is_alphanumeric()) {
+            NamingIssueKind::ContainsDisallowedCharacters
+        } else {
+            NamingIssueKind::NotLowerCamelCase
+        };
+
+        let suggested_fix = {
+            let fix = Self::suggest_lower_camel_case(value);
+            if fix.is_empty() || fix == value {
+                None
+            } else {
+                Some(fix)
+            }
+        };
+
+        Some(NamingIssue {
+            target: NamingTarget::Enumeration,
+            convention: NamingConvention::LowerCamelCase,
+            kind,
+            severity: NamingSeverity::Warning,
+            message: format!(
+                "Enumerationsværdien '{}' overholder ikke lowerCamelCase (FDA Tabel B).",
+                value
+            ),
+            rule: Self::RULE_FDA_TABEL_B,
             suggested_fix,
         })
     }

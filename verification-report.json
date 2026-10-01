@@ -4,39 +4,40 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "061-naming-convention-linter",
-    "task_title": "Task 061: Naming Convention Linter (FDA §19)",
-    "task_digest": "237135cd410e1c2761e27086dfcadd8ec62e406cc8d4df3cd67396edcd4b73ec",
+    "task_id": "063-controlled-vocabularies-ui-and-canvas",
+    "task_title": "Task 063: Kontrollerede Udfaldsrum: UI & Canvas Integration for Enumerationer",
+    "task_digest": "160b13e1c04c9be07bf051081fdeb4c27c0edfe0270f977d138c1ac7b9755a06",
     "acceptance_criteria": [
-      "**AC1 - UpperCamelCase Linter for Klasser**: En `NamingLinter::check_class_name(name) -> Option<NamingIssue>` returnerer advarsel hvis klassenavnet ikke er UpperCamelCase.",
-      "**AC2 - lowerCamelCase Linter for Attributter**: `NamingLinter::check_attribute_name(name) -> Option<NamingIssue>` returnerer advarsel hvis attributnavnet ikke er lowerCamelCase.",
-      "**AC3 - lowerCamelCase Linter for Associations-Labels**: Edge labels i informationsmodellen valideres mod lowerCamelCase.",
-      "**AC4 - UI Advarsler i Inspektøren**: Visuel feedback (ikon + tooltip) ved klassenavne og attributnavne der bryder konventionen.",
-      "**AC5 - Enhedstest**: Automatiserede tests for UpperCamelCase- og lowerCamelCase-detektering med positive og negative eksempler."
+      "**AC1 - UI til Oprettelse og Værdiredigering**: Brugeren kan oprette en `InformationEnumeration` og tilføje/fjerne værdier (med validering til `lowerCamelCase` jf. FDA Tabel B) fra Informationsmodel-visningen.",
+      "**AC2 - Grønne Enumeration-kasser på Lærred**: Enumerationer kan tilføjes til lærredet og tegnes i `ThemeColors::FDA_ENUM_GREEN` (`#E8FDE3`) med `«enumeration»`, centreret overskrift, skillelinje og værdier.",
+      "**AC3 - Attribut Dropdown med Enumerationer**: Attribut-inspektøren tilbyder både primitive typer og modellens oprettede enumerationer.",
+      "**AC4 - Automatisk Dependency-relation på Canvas**: Ved valg af en enumeration for en klasses attribut synkroniseres en stiplet `Dependency`-relation til enumerationen på diagrammet jf. FDA Kapitel 5.5.",
+      "**AC5 - Persistens & Samarbejde**: Enumerationsnoder og -relationer persisteres deterministisk i `.kant.json` og dekomponeret lagring samt synkroniseres ved collab.",
+      "**AC6 - Verifikation via Accepttest**: `test_task_063_controlled_vocabulary_enumeration_ui_and_canvas` verificerer oprettelse, canvas-placering, attribut-kobling og dependency-rendering."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "dae4ee077e55238f85f37abea728c5a66590b92466d3566b250f345fe73e1ab5",
-    "source_manifest_digest_pre": "b0af6098c51494e421d4ec590d91e528f3e865aeb095d4cfd960ad3de1e096c1",
-    "source_manifest_digest_post": "b0af6098c51494e421d4ec590d91e528f3e865aeb095d4cfd960ad3de1e096c1",
+    "source_content_digest": "395070ebb212f239c688463390e2e94b415c506f4472173f38ac62451489b763",
+    "source_manifest_digest_pre": "b880d6c70c4b26062feee66649dea42f06913d9a56ff5540285fdac49fdb695d",
+    "source_manifest_digest_post": "b880d6c70c4b26062feee66649dea42f06913d9a56ff5540285fdac49fdb695d",
     "config_digest": "69fd218967acca45b353d0e0278caed0cbcab31e7c337b16d73fa5a04547d8ed",
-    "task_digest": "237135cd410e1c2761e27086dfcadd8ec62e406cc8d4df3cd67396edcd4b73ec",
+    "task_digest": "160b13e1c04c9be07bf051081fdeb4c27c0edfe0270f977d138c1ac7b9755a06",
     "policy_digest": "0f852424413423caad922699edfa6975806eb7d22902f207ef0d93da05ca5065",
     "check_definitions_digest": "dd50656a3cb4808ad5a7096762f6729b2503e0d6f90c203a5819983ef61167c2",
-    "included_files_count": 135,
+    "included_files_count": 136,
     "vcs": {
       "type": "git",
-      "head": "2da4562",
-      "commit": "2da4562",
+      "head": "4f9a3a7",
+      "commit": "4f9a3a7",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-10-01T15:53:36Z",
-    "finished_at": "2026-10-01T15:53:40Z",
-    "total_duration_seconds": 4.6348247,
+    "started_at": "2026-10-01T18:54:01Z",
+    "finished_at": "2026-10-01T18:54:06Z",
+    "total_duration_seconds": 4.757655154,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -49,46 +50,46 @@
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.041340798,
+      "duration_seconds": 0.020768579,
       "optional": false,
       "passed": true,
-      "log_digest": "504e592a26126a7dddbea2671c00c49781c8d760137ce1acecc87c0c520a2248"
+      "log_digest": "bb99eecf7da47bb699e08b5414193ade3c049ead245334b322a8ca6aff367842"
     },
     {
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.745964496,
+      "duration_seconds": 0.797053725,
       "optional": true,
       "passed": true,
-      "log_digest": "7f978120aa2fb936bd908ce0fa181cc0598ad9395ea7cc8d58c6ae066f6ccdfd"
+      "log_digest": "3ea805e1ac92ce50c9d1781917a96dad21b76c9819784fba4ff4263857fd583f"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.557400663,
+      "duration_seconds": 0.572566827,
       "optional": true,
       "passed": true,
-      "log_digest": "9980d2f5243c2226b6de60a1973dc1f3be583729da0320d08badb8922911a962"
+      "log_digest": "98ebe9880901a5a76f775ed1109bfb3c75c11cc8b6229198105a730558ff259f"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 2.6934036839999997,
+      "duration_seconds": 2.74317483,
       "optional": false,
       "passed": true,
-      "log_digest": "6484c6b28e041a71e3ce999b5135352b9c96e43b8116aa3c77492f031ba01e88"
+      "log_digest": "31f0b340faa84119c505410eb4f87ba72f8b000926ac81358eacc5abda9f4a19"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.546970481,
+      "duration_seconds": 0.602380017,
       "optional": false,
       "passed": true,
-      "log_digest": "25ffb520b070a6d8bc5b523b781c4c916b97110a83f803cf0a2707e8fc900c47"
+      "log_digest": "765918614ee560e24a7cb65dfd57c2e18052969f23c23c1ec094e911c51d80c7"
     }
   ],
   "diagnostics": []

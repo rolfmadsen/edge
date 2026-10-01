@@ -1,12 +1,16 @@
 use crate::features::concept_model::{NodeId, RelationKind};
 use crate::features::concepts::Concept;
 use crate::features::information_model::{
-    ClassGraph, InformationClass, InformationModel, Multiplicity, NamingLinter, PrimitiveType,
+    ClassGraph, InformationClass, InformationDataType, InformationModel, Multiplicity,
+    NamingLinter, PrimitiveType,
 };
 use crate::ui::app::{
     AttributeConceptOption, ConceptOption, Message, NodeOption, RelationDialogState,
 };
-use crate::ui::diagram_canvas::{render_uml_class_node, CanvasViewport, DiagramCanvas};
+use crate::ui::diagram_canvas::{
+    render_uml_class_node, render_uml_datatype_node, render_uml_enumeration_node, CanvasViewport,
+    DiagramCanvas,
+};
 use crate::ui::theme::{
     card_container_style, danger_button_style, list_item_button, modern_input_style,
     pill_container_style, primary_button_style, secondary_button_style, ThemeColors,
@@ -17,16 +21,30 @@ use iced::widget::{
 use iced::{Alignment, Color, Element, Length};
 use uuid::Uuid;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DataTypeOption {
+    pub label: String,
+    pub data_type: InformationDataType,
+}
+
+impl std::fmt::Display for DataTypeOption {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.label)
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn view<'a>(
     info_model: &'a InformationModel,
     class_graph: &'a ClassGraph,
     concepts: &'a [Concept],
     selected_class_id: Option<Uuid>,
+    selected_enum_id: Option<Uuid>,
     selected_node_id: Option<NodeId>,
     selected_node_ids: &'a std::collections::HashSet<NodeId>,
     selected_edge: Option<(NodeId, NodeId)>,
     search_query: &'a str,
+    new_enum_value_input: &'a str,
     viewport: CanvasViewport,
     snap_to_grid: bool,
     is_space_pressed: bool,
@@ -189,10 +207,132 @@ pub fn view<'a>(
         class_items = class_items.push(item_row);
     }
 
+    // Enumerationer i paletten (Task 063)
+    let enum_count = info_model.enumerations().len();
+    let filtered_enums: Vec<_> = info_model
+        .enumerations()
+        .iter()
+        .filter(|e| {
+            if search_filter.is_empty() {
+                true
+            } else {
+                e.name().to_lowercase().contains(&search_filter)
+                    || e.values()
+                        .iter()
+                        .any(|v| v.to_lowercase().contains(&search_filter))
+            }
+        })
+        .collect();
+
+    let enum_header = row![
+        text("Enumerationer").size(14).color(ThemeColors::SLATE_900),
+        container(
+            text(format!("{}", enum_count))
+                .size(11)
+                .color(ThemeColors::ACCENT_GREEN)
+        )
+        .style(pill_container_style)
+        .padding([2, 7]),
+        Space::new().width(Length::Fill),
+        button(text("+ Opret").size(10))
+            .style(primary_button_style)
+            .on_press(Message::CreateInformationEnumeration)
+            .padding([2, 6]),
+    ]
+    .spacing(6)
+    .align_y(Alignment::Center);
+
+    let mut enum_items = column![].spacing(4);
+    for e in filtered_enums {
+        let is_selected = selected_enum_id == Some(e.id());
+        let enum_id = e.id();
+        let is_on_canvas = class_graph.is_class_on_diagram(enum_id);
+        let val_count = e.values().len();
+
+        let action_controls: Element<'a, Message> = if is_on_canvas {
+            container(text("✓").size(11).color(ThemeColors::ACCENT_GREEN))
+                .style(pill_container_style)
+                .padding([1, 5])
+                .into()
+        } else {
+            row![
+                button(text("+").size(11).color(ThemeColors::ACCENT_GREEN))
+                    .style(secondary_button_style)
+                    .on_press(Message::AddEnumerationToDiagram(enum_id))
+                    .padding([2, 5]),
+                button(text("🗑️").size(10))
+                    .style(danger_button_style)
+                    .on_press(Message::DeleteInformationEnumeration(enum_id))
+                    .padding([2, 4]),
+            ]
+            .spacing(3)
+            .align_y(Alignment::Center)
+            .into()
+        };
+
+        let display_name = if e.name().trim().is_empty() {
+            "NyEnumeration"
+        } else {
+            e.name()
+        };
+
+        let title_row = row![
+            text(display_name).size(13).color(if is_selected {
+                ThemeColors::ACCENT_GREEN
+            } else {
+                ThemeColors::SLATE_900
+            }),
+            container(
+                text("Enum")
+                    .size(9)
+                    .color(Color::from_rgb(0.15, 0.45, 0.15)),
+            )
+            .style(|_theme: &iced::Theme| container::Style {
+                background: Some(iced::Background::Color(ThemeColors::FDA_ENUM_GREEN)),
+                border: iced::Border {
+                    radius: 3.0.into(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .padding([1, 4]),
+        ]
+        .spacing(4)
+        .align_y(Alignment::Center);
+
+        let item_btn = button(
+            column![
+                title_row,
+                text(format!("{} værdier", val_count))
+                    .size(10)
+                    .color(ThemeColors::TEXT_MUTED),
+            ]
+            .width(Length::Fill),
+        )
+        .style(list_item_button(is_selected))
+        .on_press(Message::SelectInformationEnumeration(Some(enum_id)))
+        .width(Length::Fill)
+        .padding([4, 6]);
+
+        let item_row = container(
+            row![item_btn, action_controls]
+                .align_y(Alignment::Center)
+                .spacing(4),
+        )
+        .width(Length::Fill);
+
+        enum_items = enum_items.push(item_row);
+    }
+
     let left_palette = container(
-        column![palette_header, scrollable(class_items).height(Length::Fill),]
-            .spacing(10)
-            .height(Length::Fill),
+        column![
+            palette_header,
+            scrollable(class_items).height(Length::FillPortion(1)),
+            enum_header,
+            scrollable(enum_items).height(Length::FillPortion(1)),
+        ]
+        .spacing(10)
+        .height(Length::Fill),
     )
     .style(card_container_style)
     .padding(12)
@@ -230,7 +370,7 @@ pub fn view<'a>(
         .padding([4, 10]),
         Space::new().width(Length::Fill),
         text(format!(
-            "{} klasser på diagram • {} relationer",
+            "{} elementer på diagram • {} relationer",
             class_graph.node_count(),
             class_graph.edge_count()
         ))
@@ -249,44 +389,80 @@ pub fn view<'a>(
             snap_to_grid,
             is_space_pressed,
             |frame, node, is_selected, vp| {
-                let class_opt = info_model.get_class(node.class_id());
-                let class_name = if class_opt.map(|c| c.name()).unwrap_or("").trim().is_empty() {
-                    "NyKlasse"
-                } else {
-                    class_opt.map(|c| c.name()).unwrap()
-                };
-                let is_borrowed = class_opt.map(|c| !c.is_local()).unwrap_or(false);
-                let is_abstract = class_opt.map(|c| c.is_abstract()).unwrap_or(false);
-                let attributes: Vec<(String, String, String, bool)> = class_opt
-                    .map(|c| {
-                        c.attributes()
-                            .iter()
-                            .map(|a| {
-                                let name = if a.name().trim().is_empty() {
-                                    "nyAttribut"
-                                } else {
-                                    a.name()
-                                };
-                                (
-                                    name.to_string(),
-                                    a.data_type().as_str().to_string(),
-                                    a.multiplicity().to_string(),
-                                    !a.concept_ids().is_empty(),
-                                )
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                render_uml_class_node(
-                    frame,
-                    node,
-                    class_name,
-                    &attributes,
-                    is_borrowed,
-                    is_abstract,
-                    is_selected,
-                    vp,
-                );
+                if let Some(c) = info_model.get_class(node.class_id()) {
+                    let class_name = if c.name().trim().is_empty() {
+                        "NyKlasse"
+                    } else {
+                        c.name()
+                    };
+                    let is_borrowed = !c.is_local();
+                    let is_abstract = c.is_abstract();
+                    let attributes: Vec<(String, String, String, bool)> = c
+                        .attributes()
+                        .iter()
+                        .map(|a| {
+                            let name = if a.name().trim().is_empty() {
+                                "nyAttribut"
+                            } else {
+                                a.name()
+                            };
+                            (
+                                name.to_string(),
+                                a.data_type().display_name(info_model),
+                                a.multiplicity().to_string(),
+                                !a.concept_ids().is_empty(),
+                            )
+                        })
+                        .collect();
+                    render_uml_class_node(
+                        frame,
+                        node,
+                        class_name,
+                        &attributes,
+                        is_borrowed,
+                        is_abstract,
+                        is_selected,
+                        vp,
+                    );
+                } else if let Some(e) = info_model.get_enumeration(node.class_id()) {
+                    let enum_name = if e.name().trim().is_empty() {
+                        "NyEnumeration"
+                    } else {
+                        e.name()
+                    };
+                    render_uml_enumeration_node(
+                        frame,
+                        node,
+                        enum_name,
+                        e.values(),
+                        is_selected,
+                        vp,
+                    );
+                } else if let Some(st) = info_model.get_structured_type(node.class_id()) {
+                    let st_name = if st.name().trim().is_empty() {
+                        "NyDatatype"
+                    } else {
+                        st.name()
+                    };
+                    let attributes: Vec<(String, String, String, bool)> = st
+                        .attributes()
+                        .iter()
+                        .map(|a| {
+                            let name = if a.name().trim().is_empty() {
+                                "nyAttribut"
+                            } else {
+                                a.name()
+                            };
+                            (
+                                name.to_string(),
+                                a.data_type().display_name(info_model),
+                                a.multiplicity().to_string(),
+                                !a.concept_ids().is_empty(),
+                            )
+                        })
+                        .collect();
+                    render_uml_datatype_node(frame, node, st_name, &attributes, is_selected, vp);
+                }
             },
             Message::SelectInfoGraphNode,
             Message::UpdateClassNodePosition,
@@ -871,9 +1047,36 @@ pub fn view<'a>(
             for attr in class.attributes() {
                 let attr_id = attr.id();
                 let name_val = attr.name().to_string();
-                let type_val = attr
-                    .primitive_type()
-                    .unwrap_or(PrimitiveType::CharacterString);
+                let mut data_type_options = Vec::new();
+                for pt in PrimitiveType::ALL {
+                    data_type_options.push(DataTypeOption {
+                        label: pt.as_str().to_string(),
+                        data_type: InformationDataType::Primitive(*pt),
+                    });
+                }
+                for e in info_model.enumerations() {
+                    data_type_options.push(DataTypeOption {
+                        label: format!("{} (enum)", e.name()),
+                        data_type: InformationDataType::Enumeration {
+                            enumeration_id: e.id(),
+                        },
+                    });
+                }
+                for st in info_model.structured_types() {
+                    data_type_options.push(DataTypeOption {
+                        label: format!("{} (type)", st.name()),
+                        data_type: InformationDataType::Structured {
+                            structured_id: st.id(),
+                        },
+                    });
+                }
+
+                let current_dt = attr.data_type();
+                let selected_dt_opt = data_type_options
+                    .iter()
+                    .find(|opt| opt.data_type == *current_dt)
+                    .cloned();
+
                 let mult_val = attr.multiplicity();
 
                 let linked_concept_id = attr.concept_ids().first().copied();
@@ -923,9 +1126,9 @@ pub fn view<'a>(
                 let mut attr_col = column![
                     top_row.spacing(4).align_y(Alignment::Center),
                     row![
-                        pick_list(PrimitiveType::ALL, Some(type_val), move |t| {
-                            Message::UpdateAttributeType(class_id, attr_id, t)
-                        },)
+                        pick_list(data_type_options, selected_dt_opt, move |opt| {
+                            Message::UpdateAttributeDataType(class_id, attr_id, opt.data_type)
+                        })
                         .text_size(11.0)
                         .padding([3, 6])
                         .width(Length::FillPortion(3)),
@@ -1144,6 +1347,160 @@ pub fn view<'a>(
         } else {
             crate::ui::inspector_panel::panel_container(
                 text("Klasse ikke fundet")
+                    .size(12)
+                    .color(ThemeColors::TEXT_MUTED)
+                    .into(),
+            )
+        }
+    } else if let Some(enum_id) = selected_enum_id {
+        if let Some(e) = info_model.get_enumeration(enum_id) {
+            let is_on_canvas = class_graph.is_class_on_diagram(enum_id);
+
+            let header = crate::ui::inspector_panel::panel_header(
+                crate::ui::inspector_panel::PROPERTIES_TITLE,
+                Some((
+                    "Enumeration",
+                    ThemeColors::FDA_ENUM_GREEN,
+                    Color::from_rgb(0.60, 0.82, 0.60),
+                )),
+                Some(Message::SelectInformationEnumeration(None)),
+            );
+
+            // Navn & linter
+            let mut name_col = column![text_input("Enumerationsnavn...", e.name())
+                .id("info_enum_name_input")
+                .style(modern_input_style)
+                .size(13.0)
+                .on_input(move |s| Message::UpdateInformationEnumerationName(enum_id, s))
+                .padding([4, 6]),]
+            .spacing(4);
+
+            if let Some(issue) = NamingLinter::check_enumeration_name(e.name()) {
+                if !e.name().trim().is_empty() {
+                    let mut msg = format!("⚠️ {}: {}", issue.rule, issue.message);
+                    if let Some(fix) = &issue.suggested_fix {
+                        msg.push_str(&format!(" (Forslag: {})", fix));
+                    }
+                    name_col =
+                        name_col.push(text(msg).size(10.5).color(Color::from_rgb(0.85, 0.55, 0.1)));
+                }
+            }
+
+            let def_input = text_input("Valgfri definition...", e.definition().unwrap_or(""))
+                .style(modern_input_style)
+                .size(12.0)
+                .on_input(move |s| Message::UpdateInformationEnumerationDefinition(enum_id, s))
+                .padding([4, 6]);
+
+            // Handlinger for lærred
+            let canvas_action_btn = if is_on_canvas {
+                button(text("Fjern fra diagram").size(11))
+                    .style(secondary_button_style)
+                    .on_press(Message::RemoveEnumerationFromDiagram(enum_id))
+                    .padding([4, 8])
+            } else {
+                button(text("+ Tilføj til diagram").size(11))
+                    .style(primary_button_style)
+                    .on_press(Message::AddEnumerationToDiagram(enum_id))
+                    .padding([4, 8])
+            };
+
+            let actions_row = row![
+                canvas_action_btn,
+                Space::new().width(Length::Fill),
+                button(text("🗑️ Slet enumeration").size(11))
+                    .style(danger_button_style)
+                    .on_press(Message::DeleteInformationEnumeration(enum_id))
+                    .padding([3, 7]),
+            ]
+            .align_y(Alignment::Center);
+
+            // Værdier (FDA Tabel B: lowerCamelCase)
+            let mut values_list = column![].spacing(4);
+            for val in e.values() {
+                let val_str = val.clone();
+                let val_row = container(
+                    row![
+                        text(val)
+                            .size(12)
+                            .color(ThemeColors::SLATE_800)
+                            .width(Length::Fill),
+                        button(text("✕").size(9))
+                            .style(danger_button_style)
+                            .on_press(Message::RemoveValueFromEnumeration(enum_id, val_str))
+                            .padding([2, 5]),
+                    ]
+                    .spacing(4)
+                    .align_y(Alignment::Center),
+                )
+                .style(card_container_style)
+                .padding([3, 6])
+                .width(Length::Fill);
+
+                values_list = values_list.push(val_row);
+            }
+
+            let new_val_trimmed = new_enum_value_input.trim();
+            let is_val_valid =
+                !new_val_trimmed.is_empty() && NamingLinter::is_lower_camel_case(new_val_trimmed);
+
+            let mut add_val_col = column![row![
+                text_input("nyVærdi (lowerCamelCase)...", new_enum_value_input)
+                    .id("new_enum_val_input")
+                    .style(modern_input_style)
+                    .size(12.0)
+                    .on_input(Message::NewEnumValueInputChanged)
+                    .on_submit(Message::AddValueToEnumeration(
+                        enum_id,
+                        new_enum_value_input.to_string()
+                    ))
+                    .padding([3, 6])
+                    .width(Length::Fill),
+                button(text("+ Tilføj").size(11))
+                    .style(if is_val_valid {
+                        primary_button_style
+                    } else {
+                        secondary_button_style
+                    })
+                    .on_press(Message::AddValueToEnumeration(
+                        enum_id,
+                        new_enum_value_input.to_string()
+                    ))
+                    .padding([3, 8]),
+            ]
+            .spacing(4)
+            .align_y(Alignment::Center),]
+            .spacing(3);
+
+            if let Some(issue) = NamingLinter::check_enumeration_value(new_enum_value_input) {
+                if !new_enum_value_input.trim().is_empty() {
+                    let mut msg = format!("⚠️ {}: {}", issue.rule, issue.message);
+                    if let Some(fix) = &issue.suggested_fix {
+                        msg.push_str(&format!(" (Forslag: {})", fix));
+                    }
+                    add_val_col = add_val_col
+                        .push(text(msg).size(10.0).color(Color::from_rgb(0.85, 0.55, 0.1)));
+                }
+            }
+
+            let inspector_content = column![
+                header,
+                crate::ui::inspector_panel::section_header("Generelt (FDA Tabel B)"),
+                name_col,
+                def_input,
+                actions_row,
+                text(format!("Udfaldsrum / Værdier ({})", e.values().len()))
+                    .size(12)
+                    .color(ThemeColors::SLATE_700),
+                add_val_col,
+                values_list,
+            ]
+            .spacing(10);
+
+            crate::ui::inspector_panel::panel_container(inspector_content.into())
+        } else {
+            crate::ui::inspector_panel::panel_container(
+                text("Enumeration ikke fundet")
                     .size(12)
                     .color(ThemeColors::TEXT_MUTED)
                     .into(),

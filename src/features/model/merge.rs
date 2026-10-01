@@ -1,7 +1,7 @@
 use crate::features::concept_model::{DiagramEdge, DiagramNode};
 use crate::features::concepts::Concept;
 use crate::features::information_model::{
-    Attribute, ClassDiagramNode, ClassRelation, InformationClass,
+    Attribute, ClassDiagramNode, ClassRelation, InformationClass, InformationEnumeration,
 };
 use crate::features::model::{ModelMetadata, ModelProject};
 use std::collections::{HashMap, HashSet};
@@ -397,6 +397,84 @@ pub fn merge_models(
                         merge_class_instances(cls_base, cls_our, cls_their, &mut conflicts);
                     summary.classes_updated.push(merged_cls.name().to_string());
                     merged_project.information_model_mut().add_class(merged_cls);
+                }
+            }
+            (None, None, None) => {}
+        }
+    }
+
+    // 3b. Merge Enumerations
+    let base_enums: HashMap<Uuid, &InformationEnumeration> = base
+        .information_model()
+        .enumerations()
+        .iter()
+        .map(|e| (e.id(), e))
+        .collect();
+    let our_enums: HashMap<Uuid, &InformationEnumeration> = ours
+        .information_model()
+        .enumerations()
+        .iter()
+        .map(|e| (e.id(), e))
+        .collect();
+    let their_enums: HashMap<Uuid, &InformationEnumeration> = theirs
+        .information_model()
+        .enumerations()
+        .iter()
+        .map(|e| (e.id(), e))
+        .collect();
+
+    let all_enum_ids: HashSet<Uuid> = base_enums
+        .keys()
+        .chain(our_enums.keys())
+        .chain(their_enums.keys())
+        .copied()
+        .collect();
+
+    for id in all_enum_ids {
+        let b = base_enums.get(&id).copied();
+        let o = our_enums.get(&id).copied();
+        let t = their_enums.get(&id).copied();
+
+        match (b, o, t) {
+            (None, Some(e), None) | (None, None, Some(e)) => {
+                merged_project
+                    .information_model_mut()
+                    .add_enumeration(e.clone());
+            }
+            (None, Some(e_our), Some(_)) => {
+                merged_project
+                    .information_model_mut()
+                    .add_enumeration(e_our.clone());
+            }
+            (Some(e_base), None, t_opt) => {
+                if let Some(e_their) = t_opt {
+                    if e_their != e_base {
+                        merged_project
+                            .information_model_mut()
+                            .add_enumeration(e_their.clone());
+                    }
+                }
+            }
+            (Some(e_base), Some(e_our), None) => {
+                if e_our != e_base {
+                    merged_project
+                        .information_model_mut()
+                        .add_enumeration(e_our.clone());
+                }
+            }
+            (Some(e_base), Some(e_our), Some(e_their)) => {
+                if e_our == e_their || e_their == e_base {
+                    merged_project
+                        .information_model_mut()
+                        .add_enumeration(e_our.clone());
+                } else if e_our == e_base {
+                    merged_project
+                        .information_model_mut()
+                        .add_enumeration(e_their.clone());
+                } else {
+                    merged_project
+                        .information_model_mut()
+                        .add_enumeration(e_our.clone());
                 }
             }
             (None, None, None) => {}

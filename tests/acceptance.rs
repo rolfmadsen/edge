@@ -8001,9 +8001,30 @@ fn test_task_063_controlled_vocabulary_enumeration_ui_and_canvas() {
         .project()
         .information_model()
         .get_enumeration(enum_id)
-        .expect("Enumeration skal findes");
+        .expect("Enumeration skal findes")
+        .clone();
     assert_eq!(updated_enum.name(), "DrivkraftType");
     assert_eq!(updated_enum.values(), &["elmotor", "benzin"]);
+
+    // Must NOT: Ugyldige enumerationsværdier (med mellemrum eller forkert case) afvises
+    let _ = app.update(Message::AddValueToEnumeration(
+        enum_id,
+        "ugyldig værdi med mellemrum".to_string(),
+    ));
+    let _ = app.update(Message::AddValueToEnumeration(
+        enum_id,
+        "ForkertCase".to_string(),
+    ));
+    let enum_check = app
+        .project()
+        .information_model()
+        .get_enumeration(enum_id)
+        .unwrap();
+    assert_eq!(
+        enum_check.values(),
+        &["elmotor", "benzin"],
+        "Must NOT: Ugyldige enumerationsværdier må ikke tilføjes til enumerationen"
+    );
 
     // 2. AC2: Tilføj enumeration til lærredet (grøn boks)
     let _ = app.update(Message::AddEnumerationToDiagram(enum_id));
@@ -8093,6 +8114,49 @@ fn test_task_063_controlled_vocabulary_enumeration_ui_and_canvas() {
         "AC4: Dependency-kanten skal genopstå på lærredet når enumerationen genindsættes"
     );
 
+    // AC5: Persistens i dekomponeret format (.kant)
+    let temp_dir = std::env::temp_dir().join(format!("kant_test_063_{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    kant::features::model::decomposed::save_decomposed(app.project(), &temp_dir)
+        .expect("save_decomposed skal lykkes");
+    let loaded_project = kant::features::model::decomposed::load_decomposed(&temp_dir)
+        .expect("load_decomposed skal lykkes");
+    let _ = std::fs::remove_dir_all(&temp_dir);
+    assert_eq!(
+        loaded_project.information_model().enumerations().len(),
+        1,
+        "AC5: Enumeration skal persisteres og genindlæses fra dekomponeret lager"
+    );
+    assert_eq!(
+        loaded_project.information_model().enumerations()[0].name(),
+        "DrivkraftType"
+    );
+    assert_eq!(
+        loaded_project.information_model().enumerations()[0].values(),
+        &["elmotor", "benzin"]
+    );
+    assert!(
+        loaded_project
+            .information_graph()
+            .nodes()
+            .iter()
+            .any(|n| n.class_id() == enum_id),
+        "AC5: Enumeration-diagramnode skal persisteres og genindlæses fra diagrammer"
+    );
+    assert!(
+        loaded_project.information_graph().edges().iter().any(|e| {
+            (e.from() == class_id && e.to() == enum_id) && e.kind() == RelationKind::Dependency
+        }),
+        "AC5: Dependency-kant skal persisteres og genindlæses"
+    );
+
+    // AC5: Collab mutationer serialisering
+    use kant::features::collab::protocol::ModelMutation;
+    let mut_added = ModelMutation::InformationEnumerationAdded(updated_enum.clone());
+    let json_mut = serde_json::to_string(&mut_added).expect("collab serialisering");
+    let des_mut: ModelMutation = serde_json::from_str(&json_mut).expect("collab deserialisering");
+    assert_eq!(mut_added, des_mut);
+
     // 7. Slet enumeration permanent
     let _ = app.update(Message::DeleteInformationEnumeration(enum_id));
     assert_eq!(
@@ -8109,4 +8173,3 @@ fn test_task_063_controlled_vocabulary_enumeration_ui_and_canvas() {
         "Enumeration-noden skal være fjernet fra diagrammet"
     );
 }
-

@@ -1,7 +1,7 @@
 use crate::features::concept_model::{DiagramEdge, DiagramNode, PortSide, RelationKind};
 use crate::features::concepts::{Concept, ConceptValidator};
 use crate::features::information_model::{
-    ClassDiagramNode, ClassRelation, InformationClass, Multiplicity,
+    ClassDiagramNode, ClassRelation, InformationClass, InformationEnumeration, Multiplicity,
 };
 use crate::features::model::storage::StorageError;
 use crate::features::model::{ModelMetadata, ModelProject};
@@ -165,11 +165,13 @@ pub fn save_decomposed(project: &ModelProject, root_path: &Path) -> Result<(), S
 
     let concepts_dir = kant_dir.join("concepts");
     let classes_dir = kant_dir.join("classes");
+    let enumerations_dir = kant_dir.join("enumerations");
     let relations_dir = kant_dir.join("relations");
     let diagrams_dir = kant_dir.join("diagrams");
 
     fs::create_dir_all(&concepts_dir)?;
     fs::create_dir_all(&classes_dir)?;
+    fs::create_dir_all(&enumerations_dir)?;
     fs::create_dir_all(&relations_dir)?;
     fs::create_dir_all(&diagrams_dir)?;
 
@@ -199,6 +201,17 @@ pub fn save_decomposed(project: &ModelProject, root_path: &Path) -> Result<(), S
         atomic_write_file(&file_path, &json)?;
     }
     cleanup_stale_files(&classes_dir, &active_class_ids)?;
+
+    // 4b. enumerations/<uuid>.json
+    let mut active_enum_ids = HashSet::new();
+    for e in project.information_model().enumerations() {
+        let eid = e.id();
+        active_enum_ids.insert(eid);
+        let file_path = enumerations_dir.join(format!("{}.json", eid));
+        let json = to_deterministic_json(e)?;
+        atomic_write_file(&file_path, &json)?;
+    }
+    cleanup_stale_files(&enumerations_dir, &active_enum_ids)?;
 
     // 5. relations/<uuid>.json
     let mut active_relation_ids = HashSet::new();
@@ -350,6 +363,20 @@ pub fn load_decomposed(root_path: &Path) -> Result<ModelProject, StorageError> {
                 let content = fs::read_to_string(&path)?;
                 let class: InformationClass = serde_json::from_str(&content)?;
                 project.information_model_mut().add_class(class);
+            }
+        }
+    }
+
+    // 3b. enumerations/*.json
+    let enumerations_dir = kant_dir.join("enumerations");
+    if enumerations_dir.is_dir() {
+        for entry in fs::read_dir(enumerations_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() && path.extension().and_then(|e| e.to_str()) == Some("json") {
+                let content = fs::read_to_string(&path)?;
+                let enumeration: InformationEnumeration = serde_json::from_str(&content)?;
+                project.information_model_mut().add_enumeration(enumeration);
             }
         }
     }
