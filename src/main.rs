@@ -1,8 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use kant::ui::app::{load_window_icon, App};
+use kant::ui::platform::initialize_platform_defaults;
 
 fn main() -> iced::Result {
+    initialize_platform_defaults();
+
     let initial_path = std::env::args().nth(1).map(std::path::PathBuf::from);
     let app_creator = move || match initial_path {
         Some(ref p) => App::new_with_path(Some(p.clone())),

@@ -9,4 +9,5 @@ pub mod graph_canvas;
 pub mod information_canvas;
 pub mod information_model_view;
 pub mod inspector_panel;
+pub mod platform;
 pub mod theme;

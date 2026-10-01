@@ -61,7 +61,14 @@ jobs:
             libssl-dev \
             pkg-config
 
-      - name: Build release binary
+      - name: Build release binary (Windows static CRT)
+        if: ${{ matrix.is_windows }}
+        env:
+          RUSTFLAGS: -C target-feature=+crt-static
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Build release binary (Unix)
+        if: ${{ !matrix.is_windows }}
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Package release archive (Unix)
