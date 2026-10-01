@@ -7583,6 +7583,44 @@ fn test_task_040_canvas_multi_node_selection_and_bulk_move() {
         );
     }
 
+    // AC2b: Delvist overlappede noder må IKKE vælges (kun fuldt omsluttede noder vælges)
+    let partial_drag_start = Point::new(50.0, 50.0);
+    let _ = canvas.update(
+        &mut state,
+        &press_left,
+        bounds,
+        Cursor::Available(partial_drag_start),
+    );
+    // n1 er [100..220, 100..160] (fuldt omsluttet af 50..350 x 50..200)
+    // n2 er [300..420, 100..160] (delvist skåret ved x=350, så ikke fuldt omsluttet)
+    let partial_drag_end = Point::new(350.0, 200.0);
+    let move_partial = Event::Mouse(iced::mouse::Event::CursorMoved {
+        position: partial_drag_end,
+    });
+    let _ = canvas.update(
+        &mut state,
+        &move_partial,
+        bounds,
+        Cursor::Available(partial_drag_end),
+    );
+    let _ = canvas.update(
+        &mut state,
+        &release_left,
+        bounds,
+        Cursor::Available(partial_drag_end),
+    );
+    {
+        let sel = current_selection.lock().unwrap();
+        assert!(
+            sel.contains(&n1.id()),
+            "AC2b: n1 (fuldt omsluttet) skal vælges"
+        );
+        assert!(
+            !sel.contains(&n2.id()),
+            "AC2b: n2 (kun delvist indenfor) må IKKE vælges"
+        );
+    }
+
     // AC3 & AC4: Synkron Flytning og Grid Snapping
     // Konfigurer canvas med aktuel udvælgelse {n1, n2}
     let sel_set: HashSet<NodeId> = [n1.id(), n2.id()].into_iter().collect();
