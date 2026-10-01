@@ -7327,3 +7327,106 @@ fn test_task_062_windows_software_rendering_and_backend_resolution() {
         "På Unix/macOS skal Iced have lov til at benytte systemets standard renderer"
     );
 }
+
+#[test]
+fn test_task_061_naming_convention_linter_and_ui_feedback() {
+    use kant::features::information_model::linter::{
+        NamingConvention, NamingIssue, NamingIssueKind, NamingLinter, NamingTarget,
+    };
+
+    // AC1: UpperCamelCase Linter for Klasser
+    assert!(NamingLinter::check_class_name("EthjuletCykel").is_none());
+    assert!(NamingLinter::check_class_name("Køretøj").is_none());
+    assert!(NamingLinter::check_class_name("Person").is_none());
+    assert!(NamingLinter::check_class_name("CPR").is_none());
+
+    let class_issue_snake = NamingLinter::check_class_name("ethjulet_cykel")
+        .expect("Skal fange snake_case på klasse");
+    assert_eq!(class_issue_snake.target, NamingTarget::Class);
+    assert_eq!(class_issue_snake.convention, NamingConvention::UpperCamelCase);
+    assert!(class_issue_snake.rule.contains("19"));
+    assert_eq!(
+        class_issue_snake.suggested_fix.as_deref(),
+        Some("EthjuletCykel")
+    );
+
+    let class_issue_space = NamingLinter::check_class_name("Ethjulet Cykel")
+        .expect("Skal fange mellemrum i klassenavn");
+    assert_eq!(
+        class_issue_space.suggested_fix.as_deref(),
+        Some("EthjuletCykel")
+    );
+
+    let class_issue_lower = NamingLinter::check_class_name("cykel")
+        .expect("Skal fange lille forbogstav i klasse");
+    assert_eq!(class_issue_lower.suggested_fix.as_deref(), Some("Cykel"));
+
+    // AC2: lowerCamelCase Linter for Attributter
+    assert!(NamingLinter::check_attribute_name("stelnummer").is_none());
+    assert!(NamingLinter::check_attribute_name("maxPassagerer").is_none());
+    assert!(NamingLinter::check_attribute_name("førsteRegistrering").is_none());
+    assert!(NamingLinter::check_attribute_name("cvrNummer").is_none());
+
+    let attr_issue_upper = NamingLinter::check_attribute_name("Stelnummer")
+        .expect("Skal fange stort forbogstav på attribut");
+    assert_eq!(attr_issue_upper.target, NamingTarget::Attribute);
+    assert_eq!(attr_issue_upper.convention, NamingConvention::LowerCamelCase);
+    assert!(attr_issue_upper.rule.contains("19"));
+    assert_eq!(
+        attr_issue_upper.suggested_fix.as_deref(),
+        Some("stelnummer")
+    );
+
+    let attr_issue_snake = NamingLinter::check_attribute_name("stel_nummer")
+        .expect("Skal fange snake_case på attribut");
+    assert_eq!(
+        attr_issue_snake.suggested_fix.as_deref(),
+        Some("stelNummer")
+    );
+
+    let attr_issue_space = NamingLinter::check_attribute_name("max passagerer")
+        .expect("Skal fange mellemrum på attribut");
+    assert_eq!(
+        attr_issue_space.suggested_fix.as_deref(),
+        Some("maxPassagerer")
+    );
+
+    // AC3: lowerCamelCase Linter for Associations-Labels
+    assert!(NamingLinter::check_association_label("").is_none());
+    assert!(NamingLinter::check_association_label("   ").is_none());
+    assert!(NamingLinter::check_association_label("omfatter").is_none());
+    assert!(NamingLinter::check_association_label("tilhørerKommune").is_none());
+
+    let assoc_issue_upper = NamingLinter::check_association_label("Omfatter")
+        .expect("Skal fange stort forbogstav på associationslabel");
+    assert_eq!(assoc_issue_upper.target, NamingTarget::AssociationEnd);
+    assert_eq!(assoc_issue_upper.convention, NamingConvention::LowerCamelCase);
+    assert_eq!(
+        assoc_issue_upper.suggested_fix.as_deref(),
+        Some("omfatter")
+    );
+
+    let assoc_issue_snake = NamingLinter::check_association_label("omfatter_del")
+        .expect("Skal fange snake_case på association");
+    assert_eq!(
+        assoc_issue_snake.suggested_fix.as_deref(),
+        Some("omfatterDel")
+    );
+
+    // AC4: Ikke-blokerende for App / Model
+    use kant::ui::app::{App, Message};
+    let mut app = App::new_with_path(None);
+    let _ = app.update(Message::CreateInformationClass);
+    let class_id = app.project().information_model().classes()[0].id();
+    let _ = app.update(Message::UpdateInformationClassName(
+        class_id,
+        "ugyldig_klasse".into(),
+    ));
+    let classes = app.project().information_model().classes();
+    let created_class = classes.iter().find(|c| c.name() == "ugyldig_klasse");
+    assert!(
+        created_class.is_some(),
+        "Klassen skal fortsat kunne gemmes selvom navnet overtræder konventionen (ikke-blokerende linter)"
+    );
+}
+
