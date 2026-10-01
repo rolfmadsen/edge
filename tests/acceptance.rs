@@ -7965,3 +7965,148 @@ fn test_task_041_persistent_class_relations_across_canvas_removal() {
         serde_json::from_str(&project_json).expect("Deserialisering skal lykkes");
     assert_eq!(deserialized.information_model().classes().len(), 1);
 }
+
+#[test]
+fn test_task_063_controlled_vocabulary_enumeration_ui_and_canvas() {
+    use kant::features::concept_model::RelationKind;
+    use kant::features::information_model::InformationDataType;
+    use kant::ui::app::{App, Message};
+
+    let mut app = App::new_with_path(None);
+
+    // 1. AC1: Opret enumeration via UI Message
+    let _ = app.update(Message::CreateInformationEnumeration);
+    assert_eq!(
+        app.project().information_model().enumerations().len(),
+        1,
+        "AC1: Der skal være oprettet 1 enumeration i information_model"
+    );
+    let enum_id = app.project().information_model().enumerations()[0].id();
+
+    // Opdater navn og tilføj værdier i lowerCamelCase jf. FDA Tabel B
+    let _ = app.update(Message::UpdateInformationEnumerationName(
+        enum_id,
+        "DrivkraftType".to_string(),
+    ));
+    let _ = app.update(Message::AddValueToEnumeration(
+        enum_id,
+        "elmotor".to_string(),
+    ));
+    let _ = app.update(Message::AddValueToEnumeration(
+        enum_id,
+        "benzin".to_string(),
+    ));
+
+    let updated_enum = app
+        .project()
+        .information_model()
+        .get_enumeration(enum_id)
+        .expect("Enumeration skal findes");
+    assert_eq!(updated_enum.name(), "DrivkraftType");
+    assert_eq!(updated_enum.values(), &["elmotor", "benzin"]);
+
+    // 2. AC2: Tilføj enumeration til lærredet (grøn boks)
+    let _ = app.update(Message::AddEnumerationToDiagram(enum_id));
+    assert!(
+        app.project()
+            .information_graph()
+            .nodes()
+            .iter()
+            .any(|n| n.class_id() == enum_id),
+        "AC2: Enumeration skal være repræsenteret på lærredet som diagramnode"
+    );
+
+    // 3. Opret klasse "Køretøj" og tilføj til diagram
+    let _ = app.update(Message::CreateInformationClass);
+    let class_id = app.project().information_model().classes()[0].id();
+    let _ = app.update(Message::UpdateInformationClassName(
+        class_id,
+        "Koeretoej".to_string(),
+    ));
+    let _ = app.update(Message::AddClassToDiagram(class_id));
+
+    // Tilføj attribut "drivkraft"
+    let _ = app.update(Message::AddAttributeToClass(class_id));
+    let attr_id = app
+        .project()
+        .information_model()
+        .get_class(class_id)
+        .unwrap()
+        .attributes()[0]
+        .id();
+
+    // 4. AC3 & AC4: Vælg enumerationen som datatype for attributten
+    let _ = app.update(Message::UpdateAttributeDataType(
+        class_id,
+        attr_id,
+        InformationDataType::Enumeration {
+            enumeration_id: enum_id,
+        },
+    ));
+
+    let attr = &app
+        .project()
+        .information_model()
+        .get_class(class_id)
+        .unwrap()
+        .attributes()[0];
+    assert_eq!(
+        attr.data_type(),
+        &InformationDataType::Enumeration {
+            enumeration_id: enum_id
+        },
+        "AC3: Attributtens datatype skal være sat til den valgte enumeration"
+    );
+
+    // Verificer at der automatisk er etableret en Dependency-relation mellem klassen og enumerationen
+    let has_dep = app.project().information_graph().edges().iter().any(|e| {
+        (e.from() == class_id && e.to() == enum_id) && e.kind() == RelationKind::Dependency
+    });
+    assert!(
+        has_dep,
+        "AC4: Der skal automatisk synkroniseres en Dependency-kant på lærredet fra klasse til enumeration"
+    );
+
+    // 5. Fjern enumeration fra lærredet
+    let _ = app.update(Message::RemoveEnumerationFromDiagram(enum_id));
+    assert!(
+        !app.project()
+            .information_graph()
+            .nodes()
+            .iter()
+            .any(|n| n.class_id() == enum_id),
+        "Noden skal være fjernet fra diagrammet"
+    );
+    assert_eq!(
+        app.project().information_model().enumerations().len(),
+        1,
+        "Enumerationen skal stadig findes i information_model"
+    );
+
+    // 6. Genindsæt enumeration på lærredet -> Dependency-kanten skal genopstå
+    let _ = app.update(Message::AddEnumerationToDiagram(enum_id));
+    let has_restored_dep = app.project().information_graph().edges().iter().any(|e| {
+        (e.from() == class_id && e.to() == enum_id) && e.kind() == RelationKind::Dependency
+    });
+    assert!(
+        has_restored_dep,
+        "AC4: Dependency-kanten skal genopstå på lærredet når enumerationen genindsættes"
+    );
+
+    // 7. Slet enumeration permanent
+    let _ = app.update(Message::DeleteInformationEnumeration(enum_id));
+    assert_eq!(
+        app.project().information_model().enumerations().len(),
+        0,
+        "Enumerationen skal være slettet fra modellen"
+    );
+    assert!(
+        !app.project()
+            .information_graph()
+            .nodes()
+            .iter()
+            .any(|n| n.class_id() == enum_id),
+        "Enumeration-noden skal være fjernet fra diagrammet"
+    );
+}
+
