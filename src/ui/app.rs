@@ -822,6 +822,7 @@ pub enum Message {
     GraphNodesSelected(std::collections::HashSet<NodeId>),
     GraphNodeMoved(NodeId, f32, f32),
     GraphNodesMoved(Vec<(NodeId, f32, f32)>),
+    CanvasNodesDragFinished,
     GraphOpenRelationDialog,
     GraphCloseRelationDialog,
     GraphRelationFromChanged(NodeOption),
@@ -2069,22 +2070,43 @@ impl App {
             return;
         }
         if let Some(path) = &self.current_file_path {
+            let save_start = std::time::Instant::now();
             match ProjectStorage::save(&self.project, path) {
                 Ok(()) => {
+                    let save_duration = save_start.elapsed();
                     self.save_status = SaveStatus::Saved {
                         path: path.display().to_string(),
                         timestamp: current_timestamp(),
                     };
+                    let git_start = std::time::Instant::now();
+                    let mut git_checked = false;
                     if let Some(dir) = self.repo_dir() {
                         if !matches!(self.git_sync_status, RepoSyncStatus::PendingChanges) {
                             if let Ok(st) = GitService::get_sync_status(&dir) {
                                 self.git_sync_status = st;
+                                git_checked = true;
                             }
                         }
                     }
+                    let git_duration = if git_checked {
+                        git_start.elapsed()
+                    } else {
+                        std::time::Duration::ZERO
+                    };
+                    crate::features::diagnostics::log_info(
+                        "autosave",
+                        &format!(
+                            "Autosave gennemført (disk: {:?}, git: {:?})",
+                            save_duration, git_duration
+                        ),
+                    );
                 }
                 Err(err) => {
                     self.save_status = SaveStatus::Error(err.to_string());
+                    crate::features::diagnostics::log_error(
+                        "autosave",
+                        &format!("Autosave fejlede: {}", err),
+                    );
                 }
             }
         }
@@ -4013,7 +4035,6 @@ impl App {
                     cg.update_edge_ports(r.from, r.to, Some(r.from_side), Some(r.to_side));
                 }
                 self.broadcast_node_moved_throttled(node_id, final_x, final_y);
-                self.trigger_autosave();
             }
             Message::GraphNodesMoved(moves) => {
                 let computed_moves: Vec<(NodeId, f32, f32)> = moves
@@ -4045,7 +4066,13 @@ impl App {
                 for (node_id, final_x, final_y) in computed_moves {
                     self.broadcast_node_moved_throttled(node_id, final_x, final_y);
                 }
+            }
+            Message::CanvasNodesDragFinished => {
                 self.trigger_autosave();
+                crate::features::diagnostics::log_info(
+                    "canvas",
+                    "Node drag completed and state persisted",
+                );
             }
             Message::GraphOpenRelationDialog => {
                 let node_options: Vec<NodeOption> = self
@@ -5208,7 +5235,6 @@ impl App {
                 }
                 let broadcast_id = class_id_opt.unwrap_or(node_id);
                 self.broadcast_node_moved_throttled(broadcast_id, final_x, final_y);
-                self.trigger_autosave();
             }
             Message::UpdateClassNodesPositions(moves) => {
                 let computed_moves: Vec<(NodeId, f32, f32)> = moves
@@ -5248,7 +5274,6 @@ impl App {
                 for (broadcast_id, final_x, final_y) in broadcasts {
                     self.broadcast_node_moved_throttled(broadcast_id, final_x, final_y);
                 }
-                self.trigger_autosave();
             }
             Message::SelectInfoGraphNode(node_id_opt) => {
                 self.selected_info_graph_node_id = node_id_opt;

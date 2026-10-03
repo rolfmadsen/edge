@@ -9064,10 +9064,10 @@ fn test_task_067_canvas_drag_latency_optimization_drop_commit_autosave_and_telem
     // Verificer telemetri i diagnostics log buffer
     let logs = kant::features::diagnostics::get_recent_logs();
     assert!(
-        logs.iter().any(|l| l.contains("Autosave gennemført") || l.contains("Node drag completed")),
+        logs.iter()
+            .any(|l| l.contains("Autosave gennemført") || l.contains("Node drag completed")),
         "Diagnostics skal indeholde autosave eller drag telemetri"
     );
 
     let _ = std::fs::remove_file(file_path);
 }
-

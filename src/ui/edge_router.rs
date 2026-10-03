@@ -96,6 +96,7 @@ impl EdgeRouter {
     }
 
     pub fn route_edges(nodes: &[DiagramNode], edges: &[DiagramEdge]) -> Vec<RoutedEdge> {
+        let start = std::time::Instant::now();
         let node_map: HashMap<NodeId, &DiagramNode> = nodes.iter().map(|n| (n.id(), n)).collect();
 
         // 1. Vælg porte og tildel slots til hver edge
@@ -115,6 +116,19 @@ impl EdgeRouter {
 
         // 3. Detekter linjekrydsninger og tilføj broer (bridge hops)
         Self::detect_bridges(&mut routes);
+
+        let elapsed = start.elapsed();
+        if elapsed > std::time::Duration::from_millis(16) {
+            crate::features::diagnostics::log_warn(
+                "canvas_perf",
+                &format!(
+                    "Edge routing for {} noder og {} kanter tog {:?} (>16ms frame budget)",
+                    nodes.len(),
+                    edges.len(),
+                    elapsed
+                ),
+            );
+        }
 
         routes
     }

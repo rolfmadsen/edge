@@ -258,6 +258,8 @@ pub struct BulkDragState {
     pub leader_id: NodeId,
     pub start_world_pos: Point,
     pub initial_positions: Vec<(NodeId, (f32, f32))>,
+    pub last_delta: Option<(f32, f32)>,
+    pub start_time: std::time::Instant,
 }
 
 #[derive(Debug, Default)]
@@ -435,6 +437,7 @@ where
     on_node_double_clicked: Box<dyn Fn(NodeId) -> Message + 'a>,
     on_viewport_changed: Box<dyn Fn(CanvasViewport) -> Message + 'a>,
     on_canvas_drop: Option<Box<dyn Fn(f32, f32) -> Message + 'a>>,
+    on_drag_released: Option<Box<dyn Fn() -> Message + 'a>>,
 }
 
 impl<'a, Message, N, E, R> DiagramCanvas<'a, Message, N, E, R>
@@ -477,7 +480,13 @@ where
             on_node_double_clicked: Box::new(on_node_double_clicked),
             on_viewport_changed: Box::new(on_viewport_changed),
             on_canvas_drop: None,
+            on_drag_released: None,
         }
+    }
+
+    pub fn on_drag_released(mut self, handler: impl Fn() -> Message + 'a) -> Self {
+        self.on_drag_released = Some(Box::new(handler));
+        self
     }
 
     pub fn is_palette_dragging(mut self, is_dragging: bool) -> Self {
@@ -819,7 +828,17 @@ where
                                 leader_id: node.id(),
                                 start_world_pos: world_pos,
                                 initial_positions,
+                                last_delta: None,
+                                start_time: std::time::Instant::now(),
                             });
+                            crate::features::diagnostics::log_info(
+                                "canvas",
+                                &format!(
+                                    "Startede drag med {} noder (leader: {})",
+                                    drag_ids.len(),
+                                    node.id()
+                                ),
+                            );
 
                             if !is_already_selected {
                                 state.selected_node_ids = [node.id()].into_iter().collect();
@@ -943,7 +962,7 @@ where
                     return Some(Action::request_redraw().and_capture());
                 }
 
-                if let Some(ref bulk) = state.bulk_drag {
+                if let Some(ref mut bulk) = state.bulk_drag {
                     let world_pos = self.viewport.to_world(cursor_pos);
                     let raw_dx = world_pos.x - bulk.start_world_pos.x;
                     let raw_dy = world_pos.y - bulk.start_world_pos.y;
@@ -961,6 +980,12 @@ where
                     } else {
                         (raw_dx, raw_dy)
                     };
+
+                    // AC2: Redundant Motion Delta Filtering
+                    if bulk.last_delta == Some((delta_x, delta_y)) {
+                        return Some(Action::capture());
+                    }
+                    bulk.last_delta = Some((delta_x, delta_y));
 
                     let updates: Vec<(NodeId, f32, f32)> = bulk
                         .initial_positions
@@ -985,6 +1010,13 @@ where
 
                     let new_x = (raw_world_x / GRID_SIZE).round() * GRID_SIZE;
                     let new_y = (raw_world_y / GRID_SIZE).round() * GRID_SIZE;
+
+                    if let Some(node) = self.nodes.iter().find(|n| n.id() == id) {
+                        let (cx, cy) = node.position();
+                        if (cx - new_x).abs() < f32::EPSILON && (cy - new_y).abs() < f32::EPSILON {
+                            return Some(Action::capture());
+                        }
+                    }
 
                     return Some(
                         Action::publish((self.on_node_moved)(id, new_x, new_y)).and_capture(),
@@ -1105,6 +1137,18 @@ where
                         .hypot(world_pos.y - bulk.start_world_pos.y);
                     if drag_dist >= 4.0 {
                         state.last_click = None;
+                        crate::features::diagnostics::log_info(
+                            "canvas",
+                            &format!(
+                                "Drag fuldført for {} noder (distance: {:.1}px, varighed: {:?})",
+                                bulk.initial_positions.len(),
+                                drag_dist,
+                                bulk.start_time.elapsed()
+                            ),
+                        );
+                        if let Some(ref on_drag_released) = self.on_drag_released {
+                            return Some(Action::publish((on_drag_released)()).and_capture());
+                        }
                     }
                     if drag_dist < 4.0
                         && state.selected_node_ids.len() > 1
@@ -1130,6 +1174,9 @@ where
 
                 if state.dragging_node.is_some() {
                     state.dragging_node = None;
+                    if let Some(ref on_drag_released) = self.on_drag_released {
+                        return Some(Action::publish((on_drag_released)()).and_capture());
+                    }
                     return Some(Action::capture());
                 }
 
@@ -2179,6 +2226,99 @@ mod tests {
         let _ = canvas.update(&mut state, &release_event, bounds, move_cursor);
         assert!(state.dragging_node.is_none());
         assert!(state.panning_start.is_none());
+    }
+
+    #[test]
+    fn test_task_067_diagram_canvas_motion_filtering_and_drag_release_callback() {
+        use iced::mouse::Cursor;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+        use uuid::Uuid;
+
+        let node = DiagramNode::custom(
+            Uuid::new_v4(),
+            "OptimizedNode".to_string(),
+            100.0,
+            100.0,
+            180.0,
+            80.0,
+        );
+        let nodes = vec![node];
+        let edges: Vec<DiagramEdge> = vec![];
+
+        let moves_count = Arc::new(AtomicUsize::new(0));
+        let release_count = Arc::new(AtomicUsize::new(0));
+
+        let m_clone = Arc::clone(&moves_count);
+        let r_clone = Arc::clone(&release_count);
+
+        let canvas = DiagramCanvas::new(
+            &nodes,
+            &edges,
+            None,
+            CanvasViewport::default(),
+            false,
+            |_, _, _, _| {},
+            |_| (),
+            |_, _, _| (),
+            |_, _| (),
+            |_| (),
+            |_| (),
+        )
+        .on_nodes_moved(move |_updates| {
+            m_clone.fetch_add(1, Ordering::SeqCst);
+        })
+        .on_drag_released(move || {
+            r_clone.fetch_add(1, Ordering::SeqCst);
+        });
+
+        let mut state = DiagramCanvasState::default();
+        let bounds = Rectangle::new(Point::ORIGIN, Size::new(1000.0, 1000.0));
+        let cursor_start = Cursor::Available(Point::new(120.0, 120.0));
+
+        // 1. Klik for at starte drag
+        let press = Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left));
+        let _ = canvas.update(&mut state, &press, bounds, cursor_start);
+        assert!(state.bulk_drag.is_some());
+        assert_eq!(moves_count.load(Ordering::SeqCst), 0);
+
+        // 2. Cursor flyttes med 20px (nyt snap step) -> skal udsende event
+        let cursor_step1 = Cursor::Available(Point::new(140.0, 120.0));
+        let move1 = Event::Mouse(mouse::Event::CursorMoved {
+            position: Point::new(140.0, 120.0),
+        });
+        let _ = canvas.update(&mut state, &move1, bounds, cursor_step1);
+        assert_eq!(moves_count.load(Ordering::SeqCst), 1);
+
+        // 3. Cursor flyttes med 2px (inden for samme snap-celle) -> skal filtreres (AC2)
+        let cursor_subpixel = Cursor::Available(Point::new(142.0, 121.0));
+        let move_subpixel = Event::Mouse(mouse::Event::CursorMoved {
+            position: Point::new(142.0, 121.0),
+        });
+        let _ = canvas.update(&mut state, &move_subpixel, bounds, cursor_subpixel);
+        assert_eq!(
+            moves_count.load(Ordering::SeqCst),
+            1,
+            "Redundant cursor motion må IKKE udsende ny besked"
+        );
+
+        // 4. Cursor flyttes med yderligere 20px -> skal udsende event
+        let cursor_step2 = Cursor::Available(Point::new(160.0, 120.0));
+        let move2 = Event::Mouse(mouse::Event::CursorMoved {
+            position: Point::new(160.0, 120.0),
+        });
+        let _ = canvas.update(&mut state, &move2, bounds, cursor_step2);
+        assert_eq!(moves_count.load(Ordering::SeqCst), 2);
+
+        // 5. ButtonReleased -> skal udløse on_drag_released (AC1)
+        let release = Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left));
+        let _ = canvas.update(&mut state, &release, bounds, cursor_step2);
+        assert_eq!(
+            release_count.load(Ordering::SeqCst),
+            1,
+            "on_drag_released skal udløses ved drop"
+        );
+        assert!(state.bulk_drag.is_none());
     }
 
     #[test]

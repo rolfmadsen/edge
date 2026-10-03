@@ -491,7 +491,8 @@ pub fn view<'a>(
         .on_edge_selected(Message::InfoEdgeSelected)
         .on_edge_created(Message::InfoEdgeCreated)
         .is_palette_dragging(is_palette_dragging)
-        .on_canvas_drop(|x, y| Message::CanvasDropAt { x, y }),
+        .on_canvas_drop(|x, y| Message::CanvasDropAt { x, y })
+        .on_drag_released(|| Message::CanvasNodesDragFinished),
     )
     .width(Length::Fill)
     .height(Length::Fill);
