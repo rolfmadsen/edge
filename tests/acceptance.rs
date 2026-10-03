@@ -9000,3 +9000,74 @@ fn test_task_043_concept_list_excel_import_upsert_and_export() {
         .iter()
         .any(|e| e.name == "Definition" && e.required));
 }
+
+#[test]
+fn test_task_067_canvas_drag_latency_optimization_drop_commit_autosave_and_telemetry() {
+    use kant::features::concepts::{BelongsToDomain, Concept};
+    use kant::features::model::storage::ProjectStorage;
+    use kant::ui::app::{App, Message, Tab};
+
+    let temp_dir = std::env::temp_dir();
+    let file_path = temp_dir.join(format!(
+        "test_task_067_drag_{}.edge.json",
+        uuid::Uuid::new_v4()
+    ));
+
+    let mut app = App::new_with_path(Some(file_path.clone()));
+    let _ = app.update(Message::SelectTab(Tab::ConceptModel));
+
+    // 1. Opret begreb og node i grafen ved (100.0, 100.0)
+    let c = Concept::new("Vejbane", "Areal til kørende færdsel", BelongsToDomain::Yes);
+    let nid = app.project_mut().concept_graph_mut().add_node(&c);
+    app.project_mut()
+        .concept_graph_mut()
+        .update_node_position(nid, 100.0, 100.0);
+
+    // Initial gem for at etablere fil på disk
+    app.trigger_autosave();
+    assert!(file_path.exists());
+    let disk_baseline = ProjectStorage::load_from_file(&file_path).unwrap();
+    let disk_node = disk_baseline.concept_graph().find_node(nid).unwrap();
+    assert_eq!(disk_node.x(), 100.0);
+    assert_eq!(disk_node.y(), 100.0);
+
+    // 2. Drag undervejs: GraphNodesMoved opdaterer in-memory, men må IKKE udføre autosave
+    let _ = app.update(Message::GraphNodesMoved(vec![(nid, 220.0, 340.0)]));
+
+    // Verificer in-memory er opdateret
+    let mem_node = app.project().concept_graph().find_node(nid).unwrap();
+    assert_eq!(mem_node.x(), 220.0);
+    assert_eq!(mem_node.y(), 340.0);
+
+    // Verificer disk STADIG har gammel position (Drop-Commit invariant: ingen autosave under træk)
+    let disk_during_drag = ProjectStorage::load_from_file(&file_path).unwrap();
+    let disk_node_during = disk_during_drag.concept_graph().find_node(nid).unwrap();
+    assert_eq!(
+        disk_node_during.x(),
+        100.0,
+        "Drop-Commit invariant: disk må IKKE opdateres under aktiv drag (CursorMoved/GraphNodesMoved)"
+    );
+
+    // 3. Drop afsluttet: CanvasNodesDragFinished trigger én autosave og logger telemetri
+    let _ = app.update(Message::CanvasNodesDragFinished);
+
+    // Nu SKAL disken være opdateret til (220.0, 340.0)
+    let disk_after_drop = ProjectStorage::load_from_file(&file_path).unwrap();
+    let disk_node_after = disk_after_drop.concept_graph().find_node(nid).unwrap();
+    assert_eq!(
+        disk_node_after.x(),
+        220.0,
+        "Disken skal være opdateret efter CanvasNodesDragFinished"
+    );
+    assert_eq!(disk_node_after.y(), 340.0);
+
+    // Verificer telemetri i diagnostics log buffer
+    let logs = kant::features::diagnostics::get_recent_logs();
+    assert!(
+        logs.iter().any(|l| l.contains("Autosave gennemført") || l.contains("Node drag completed")),
+        "Diagnostics skal indeholde autosave eller drag telemetri"
+    );
+
+    let _ = std::fs::remove_file(file_path);
+}
+
