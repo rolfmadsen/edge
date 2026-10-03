@@ -17,11 +17,15 @@ fn main() -> iced::Result {
         .get(1)
         .filter(|s| !s.starts_with('-'))
         .map(std::path::PathBuf::from);
-    let app_creator = move || match initial_path {
-        Some(ref p) => App::new_with_path(Some(p.clone())),
-        None => App::new_auto_open(),
+    let app_creator = move || {
+        kant::features::diagnostics::record_startup_milestone("app_creator_invoked");
+        match initial_path {
+            Some(ref p) => App::new_with_path(Some(p.clone())),
+            None => App::new_auto_open(),
+        }
     };
 
+    kant::features::diagnostics::record_startup_milestone("iced_application_init");
     iced::application(app_creator, App::update, App::view)
         .title("Kant - Begrebs- og Informationsmodellering med FDA")
         .theme(App::theme)

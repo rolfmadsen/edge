@@ -965,8 +965,10 @@ impl App {
 
     /// Opretter applikationen og åbner automatisk den senest anvendte model, hvis den findes på disken.
     pub fn new_auto_open() -> Self {
+        crate::features::diagnostics::record_startup_milestone("recent_store_lookup");
         let store = crate::features::model::recent::RecentStore::load();
         if let Some(candidate) = store.get_auto_open_candidate() {
+            crate::features::diagnostics::record_startup_milestone("auto_opening_candidate");
             Self::new_with_path(Some(candidate))
         } else {
             Self::new_with_path(None)
@@ -1011,6 +1013,9 @@ impl App {
                 if let Ok(mut proj) = ProjectStorage::load(p) {
                     proj.sync_concept_graph();
                     proj.sync_information_graph();
+                    crate::features::diagnostics::record_startup_milestone(
+                        "model_loaded_and_synced",
+                    );
                     return Self {
                         project: proj,
                         active_tab: Tab::ConceptList,
@@ -1081,6 +1086,7 @@ impl App {
             None => SaveStatus::Unsaved,
         };
 
+        crate::features::diagnostics::record_startup_milestone("empty_project_ready");
         Self {
             project: ModelProject::default(),
             active_tab: Tab::ConceptList,
@@ -5955,6 +5961,12 @@ impl App {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
+        static FIRST_FRAME: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+        if !FIRST_FRAME.swap(true, std::sync::atomic::Ordering::Relaxed) {
+            crate::features::diagnostics::record_startup_milestone("first_frame_rendered");
+        }
+
         // 1. Desktop Header Bar
         let sidebar_toggle_btn = tooltip(
             button(
@@ -8770,12 +8782,21 @@ impl App {
             .as_deref()
             .unwrap_or("(Ingen skriveadgang / in-memory)");
 
+        let startup_time_str = modal
+            .diagnostics
+            .startup_milestones
+            .last()
+            .map(|m| format!("{}ms ({})", m.elapsed_ms, m.name))
+            .unwrap_or_else(|| "N/A".to_string());
+
         let system_info_card = container(
             column![
                 info_item("Operativsystem:", &modal.diagnostics.os),
                 info_item("Arkitektur:", &modal.diagnostics.arch),
                 info_item("Kant Version:", &modal.diagnostics.app_version),
                 info_item("Iced Backend:", &modal.diagnostics.iced_backend),
+                info_item("WGPU Backend:", &modal.diagnostics.wgpu_backend),
+                info_item("Opstartstid:", &startup_time_str),
                 info_item("Logfil Sti:", log_path_str),
             ]
             .spacing(6),

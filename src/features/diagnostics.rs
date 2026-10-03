@@ -1,10 +1,54 @@
-//! Diagnostik og logning for platform, rendering og runtime evidens (ADR 013).
+//! Diagnostik og logning for platform, rendering og runtime evidens (ADR 013 & Task 066).
 
 use std::collections::VecDeque;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
+use std::time::Instant;
+
+static START_TIME: OnceLock<Instant> = OnceLock::new();
+
+/// Initialiserer proces-timeren ved tidligst mulige tidspunkt.
+pub fn init_process_timer() {
+    let _ = START_TIME.set(Instant::now());
+}
+
+fn elapsed_millis() -> u128 {
+    let start = START_TIME.get_or_init(Instant::now);
+    start.elapsed().as_millis()
+}
+
+/// En registreret opstarts-milepæl med relativ tid fra processtart.
+#[derive(Debug, Clone)]
+pub struct StartupMilestone {
+    pub name: String,
+    pub elapsed_ms: u128,
+}
+
+static MILESTONES: Mutex<Option<Vec<StartupMilestone>>> = Mutex::new(None);
+
+/// Registrerer en opstarts-milepæl og logger den straks med relativ tid.
+pub fn record_startup_milestone(name: &str) {
+    let ms = elapsed_millis();
+    log_info("startup", &format!("Milepæl: {} (+{}ms)", name, ms));
+    if let Ok(mut lock) = MILESTONES.lock() {
+        let list = lock.get_or_insert_with(Vec::new);
+        list.push(StartupMilestone {
+            name: name.to_string(),
+            elapsed_ms: ms,
+        });
+    }
+}
+
+/// Returnerer alle registrerede opstarts-milepæle.
+pub fn get_startup_milestones() -> Vec<StartupMilestone> {
+    if let Ok(mut lock) = MILESTONES.lock() {
+        lock.get_or_insert_with(Vec::new).clone()
+    } else {
+        Vec::new()
+    }
+}
 
 /// Omfattende system- og grafikdiagnostik snapshot.
 #[derive(Debug, Clone)]
@@ -13,7 +57,9 @@ pub struct SystemDiagnostics {
     pub arch: String,
     pub app_version: String,
     pub iced_backend: String,
+    pub wgpu_backend: String,
     pub log_path: Option<String>,
+    pub startup_milestones: Vec<StartupMilestone>,
 }
 
 impl SystemDiagnostics {
@@ -27,10 +73,25 @@ impl SystemDiagnostics {
         report.push_str(&format!("  Arkitektur:     {}\n", self.arch));
         report.push_str(&format!("  Kant Version:   {}\n", self.app_version));
         report.push_str(&format!("  Iced Backend:   {}\n", self.iced_backend));
+        report.push_str(&format!("  WGPU Backend:   {}\n", self.wgpu_backend));
         if let Some(ref path) = self.log_path {
             report.push_str(&format!("  Logfil:         {}\n", path));
         } else {
             report.push_str("  Logfil:         (Ingen skriveadgang / in-memory)\n");
+        }
+
+        if !self.startup_milestones.is_empty() {
+            report.push_str("-----------------------------------------------------\n");
+            report.push_str("  Opstartsmilepæle:\n");
+            for m in &self.startup_milestones {
+                report.push_str(&format!("  - {:<24} +{}ms\n", m.name, m.elapsed_ms));
+            }
+            if let Some(last) = self.startup_milestones.last() {
+                report.push_str(&format!(
+                    "  Opstartstid: {}ms (til seneste registrering)\n",
+                    last.elapsed_ms
+                ));
+            }
         }
         report.push_str("=====================================================\n");
         report
@@ -47,14 +108,24 @@ pub fn get_system_diagnostics() -> SystemDiagnostics {
     let app_version = env!("CARGO_PKG_VERSION").to_string();
     let iced_backend = std::env::var("ICED_BACKEND")
         .unwrap_or_else(|_| "wgpu (hardware acceleration standard)".to_string());
+    let wgpu_backend = std::env::var("WGPU_BACKEND").unwrap_or_else(|_| {
+        if os == "windows" {
+            "dx12 (standard)".to_string()
+        } else {
+            "vulkan/auto".to_string()
+        }
+    });
     let log_path = get_log_file_path().map(|p| p.to_string_lossy().to_string());
+    let startup_milestones = get_startup_milestones();
 
     SystemDiagnostics {
         os,
         arch,
         app_version,
         iced_backend,
+        wgpu_backend,
         log_path,
+        startup_milestones,
     }
 }
 
@@ -97,23 +168,24 @@ pub fn get_log_file_path() -> Option<PathBuf> {
     None
 }
 
-/// Logger en informationsbesked til både in-memory buffer og lokal logfil.
+/// Logger en informationsbesked til både in-memory buffer og lokal logfil med relativ tid (+ms).
 pub fn log_info(target: &str, message: &str) {
     log_entry("INFO", target, message);
 }
 
-/// Logger en advarsel til både in-memory buffer og lokal logfil.
+/// Logger en advarsel til både in-memory buffer og lokal logfil med relativ tid (+ms).
 pub fn log_warn(target: &str, message: &str) {
     log_entry("WARN", target, message);
 }
 
-/// Logger en fejlbesked til både in-memory buffer og lokal logfil.
+/// Logger en fejlbesked til både in-memory buffer og lokal logfil med relativ tid (+ms).
 pub fn log_error(target: &str, message: &str) {
     log_entry("ERROR", target, message);
 }
 
 fn log_entry(level: &str, target: &str, message: &str) {
-    let formatted = format!("[{}] [{}] {}", level, target, message);
+    let ms = elapsed_millis();
+    let formatted = format!("[+{}ms] [{}] [{}] {}", ms, level, target, message);
 
     // 1. Gem i lokal in-memory ring-buffer
     if let Ok(mut lock) = LOG_BUFFER.lock() {

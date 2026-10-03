@@ -8715,7 +8715,10 @@ fn test_task_066_startup_latency_profiling_and_windows_dx12_fastpath() {
     use kant::ui::platform::resolve_default_wgpu_backend;
 
     // AC1: Relativ tidsstempling (+ms) i logbeskeder
-    log_info("startup_profile_test", "Testing relative elapsed milliseconds");
+    log_info(
+        "startup_profile_test",
+        "Testing relative elapsed milliseconds",
+    );
     let logs = get_recent_logs();
     let profile_entry = logs
         .iter()
@@ -8754,4 +8757,3 @@ fn test_task_066_startup_latency_profiling_and_windows_dx12_fastpath() {
         "Diagnostikrapport skal inkludere opstartsmetrikker"
     );
 }
-
