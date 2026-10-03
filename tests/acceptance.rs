@@ -8773,14 +8773,15 @@ fn test_task_042_concept_english_fields_support() {
     use uuid::Uuid;
 
     // AC1: Domænemodel & Serde for ConceptEnglishFields
-    let mut en_fields = ConceptEnglishFields::default();
-    en_fields.preferred_term = Some("Vehicle".to_string());
-    en_fields.accepted_term = Some("Automobile".to_string());
-    en_fields.deprecated_term = Some("Cart".to_string());
-    en_fields.definition = Some("A means of transportation on wheels.".to_string());
-    en_fields.example = Some("A private passenger car.".to_string());
-    en_fields.comment = Some("Translates directly to Danish 'Køretøj'.".to_string());
-    en_fields.application_note = Some("Use within core transportation domain.".to_string());
+    let en_fields = ConceptEnglishFields {
+        preferred_term: Some("Vehicle".to_string()),
+        accepted_term: Some("Automobile".to_string()),
+        deprecated_term: Some("Cart".to_string()),
+        definition: Some("A means of transportation on wheels.".to_string()),
+        example: Some("A private passenger car.".to_string()),
+        comment: Some("Translates directly to Danish 'Køretøj'.".to_string()),
+        application_note: Some("Use within core transportation domain.".to_string()),
+    };
 
     let mut concept = Concept::new(
         "Køretøj",
@@ -8803,18 +8804,29 @@ fn test_task_042_concept_english_fields_support() {
         "definition": "En fast konstruktion til ophold.",
         "belongs_to_domain": "Yes"
     });
-    let legacy_concept: Concept = serde_json::from_value(legacy_json).expect("Skal deserialisere ældre model-filer uden fejl");
-    assert!(legacy_concept.english().is_none(), "Legacy JSON skal give None for english");
+    let legacy_concept: Concept = serde_json::from_value(legacy_json)
+        .expect("Skal deserialisere ældre model-filer uden fejl");
+    assert!(
+        legacy_concept.english().is_none(),
+        "Legacy JSON skal give None for english"
+    );
 
     // Fuld serialisering og deserialisering med engelske felter
     let serialized = serde_json::to_string(&concept).expect("Skal serialisere concept med english");
-    let deserialized: Concept = serde_json::from_str(&serialized).expect("Skal deserialisere concept med english");
+    let deserialized: Concept =
+        serde_json::from_str(&serialized).expect("Skal deserialisere concept med english");
     assert_eq!(deserialized.english_preferred_term(), Some("Vehicle"));
     assert_eq!(deserialized.english(), Some(&en_fields));
 
     // AC2: 3-vejs merge engine integration med engelske felter
     let base_meta = ModelMetadata::new(
-        "TestModel", "Desc", "https://example.com/model", "Org", "Domain", "1.0.0", ModelStatus::Draft,
+        "TestModel",
+        "Desc",
+        "https://example.com/model",
+        "Org",
+        "Domain",
+        "1.0.0",
+        ModelStatus::Draft,
     );
     let mut base_proj = ModelProject::new(base_meta.clone());
     let mut our_proj = ModelProject::new(base_meta.clone());
@@ -8825,26 +8837,46 @@ fn test_task_042_concept_english_fields_support() {
     base_proj.add_concept(base_c).unwrap();
 
     let mut our_c = Concept::new_with_id(c_id, "Køretøj", "Def", BelongsToDomain::Yes);
-    let mut our_en = ConceptEnglishFields::default();
-    our_en.preferred_term = Some("Vehicle".to_string());
+    let our_en = ConceptEnglishFields {
+        preferred_term: Some("Vehicle".to_string()),
+        ..Default::default()
+    };
     our_c.set_english(Some(our_en));
     our_proj.add_concept(our_c).unwrap();
 
-    let mut their_c = Concept::new_with_id(c_id, "Køretøj", "Opdateret dansk definition", BelongsToDomain::Yes);
+    let their_c = Concept::new_with_id(
+        c_id,
+        "Køretøj",
+        "Opdateret dansk definition",
+        BelongsToDomain::Yes,
+    );
     their_proj.add_concept(their_c).unwrap();
 
     let merge_result = merge_models(&base_proj, &our_proj, &their_proj);
-    assert_eq!(merge_result.conflicts.len(), 0, "Merge bør ikke have konflikter på separate felter");
-    let merged_c = merge_result.merged_project.get_concept(c_id).expect("Concept findes");
+    assert_eq!(
+        merge_result.conflicts.len(),
+        0,
+        "Merge bør ikke have konflikter på separate felter"
+    );
+    let merged_c = merge_result
+        .merged_project
+        .get_concept(c_id)
+        .expect("Concept findes");
     assert_eq!(merged_c.definition(), "Opdateret dansk definition");
     assert_eq!(merged_c.english_preferred_term(), Some("Vehicle"));
 
     // AC3: ConceptEditorState understøttelse
     let mut editor = ConceptEditorState::from_concept(&concept);
     assert_eq!(editor.english_preferred_term, "Vehicle");
-    assert_eq!(editor.english_definition, "A means of transportation on wheels.");
+    assert_eq!(
+        editor.english_definition,
+        "A means of transportation on wheels."
+    );
 
-    editor.update_field(ConceptFormField::EnglishPreferredTerm, "Automobile".to_string());
+    editor.update_field(
+        ConceptFormField::EnglishPreferredTerm,
+        "Automobile".to_string(),
+    );
     let updated_concept = editor.build_concept().expect("Skal kunne bygge concept");
     assert_eq!(updated_concept.english_preferred_term(), Some("Automobile"));
 }

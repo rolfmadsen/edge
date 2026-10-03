@@ -22,6 +22,13 @@ pub enum ConceptFormField {
     Source,
     Identifier,
     DerivedFrom,
+    EnglishPreferredTerm,
+    EnglishAcceptedTerm,
+    EnglishDeprecatedTerm,
+    EnglishDefinition,
+    EnglishExample,
+    EnglishComment,
+    EnglishApplicationNote,
 }
 
 #[derive(Debug, Clone)]
@@ -40,6 +47,13 @@ pub struct ConceptEditorState {
     pub source: String,
     pub identifier: String,
     pub derived_from: String,
+    pub english_preferred_term: String,
+    pub english_accepted_term: String,
+    pub english_deprecated_term: String,
+    pub english_definition: String,
+    pub english_example: String,
+    pub english_comment: String,
+    pub english_application_note: String,
     pub show_supplementary: bool,
     pub validation_error: Option<String>,
 }
@@ -67,6 +81,13 @@ impl ConceptEditorState {
             source: String::new(),
             identifier: String::new(),
             derived_from: String::new(),
+            english_preferred_term: String::new(),
+            english_accepted_term: String::new(),
+            english_deprecated_term: String::new(),
+            english_definition: String::new(),
+            english_example: String::new(),
+            english_comment: String::new(),
+            english_application_note: String::new(),
             show_supplementary: false,
             validation_error: None,
         }
@@ -77,6 +98,27 @@ impl ConceptEditorState {
             BelongsToDomain::Yes => (BelongsToDomain::Yes, String::new()),
             BelongsToDomain::No => (BelongsToDomain::No, String::new()),
             BelongsToDomain::ModelRef(uri) => (BelongsToDomain::No, uri.clone()),
+        };
+
+        let (en_pref, en_acc, en_dep, en_def, en_ex, en_comm, en_app) = match concept.english() {
+            Some(en) => (
+                en.preferred_term.clone().unwrap_or_default(),
+                en.accepted_term.clone().unwrap_or_default(),
+                en.deprecated_term.clone().unwrap_or_default(),
+                en.definition.clone().unwrap_or_default(),
+                en.example.clone().unwrap_or_default(),
+                en.comment.clone().unwrap_or_default(),
+                en.application_note.clone().unwrap_or_default(),
+            ),
+            None => (
+                String::new(),
+                String::new(),
+                String::new(),
+                String::new(),
+                String::new(),
+                String::new(),
+                String::new(),
+            ),
         };
 
         Self {
@@ -94,13 +136,21 @@ impl ConceptEditorState {
             source: concept.source().unwrap_or_default().to_string(),
             identifier: concept.identifier().unwrap_or_default().to_string(),
             derived_from: concept.derived_from().unwrap_or_default().to_string(),
+            english_preferred_term: en_pref,
+            english_accepted_term: en_acc,
+            english_deprecated_term: en_dep,
+            english_definition: en_def,
+            english_example: en_ex,
+            english_comment: en_comm,
+            english_application_note: en_app,
             show_supplementary: concept.accepted_term().is_some()
                 || concept.deprecated_term().is_some()
                 || concept.example().is_some()
                 || concept.comment().is_some()
                 || concept.application_note().is_some()
                 || concept.identifier().is_some()
-                || concept.derived_from().is_some(),
+                || concept.derived_from().is_some()
+                || concept.english().is_some(),
             validation_error: None,
         }
     }
@@ -136,6 +186,13 @@ impl ConceptEditorState {
             ConceptFormField::Source => self.source = value,
             ConceptFormField::Identifier => self.identifier = value,
             ConceptFormField::DerivedFrom => self.derived_from = value,
+            ConceptFormField::EnglishPreferredTerm => self.english_preferred_term = value,
+            ConceptFormField::EnglishAcceptedTerm => self.english_accepted_term = value,
+            ConceptFormField::EnglishDeprecatedTerm => self.english_deprecated_term = value,
+            ConceptFormField::EnglishDefinition => self.english_definition = value,
+            ConceptFormField::EnglishExample => self.english_example = value,
+            ConceptFormField::EnglishComment => self.english_comment = value,
+            ConceptFormField::EnglishApplicationNote => self.english_application_note = value,
         }
     }
 
@@ -175,6 +232,19 @@ impl ConceptEditorState {
         concept.set_source(opt(&self.source));
         concept.set_identifier(opt(&self.identifier));
         concept.set_derived_from(opt(&self.derived_from));
+
+        let en = crate::features::concepts::ConceptEnglishFields {
+            preferred_term: opt(&self.english_preferred_term),
+            accepted_term: opt(&self.english_accepted_term),
+            deprecated_term: opt(&self.english_deprecated_term),
+            definition: opt(&self.english_definition),
+            example: opt(&self.english_example),
+            comment: opt(&self.english_comment),
+            application_note: opt(&self.english_application_note),
+        };
+        if !en.is_empty() {
+            concept.set_english(Some(en));
+        }
 
         ConceptValidator::validate(&concept)?;
         Ok(concept)
@@ -544,6 +614,45 @@ impl ConceptEditorState {
                     .width(Length::FillPortion(1)),
                 ]
                 .spacing(16),
+                // Engelsk begrebslag (DA+EN jf. FDA skabelon)
+                column![
+                    text("🇬🇧 Engelsk begrebslag (DA+EN jf. FDA skabelon)")
+                        .size(13)
+                        .color(ThemeColors::PRIMARY),
+                    text("Valgfrie felter til international interoperabilitet og genbrug (Begrebsliste DA+EN)")
+                        .size(11)
+                        .color(ThemeColors::SLATE_500),
+                ]
+                .spacing(2),
+                row![
+                    column![
+                        text("Foretrukken term (en)").size(13).color(ThemeColors::SLATE_700),
+                        text_input("prefLabel (en)...", &self.english_preferred_term)
+                            .style(modern_input_style)
+                            .on_input(|v| Message::UpdateConceptField(ConceptFormField::EnglishPreferredTerm, v))
+                            .padding(8),
+                    ]
+                    .spacing(4)
+                    .width(Length::FillPortion(1)),
+                    column![
+                        text("Accepteret term (en)").size(13).color(ThemeColors::SLATE_700),
+                        text_input("altLabel (en)...", &self.english_accepted_term)
+                            .style(modern_input_style)
+                            .on_input(|v| Message::UpdateConceptField(ConceptFormField::EnglishAcceptedTerm, v))
+                            .padding(8),
+                    ]
+                    .spacing(4)
+                    .width(Length::FillPortion(1)),
+                ]
+                .spacing(16),
+                column![
+                    text("Definition (en)").size(13).color(ThemeColors::SLATE_700),
+                    text_input("definition (en)...", &self.english_definition)
+                        .style(modern_input_style)
+                        .on_input(|v| Message::UpdateConceptField(ConceptFormField::EnglishDefinition, v))
+                        .padding(8),
+                ]
+                .spacing(4),
             ]
             .spacing(14);
 

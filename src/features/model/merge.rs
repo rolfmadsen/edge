@@ -628,6 +628,84 @@ fn merge_concept_instances(
         }
     }
 
+    let en_fields = [
+        (
+            "english.preferred_term",
+            base.english().and_then(|e| e.preferred_term.clone()),
+            ours.english().and_then(|e| e.preferred_term.clone()),
+            theirs.english().and_then(|e| e.preferred_term.clone()),
+        ),
+        (
+            "english.accepted_term",
+            base.english().and_then(|e| e.accepted_term.clone()),
+            ours.english().and_then(|e| e.accepted_term.clone()),
+            theirs.english().and_then(|e| e.accepted_term.clone()),
+        ),
+        (
+            "english.deprecated_term",
+            base.english().and_then(|e| e.deprecated_term.clone()),
+            ours.english().and_then(|e| e.deprecated_term.clone()),
+            theirs.english().and_then(|e| e.deprecated_term.clone()),
+        ),
+        (
+            "english.definition",
+            base.english().and_then(|e| e.definition.clone()),
+            ours.english().and_then(|e| e.definition.clone()),
+            theirs.english().and_then(|e| e.definition.clone()),
+        ),
+        (
+            "english.example",
+            base.english().and_then(|e| e.example.clone()),
+            ours.english().and_then(|e| e.example.clone()),
+            theirs.english().and_then(|e| e.example.clone()),
+        ),
+        (
+            "english.comment",
+            base.english().and_then(|e| e.comment.clone()),
+            ours.english().and_then(|e| e.comment.clone()),
+            theirs.english().and_then(|e| e.comment.clone()),
+        ),
+        (
+            "english.application_note",
+            base.english().and_then(|e| e.application_note.clone()),
+            ours.english().and_then(|e| e.application_note.clone()),
+            theirs.english().and_then(|e| e.application_note.clone()),
+        ),
+    ];
+
+    let mut merged_en = crate::features::concepts::ConceptEnglishFields::default();
+    let mut has_en = false;
+
+    for (field_name, b_val, o_val, t_val) in en_fields {
+        let res = merge_field(
+            &b_val,
+            &o_val,
+            &t_val,
+            kind.clone(),
+            entity_name,
+            field_name,
+            opt_str_fmt,
+            conflicts,
+        );
+        if res.is_some() {
+            has_en = true;
+        }
+        match field_name {
+            "english.preferred_term" => merged_en.preferred_term = res,
+            "english.accepted_term" => merged_en.accepted_term = res,
+            "english.deprecated_term" => merged_en.deprecated_term = res,
+            "english.definition" => merged_en.definition = res,
+            "english.example" => merged_en.example = res,
+            "english.comment" => merged_en.comment = res,
+            "english.application_note" => merged_en.application_note = res,
+            _ => {}
+        }
+    }
+
+    if has_en && !merged_en.is_empty() {
+        merged.set_english(Some(merged_en));
+    }
+
     merged
 }
 

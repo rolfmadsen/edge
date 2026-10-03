@@ -136,6 +136,16 @@ pub fn view<'a>(
                 .size(14)
                 .color(ThemeColors::SLATE_900)]
             .spacing(2);
+            if let Some(en_term) = concept.english_preferred_term() {
+                term_content = term_content.push(
+                    row![
+                        text("🇬🇧").size(10),
+                        Space::new().width(4),
+                        text(en_term).size(12).color(ThemeColors::SLATE_600),
+                    ]
+                    .align_y(Alignment::Center),
+                );
+            }
             if let Some(uri) = concept.identifier() {
                 term_content = term_content.push(text(uri).size(11).color(ThemeColors::TEXT_MUTED));
             }

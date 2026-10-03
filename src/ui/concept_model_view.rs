@@ -663,6 +663,31 @@ pub fn view<'a>(
                             .width(Length::Fill),
                         );
 
+                        if let Some(en_term) = c.english_preferred_term() {
+                            let mut en_col = column![
+                                crate::ui::inspector_panel::section_header("Engelsk term (DA+EN)"),
+                                row![
+                                    text("🇬🇧").size(11),
+                                    Space::new().width(4),
+                                    text(en_term).size(12).color(ThemeColors::SLATE_900),
+                                ]
+                                .align_y(Alignment::Center),
+                            ]
+                            .spacing(4);
+
+                            if let Some(en_def) = c.english_definition() {
+                                en_col = en_col
+                                    .push(text(en_def).size(11).color(ThemeColors::SLATE_600));
+                            }
+
+                            insp = insp.push(
+                                container(en_col)
+                                    .style(card_container_style)
+                                    .padding(8)
+                                    .width(Length::Fill),
+                            );
+                        }
+
                         insp = insp.push(
                             row![
                                 button(text("✏️ Hurtigrediger").size(11))

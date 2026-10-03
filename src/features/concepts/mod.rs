@@ -42,6 +42,55 @@ impl BelongsToDomain {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct ConceptEnglishFields {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preferred_term: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accepted_term: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deprecated_term: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub definition: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub example: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub application_note: Option<String>,
+}
+
+impl ConceptEnglishFields {
+    pub fn is_empty(&self) -> bool {
+        self.preferred_term
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+            && self
+                .accepted_term
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .is_empty()
+            && self
+                .deprecated_term
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .is_empty()
+            && self.definition.as_deref().unwrap_or("").trim().is_empty()
+            && self.example.as_deref().unwrap_or("").trim().is_empty()
+            && self.comment.as_deref().unwrap_or("").trim().is_empty()
+            && self
+                .application_note
+                .as_deref()
+                .unwrap_or("")
+                .trim()
+                .is_empty()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Concept {
     id: Uuid,
@@ -57,6 +106,8 @@ pub struct Concept {
     source: Option<String>,
     identifier: Option<String>,
     derived_from: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    english: Option<ConceptEnglishFields>,
 }
 
 impl Concept {
@@ -93,6 +144,7 @@ impl Concept {
             source: None,
             identifier: None,
             derived_from: None,
+            english: None,
         }
     }
 
@@ -194,6 +246,31 @@ impl Concept {
 
     pub fn set_derived_from(&mut self, derived: Option<String>) {
         self.derived_from = derived;
+    }
+
+    pub fn english(&self) -> Option<&ConceptEnglishFields> {
+        self.english.as_ref()
+    }
+
+    pub fn english_mut(&mut self) -> Option<&mut ConceptEnglishFields> {
+        self.english.as_mut()
+    }
+
+    pub fn set_english(&mut self, english: Option<ConceptEnglishFields>) {
+        self.english = match english {
+            Some(f) if f.is_empty() => None,
+            other => other,
+        };
+    }
+
+    pub fn english_preferred_term(&self) -> Option<&str> {
+        self.english
+            .as_ref()
+            .and_then(|e| e.preferred_term.as_deref())
+    }
+
+    pub fn english_definition(&self) -> Option<&str> {
+        self.english.as_ref().and_then(|e| e.definition.as_deref())
     }
 }
 
