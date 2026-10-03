@@ -8706,3 +8706,52 @@ fn test_task_065_windows_rendering_diagnostics_and_wgpu_restoration() {
         panic!("Floating panel skal have en defineret baggrundsfarve");
     }
 }
+
+#[test]
+fn test_task_066_startup_latency_profiling_and_windows_dx12_fastpath() {
+    use kant::features::diagnostics::{
+        get_recent_logs, get_system_diagnostics, log_info, record_startup_milestone,
+    };
+    use kant::ui::platform::resolve_default_wgpu_backend;
+
+    // AC1: Relativ tidsstempling (+ms) i logbeskeder
+    log_info("startup_profile_test", "Testing relative elapsed milliseconds");
+    let logs = get_recent_logs();
+    let profile_entry = logs
+        .iter()
+        .find(|l| l.contains("Testing relative elapsed milliseconds"))
+        .expect("Log entry should be present in memory");
+    assert!(
+        profile_entry.contains("[+") && profile_entry.contains("ms]"),
+        "Log entry skal indeholde relativ tid i millisekunder: {}",
+        profile_entry
+    );
+
+    // AC2: WGPU DX12 fast-path på Windows
+    assert_eq!(
+        resolve_default_wgpu_backend(true, None),
+        Some("dx12"),
+        "På Windows skal WGPU_BACKEND automatisk sættes til dx12 hvis ikke sat"
+    );
+    assert_eq!(
+        resolve_default_wgpu_backend(true, Some("vulkan")),
+        None,
+        "Hvis brugeren manuelt har sat WGPU_BACKEND=vulkan, må det ikke overskrives"
+    );
+    assert_eq!(
+        resolve_default_wgpu_backend(false, None),
+        None,
+        "På Unix/macOS skal WGPU_BACKEND ikke gennemtvinge dx12"
+    );
+
+    // AC3: Milepælsregistrering og diagnostikrapport
+    record_startup_milestone("model_loaded");
+    record_startup_milestone("first_frame");
+    let diag = get_system_diagnostics();
+    let report = diag.formatted_report();
+    assert!(
+        report.contains("Opstartstid:") || report.contains("Opstartsmilepæle"),
+        "Diagnostikrapport skal inkludere opstartsmetrikker"
+    );
+}
+
