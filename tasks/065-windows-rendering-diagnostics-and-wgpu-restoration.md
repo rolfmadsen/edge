@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 065: Windows Rendering Diagnostics & WGPU Restoration"
 description: "Evidensbaseret diagnosticering af Windows 11 rendering via lokal struktureret logning, in-app diagnostik, udbedring af CSS skygge/alfa artefakter og genopretning af WGPU som hardware-accelereret standard"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-10-03T10:54:00Z" }
 tags: [windows, rendering, diagnostics, wgpu, logging, theme, artifacts]
 ---
 
 # Task 065: Windows Rendering Diagnostics & WGPU Restoration
 
-**Status**: `ACTIVE`
+**Status**: `DONE`
 **Intent**: `🐛 BUG FIX`
 **Oprettet**: `2026-10-03`
 
@@ -29,12 +29,12 @@ Eliminere visuelle artefakter (sorte containerfelter og skygge-blokke) samt geno
    - Hærde `Shadow`-definitioner i `card_container_style` mod sort udfald/blending-fejl på tværs af backends.
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Backend Default Resolution (WGPU Restoration)**: `resolve_default_iced_backend(is_windows: bool, existing_backend: Option<&str>)` gennemtvinger IKKE længere blindt `tiny-skia`. Hvis `existing_backend` er `None`, returneres `None` (hvorved Iced benytter standard `wgpu`), mens eksplicit `ICED_BACKEND` (fx `"tiny-skia"` eller `"wgpu"`) fortsat respekteres.
-- [ ] **AC2 - Struktureret Lokal Logning & Diagnostikmodul**: Nyt modul `kant::features::diagnostics` (eller `src/ui/diagnostics.rs`) initialiserer logning til lokal logfil og in-memory buffer, opfanger opstartsinformation (OS, arkitektur, miljøvariable, valgt backend) og genererer en formateret systemrapport.
-- [ ] **AC3 - CLI Startup Argumenter**: Hvis appen startes med `--diagnostics` eller `-d`, udskrives systemdiagnostikken struktureret til stdout/konsol.
-- [ ] **AC4 - In-App Diagnostik Modal under Hjælp**: Under "Hjælp"-menuen findes menupunktet "🔍 System- og grafikdiagnostik...", som åbner en modal med platformdata, aktiv backend, log-udsnit og en "Kopier rapport"-handling.
-- [ ] **AC5 - Hærdet Opak Styling & Ingen Sorte Skygge-Artefakter**: Container styles (`card_container_style`, `floating_panel_style`, `base_layout`) anvender 100% opake baggrunde, så manglende eller defekt software-alpha-blending ikke resulterer i sorte paneler.
-- [ ] **AC6 - Regression & Acceptance Tests**: Automatiserede accepttests i `tests/acceptance.rs` verificerer backend-resolution, diagnostisk rapportgenerering og logging uden fejl.
+- [x] **AC1 - Backend Default Resolution (WGPU Restoration)**: `resolve_default_iced_backend(is_windows: bool, existing_backend: Option<&str>)` gennemtvinger IKKE længere blindt `tiny-skia`. Hvis `existing_backend` er `None`, returneres `None` (hvorved Iced benytter standard `wgpu`), mens eksplicit `ICED_BACKEND` (fx `"tiny-skia"` eller `"wgpu"`) fortsat respekteres.
+- [x] **AC2 - Struktureret Lokal Logning & Diagnostikmodul**: Nyt modul `kant::features::diagnostics` (eller `src/ui/diagnostics.rs`) initialiserer logning til lokal logfil og in-memory buffer, opfanger opstartsinformation (OS, arkitektur, miljøvariable, valgt backend) og genererer en formateret systemrapport.
+- [x] **AC3 - CLI Startup Argumenter**: Hvis appen startes med `--diagnostics` eller `-d`, udskrives systemdiagnostikken struktureret til stdout/konsol.
+- [x] **AC4 - In-App Diagnostik Modal under Hjælp**: Under "Hjælp"-menuen findes menupunktet "🔍 System- og grafikdiagnostik...", som åbner en modal med platformdata, aktiv backend, log-udsnit og en "Kopier rapport"-handling.
+- [x] **AC5 - Hærdet Opak Styling & Ingen Sorte Skygge-Artefakter**: Container styles (`card_container_style`, `floating_panel_style`, `base_layout`) anvender 100% opake baggrunde, så manglende eller defekt software-alpha-blending ikke resulterer i sorte paneler.
+- [x] **AC6 - Regression & Acceptance Tests**: Automatiserede accepttests i `tests/acceptance.rs` verificerer backend-resolution, diagnostisk rapportgenerering og logging uden fejl.
 
 ## 🚫 Must NOT
 - Zero Ambient Authority: Ingen netværkstelemetri, ingen eksterne HTTP/socket-kald med diagnosedata. Alle logs forbliver 100% lokale på maskinen.
@@ -44,6 +44,7 @@ Eliminere visuelle artefakter (sorte containerfelter og skygge-blokke) samt geno
 
 ## 📝 Revisions
 - 2026-10-03: Oprettet opgavepakke efter brugerobservation af sorte paneler og latency-regressioner på Lenovo T14 Gen 2 (Windows 11).
+- 2026-10-03: Implementeret diagnostikmodul, genoprettet WGPU default, udbedret styling til fuld opacitet og verificeret via multi-layer test gauntlet. Markerct som DONE.
 
 ## 🧪 Verifikation
 - `cargo check --workspace`

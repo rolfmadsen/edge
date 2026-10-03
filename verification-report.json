@@ -4,40 +4,40 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "064-drag-and-drop-palette-to-canvas-and-canvas-toolbar-refinements",
-    "task_title": "Task 064: Drag-and-Drop fra Palet til Canvas og Værktøjslinje Harmonering",
-    "task_digest": "787f37ae5cf5ad4bc47e3fdc1fee31198a2d4d3b934d5b6839fd1fb4e56576f4",
+    "task_id": "065-windows-rendering-diagnostics-and-wgpu-restoration",
+    "task_title": "Task 065: Windows Rendering Diagnostics & WGPU Restoration",
+    "task_digest": "cf60050a238c69dd06c05ee57e555bfc5fea1716c52443e08dbc1096e98c08af",
     "acceptance_criteria": [
-      "**AC1 - Canvas Værktøjslinje Harmonering**: Knappen `+ Opret enumeration` er placeret i værktøjslinjen over Informationsmodel-canvas sammen med `+ Opret klasse` og `+ Opret Relation`. Venstrepalettens header for Enumerationer er ensrettet med Klasser (ingen overflødig `+ Opret`-knap i headeren).",
-      "**AC2 - Drag-and-Drop af Begreber på Begrebsdiagram**: Ikke-placerede begreber i Begrebsdiagrammets palet kan trækkes ud på diagramcanvas og placeres ved markørens slip-position med magnetisk snapping til 20 px gitteret (verdenskoordinater under hensyntagen til zoom og pan).",
-      "**AC3 - Drag-and-Drop af Klasser og Enumerationer på Informationsmodel**: Ikke-placerede klasser og enumerationer i Informationsmodellens palet kan trækkes ud på UML-canvas og placeres ved markørens slip-position med magnetisk snapping til 20 px gitteret.",
-      "**AC4 - Bevarelse af 1-klik `+` Tilføjelse**: Det eksisterende `+` ikon i paletten for u-tilføjede elementer bevares som et hurtigt 1-klik alternativ, der placerer elementet i viewportens centrum eller ledigt område.",
-      "**AC5 - Always-On Snap-to-Grid**: Knappen \"Snap: Til/Fra\" er fjernet fra værktøjslinjen, så gitter-snapping er en fast, permanent standard (Always-On), der ikke kan deaktiveres. Både drop og flytning snapper magnetisk til 20 px gitteret.",
-      "**AC6 - Accepttest Verifikation**: En samlet accepttest `test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements` validerer værktøjslinjeknapper, drop-adfærd og den permanente Always-On gitter-snapping."
+      "**AC1 - Backend Default Resolution (WGPU Restoration)**: `resolve_default_iced_backend(is_windows: bool, existing_backend: Option<&str>)` gennemtvinger IKKE længere blindt `tiny-skia`. Hvis `existing_backend` er `None`, returneres `None` (hvorved Iced benytter standard `wgpu`), mens eksplicit `ICED_BACKEND` (fx `\"tiny-skia\"` eller `\"wgpu\"`) fortsat respekteres.",
+      "**AC2 - Struktureret Lokal Logning & Diagnostikmodul**: Nyt modul `kant::features::diagnostics` (eller `src/ui/diagnostics.rs`) initialiserer logning til lokal logfil og in-memory buffer, opfanger opstartsinformation (OS, arkitektur, miljøvariable, valgt backend) og genererer en formateret systemrapport.",
+      "**AC3 - CLI Startup Argumenter**: Hvis appen startes med `--diagnostics` eller `-d`, udskrives systemdiagnostikken struktureret til stdout/konsol.",
+      "**AC4 - In-App Diagnostik Modal under Hjælp**: Under \"Hjælp\"-menuen findes menupunktet \"🔍 System- og grafikdiagnostik...\", som åbner en modal med platformdata, aktiv backend, log-udsnit og en \"Kopier rapport\"-handling.",
+      "**AC5 - Hærdet Opak Styling & Ingen Sorte Skygge-Artefakter**: Container styles (`card_container_style`, `floating_panel_style`, `base_layout`) anvender 100% opake baggrunde, så manglende eller defekt software-alpha-blending ikke resulterer i sorte paneler.",
+      "**AC6 - Regression & Acceptance Tests**: Automatiserede accepttests i `tests/acceptance.rs` verificerer backend-resolution, diagnostisk rapportgenerering og logging uden fejl."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "dbcde6571630cb935bc99182ac7a5709d063e3db74f0d86900a20a681995db0e",
-    "source_manifest_digest_pre": "2d53bcc53a44372e24b02f758ac69b5212f718416107ebdb56a2e15eb4435df4",
-    "source_manifest_digest_post": "2d53bcc53a44372e24b02f758ac69b5212f718416107ebdb56a2e15eb4435df4",
-    "config_digest": "9f9f8304aa4405e0b1a2da53443791b70a70b6d2d8890415846866b3559ea458",
-    "task_digest": "787f37ae5cf5ad4bc47e3fdc1fee31198a2d4d3b934d5b6839fd1fb4e56576f4",
-    "policy_digest": "0f852424413423caad922699edfa6975806eb7d22902f207ef0d93da05ca5065",
+    "source_content_digest": "c09dc075eaffac0dd0e179cac658bbe3ed108ffa51ec72edc247436a586449a8",
+    "source_manifest_digest_pre": "73b7ad993071bfb8acf9a6567c66baa559fc25a448be0bd29cd7730c893258a1",
+    "source_manifest_digest_post": "73b7ad993071bfb8acf9a6567c66baa559fc25a448be0bd29cd7730c893258a1",
+    "config_digest": "6c4ed652d9c8de38319bed5e317e0bd91232155ffbc325ae6dd39ee26a8c9bf3",
+    "task_digest": "cf60050a238c69dd06c05ee57e555bfc5fea1716c52443e08dbc1096e98c08af",
+    "policy_digest": "e0c429cf3079964fb23a93295081a320e1c98690dacc1877579368587805dcdf",
     "check_definitions_digest": "dd50656a3cb4808ad5a7096762f6729b2503e0d6f90c203a5819983ef61167c2",
-    "included_files_count": 138,
+    "included_files_count": 141,
     "vcs": {
       "type": "git",
-      "head": "f077ec6",
-      "commit": "f077ec6",
+      "head": "8e4a328",
+      "commit": "8e4a328",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-10-01T20:34:42Z",
-    "finished_at": "2026-10-01T20:34:48Z",
-    "total_duration_seconds": 5.932809176,
+    "started_at": "2026-10-03T11:05:09Z",
+    "finished_at": "2026-10-03T11:05:14Z",
+    "total_duration_seconds": 4.491288074,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -50,7 +50,7 @@
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.021937817,
+      "duration_seconds": 0.021453049,
       "optional": false,
       "passed": true,
       "log_digest": "bb99eecf7da47bb699e08b5414193ade3c049ead245334b322a8ca6aff367842"
@@ -59,37 +59,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 1.357774313,
+      "duration_seconds": 0.736104029,
       "optional": true,
       "passed": true,
-      "log_digest": "4d89232aebdfb6c944c882e1f50d251428a5718316bccb8d2eef580ea80605f1"
+      "log_digest": "b784093a696d2b4f3c01d1be09842f1b69d54f95b54776acd68782c99574011f"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.87343369,
+      "duration_seconds": 0.563442104,
       "optional": true,
       "passed": true,
-      "log_digest": "183f8409286bd4a5baec1f5d32a97e70b74c13ca497da7ff958ba02840a406c5"
+      "log_digest": "b779c8adcce1de12eb480ab2b8df664c4c9f3234709d59d25f1838a3e8fa1e55"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 3.09170112,
+      "duration_seconds": 2.6111835599999997,
       "optional": false,
       "passed": true,
-      "log_digest": "830330a2fea69ce659ffd3b04ee44cf0e0e2992678547ddba1409b669e643927"
+      "log_digest": "2acf7db33d19668251c23a79237d4d0a0fa5e51e0176f4d032b27c637773b320"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.565088498,
+      "duration_seconds": 0.54305528,
       "optional": false,
       "passed": true,
-      "log_digest": "2719b95c629e6e271657b8ea6b328a8010812cb1f48c85347aa563aa20e12f46"
+      "log_digest": "a70bbae1a07a5dcbd62e14302e5e51a28250028f8eecd88ea75667e76197e7bb"
     }
   ],
   "diagnostics": []
