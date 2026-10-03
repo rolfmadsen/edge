@@ -8594,4 +8594,65 @@ fn test_enumeration_relations_persisted_and_not_dropped_on_sync_or_restart() {
     );
 }
 
+#[test]
+fn test_task_065_windows_rendering_diagnostics_and_wgpu_restoration() {
+    use kant::ui::platform::resolve_default_iced_backend;
+    use kant::features::diagnostics::{get_system_diagnostics, get_recent_logs, log_info};
+    use kant::ui::app::{App, Message};
+    use kant::ui::theme::{card_container_style, floating_panel_style};
+    use iced::{Background, Theme};
+
+    // AC1: På Windows skal vi IKKE længere tvinge tiny-skia som default når ingen backend er sat
+    assert_eq!(
+        resolve_default_iced_backend(true, None),
+        None,
+        "På Windows skal WGPU være standard (None lader Iced vælge standard WGPU hardware-acceleration)"
+    );
+    assert_eq!(
+        resolve_default_iced_backend(true, Some("tiny-skia")),
+        None,
+        "Hvis brugeren manuelt sætter ICED_BACKEND=tiny-skia, skal dette bevares uden overstyring"
+    );
+
+    // AC2: Diagnostikmodul skal kunne tilgås og levere formateret rapport
+    let diag = get_system_diagnostics();
+    assert!(!diag.os.is_empty(), "OS skal være udfyldt");
+    assert!(!diag.arch.is_empty(), "Arch skal være udfyldt");
+    let report = diag.formatted_report();
+    assert!(report.contains("Kant System- og Grafikdiagnostik"), "Rapport skal have overskrift");
+    assert!(report.contains(&diag.os), "Rapport skal indeholde operativsystem");
+
+    // AC2: In-memory log buffer
+    log_info("diagnostics_test", "Acceptance test for Task 065 logging");
+    let logs = get_recent_logs();
+    assert!(
+        logs.iter().any(|entry| entry.contains("Acceptance test for Task 065 logging")),
+        "Log-besked skal kunne findes i den seneste log-buffer"
+    );
+
+    // AC4: In-app modal integration
+    let mut app = App::new_with_path(None);
+    assert!(app.diagnostics_modal().is_none(), "Modal skal være lukket som standard");
+    let _ = app.update(Message::OpenDiagnosticsModal);
+    assert!(app.diagnostics_modal().is_some(), "Modal skal være åben efter OpenDiagnosticsModal");
+    let _ = app.update(Message::CloseDiagnosticsModal);
+    assert!(app.diagnostics_modal().is_none(), "Modal skal være lukket efter CloseDiagnosticsModal");
+
+    // AC5: Hærdet opak styling for card_container_style og floating_panel_style
+    let theme = Theme::Light;
+    let card_style = card_container_style(&theme);
+    if let Some(Background::Color(c)) = card_style.background {
+        assert_eq!(c.a, 1.0, "Card container skal have 100% opak baggrund for at forhindre sorte artefakter");
+    } else {
+        panic!("Card container skal have en defineret baggrundsfarve");
+    }
+
+    let floating_style = floating_panel_style(&theme);
+    if let Some(Background::Color(c)) = floating_style.background {
+        assert_eq!(c.a, 1.0, "Floating panel skal have 100% opak baggrund");
+    } else {
+        panic!("Floating panel skal have en defineret baggrundsfarve");
+    }
+}
+
 
