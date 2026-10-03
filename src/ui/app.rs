@@ -548,7 +548,36 @@ pub fn current_timestamp() -> String {
     }
 }
 
+fn is_running_under_test() -> bool {
+    if cfg!(test) || std::env::var("KANT_SUPPRESS_BROWSER").is_ok() {
+        return true;
+    }
+    if std::env::var_os("RUST_TEST_THREADS").is_some() {
+        return true;
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        let exe_str = exe.to_string_lossy();
+        if exe_str.contains("deps/acceptance")
+            || exe_str.contains("deps/kant-")
+            || exe_str.contains("deps/proptests")
+            || exe_str.contains("deps/relay_integration_tests")
+        {
+            return true;
+        }
+    }
+    false
+}
+
 pub fn open_browser(url: &str) -> std::io::Result<()> {
+    // Undgå at åbne rigtige systembrowsere under automatiserede testkørsler (f.eks. cargo test)
+    if is_running_under_test() {
+        crate::features::diagnostics::log_info(
+            "browser",
+            &format!("Browseråbning undertrykt i testmiljø for URL: {}", url),
+        );
+        return Ok(());
+    }
+
     #[cfg(target_os = "windows")]
     {
         std::process::Command::new("cmd")

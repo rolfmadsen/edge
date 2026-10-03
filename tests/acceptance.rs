@@ -2560,8 +2560,14 @@ fn test_task018_footer_timestamp_and_model_rules_link() {
     assert_eq!(app.save_status(), &kant::ui::app::SaveStatus::Unsaved);
     assert!(app.footer_status_text().contains("⚠️ Nyt projekt"));
 
-    // 2. Åbning af modelregler via Message::OpenModelRules
+    // 2. Åbning af modelregler via Message::OpenModelRules (skal undertrykkes i testmiljø uden at åbne ekstern browser)
     let _ = app.update(Message::OpenModelRules);
+    assert!(
+        kant::features::diagnostics::get_recent_logs()
+            .iter()
+            .any(|l| l.contains("Browseråbning undertrykt i testmiljø")),
+        "Browseråbning skal undertrykkes i testmiljøer for at forhindre popup-faner"
+    );
 
     // 3. Gem til fil genererer tidsstempel med format HH:MM:SS og filnavn
     let file_path =
