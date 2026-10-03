@@ -8880,3 +8880,114 @@ fn test_task_042_concept_english_fields_support() {
     let updated_concept = editor.build_concept().expect("Skal kunne bygge concept");
     assert_eq!(updated_concept.english_preferred_term(), Some("Automobile"));
 }
+
+#[test]
+fn test_task_043_concept_list_excel_import_upsert_and_export() {
+    use kant::features::concepts::excel::{
+        apply_concept_upsert, export_project_concepts_to_xlsx, get_fda_schema_guide_entries,
+        get_fda_template_xlsx_bytes, parse_concepts_from_xlsx_bytes,
+    };
+    use kant::features::concepts::{BelongsToDomain, Concept, ConceptEnglishFields};
+    use kant::features::model::{ModelMetadata, ModelProject, ModelStatus};
+    use uuid::Uuid;
+
+    // AC4: Eksport af Tom FDA-skabelon (original officielle .xlsx)
+    let template_bytes = get_fda_template_xlsx_bytes();
+    assert!(
+        template_bytes.starts_with(&[0x50, 0x4B, 0x03, 0x04]),
+        "Skabelonen skal være en gyldig ZIP/XLSX fil"
+    );
+
+    // Skabelonen kan parses og har de korrekte FDA-ark
+    let template_summary = parse_concepts_from_xlsx_bytes(template_bytes)
+        .expect("Den officielle skabelon skal kunne indlæses uden fejl");
+    // Den tomme skabelon har ingen databegreber, kun overskrifter
+    assert_eq!(template_summary.valid_concepts.len(), 0);
+
+    // AC5: De Facto Dataeksport til Excel (.xlsx)
+    let metadata = ModelMetadata::new(
+        "Transportmodellen",
+        "Officiel kernemodel for transport og køretøjer i Danmark",
+        "https://data.gov.dk/model/core/transport",
+        "Transportministeriet",
+        "Mobilitet",
+        "1.0.0",
+        ModelStatus::Approved,
+    );
+    let mut project = ModelProject::new(metadata);
+
+    let c1_id = Uuid::new_v4();
+    let mut c1 = Concept::new_with_id(
+        c1_id,
+        "Køretøj",
+        "Et transportmiddel på hjul.",
+        BelongsToDomain::Yes,
+    );
+    c1.set_identifier(Some("https://data.gov.dk/model/core/transport/Vehicle".to_string()));
+    c1.set_english(Some(ConceptEnglishFields {
+        preferred_term: Some("Vehicle".to_string()),
+        definition: Some("A means of transport on wheels.".to_string()),
+        ..Default::default()
+    }));
+    c1.set_legal_source(Some("Færdselsloven § 2".to_string()));
+    project.add_concept(c1).unwrap();
+
+    let c2_id = Uuid::new_v4();
+    let c2 = Concept::new_with_id(
+        c2_id,
+        "Cykel",
+        "Et tohjulet pedaldrevet køretøj.",
+        BelongsToDomain::Yes,
+    );
+    project.add_concept(c2).unwrap();
+
+    let exported_bytes = export_project_concepts_to_xlsx(&project)
+        .expect("Eksport til Excel skal lykkes");
+    assert!(
+        exported_bytes.starts_with(&[0x50, 0x4B, 0x03, 0x04]),
+        "Eksporten skal være en gyldig XLSX-fil"
+    );
+
+    // AC1, AC2: Parse den eksporterede fil
+    let import_summary = parse_concepts_from_xlsx_bytes(&exported_bytes)
+        .expect("Skal kunne parse den genererede XLSX fil");
+    assert_eq!(import_summary.valid_concepts.len(), 2);
+    assert_eq!(import_summary.rejected_rows.len(), 0);
+
+    // AC3: Test Intelligent Upsert
+    let mut imported_concepts = import_summary.valid_concepts;
+    // Opdater definitionen på Køretøj
+    imported_concepts[0].set_definition("Opdateret definition af køretøj via Excel import.");
+
+    // Nyt begreb der skal indsættes
+    let new_c = Concept::new(
+        "El-løbehjul",
+        "Et lille elkøretøj med to hjul og et styr.",
+        BelongsToDomain::Yes,
+    );
+    imported_concepts.push(new_c);
+
+    let upsert_report = apply_concept_upsert(&mut project, imported_concepts);
+    assert_eq!(upsert_report.updated, 2, "Begge eksisterende begreber skal opdateres");
+    assert_eq!(upsert_report.inserted, 1, "Et nyt begreb skal indsættes");
+
+    // Bevaring af UUID invariant (Must NOT)
+    let updated_c1 = project
+        .get_concept(c1_id)
+        .expect("Køretøj skal stadig findes med samme UUID");
+    assert_eq!(
+        updated_c1.definition(),
+        "Opdateret definition af køretøj via Excel import."
+    );
+    assert_eq!(updated_c1.english_preferred_term(), Some("Vehicle"));
+
+    // AC6: Visuel Skemaguide
+    let schema_guide = get_fda_schema_guide_entries();
+    assert!(!schema_guide.is_empty());
+    assert!(schema_guide
+        .iter()
+        .any(|e| e.name == "Foretrukken term" && e.required));
+    assert!(schema_guide
+        .iter()
+        .any(|e| e.name == "Definition" && e.required));
+}
