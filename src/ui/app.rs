@@ -8748,7 +8748,7 @@ impl App {
         .align_y(Alignment::Center);
 
         let subtitle = text(
-            "Platforminformation, aktiv rendering-motor og lokale loghændelser til fejlfinding (ADR 013).",
+            "Platforminformation, aktiv rendering-motor og lokale loghændelser til fejlfinding.",
         )
         .size(12)
         .color(ThemeColors::TEXT_MUTED);
