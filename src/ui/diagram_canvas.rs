@@ -1136,7 +1136,10 @@ where
                 if self.is_palette_dragging {
                     if let Some(ref on_canvas_drop) = self.on_canvas_drop {
                         let world_pos = self.viewport.to_world(cursor_pos);
-                        return Some(Action::publish((on_canvas_drop)(world_pos.x, world_pos.y)).and_capture());
+                        return Some(
+                            Action::publish((on_canvas_drop)(world_pos.x, world_pos.y))
+                                .and_capture(),
+                        );
                     }
                 }
 

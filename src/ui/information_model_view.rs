@@ -18,10 +18,10 @@ use crate::ui::theme::{
     ThemeColors,
 };
 use iced::widget::{
-    button, checkbox, column, container, mouse_area, pick_list, row, scrollable, text,
-    text_input, Space,
+    button, checkbox, column, container, mouse_area, pick_list, row, scrollable, text, text_input,
+    Space,
 };
-use iced::{Alignment, Color, Element, Length, mouse};
+use iced::{mouse, Alignment, Color, Element, Length};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -327,7 +327,9 @@ pub fn view<'a>(
                     .padding([4, 6]),
             )
             .interaction(mouse::Interaction::Grab)
-            .on_press(Message::StartPaletteDrag(PaletteDragItem::Enumeration(enum_id)))
+            .on_press(Message::StartPaletteDrag(PaletteDragItem::Enumeration(
+                enum_id,
+            )))
             .into()
         } else {
             button(item_content)

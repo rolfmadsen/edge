@@ -51,6 +51,27 @@ pub enum PublishAsyncResult {
 }
 
 #[derive(Debug, Clone)]
+pub struct DiagnosticsModalState {
+    pub diagnostics: crate::features::diagnostics::SystemDiagnostics,
+    pub logs: Vec<String>,
+}
+
+impl DiagnosticsModalState {
+    pub fn new() -> Self {
+        Self {
+            diagnostics: crate::features::diagnostics::get_system_diagnostics(),
+            logs: crate::features::diagnostics::get_recent_logs(),
+        }
+    }
+}
+
+impl Default for DiagnosticsModalState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct PublishModalState {
     pub message: String,
     pub preview_events: Vec<DomainChangeEvent>,
@@ -663,6 +684,11 @@ pub enum Message {
     UpdateMetadataApprovalStatus(ApprovalStatus),
     UpdateMetadataScope(ModelScope),
 
+    // Diagnostik & Logning (Task 065)
+    OpenDiagnosticsModal,
+    CloseDiagnosticsModal,
+    CopyDiagnosticsToClipboard,
+
     // Git & Versionsstyring (Task 047)
     RefreshGitStatus,
     OpenPublishModal,
@@ -865,7 +891,10 @@ pub enum Message {
     StartPaletteDrag(PaletteDragItem),
     PaletteDragMoved(Point),
     PaletteDragDropped,
-    CanvasDropAt { x: f32, y: f32 },
+    CanvasDropAt {
+        x: f32,
+        y: f32,
+    },
 }
 
 pub struct App {
@@ -919,6 +948,7 @@ pub struct App {
     conflict_resolver_modal: Option<ConflictResolverModalState>,
     git_connection_modal: Option<GitConnectionModalState>,
     git_clone_modal: Option<GitCloneModalState>,
+    diagnostics_modal: Option<DiagnosticsModalState>,
     recent_store: crate::features::model::recent::RecentStore,
 }
 
@@ -1037,6 +1067,7 @@ impl App {
                         conflict_resolver_modal: None,
                         git_connection_modal: None,
                         git_clone_modal: None,
+                        diagnostics_modal: None,
                     };
                 }
             }
@@ -1101,6 +1132,7 @@ impl App {
             conflict_resolver_modal: None,
             git_connection_modal: None,
             git_clone_modal: None,
+            diagnostics_modal: None,
             recent_store,
         }
     }
@@ -1111,6 +1143,10 @@ impl App {
 
     pub fn git_sync_status(&self) -> &RepoSyncStatus {
         &self.git_sync_status
+    }
+
+    pub fn diagnostics_modal(&self) -> Option<&DiagnosticsModalState> {
+        self.diagnostics_modal.as_ref()
     }
 
     pub fn publish_modal(&self) -> Option<&PublishModalState> {
@@ -2195,6 +2231,18 @@ impl App {
             }
             Message::CloseMetadataModal => {
                 self.metadata_modal = None;
+            }
+            Message::OpenDiagnosticsModal => {
+                self.diagnostics_modal = Some(DiagnosticsModalState::new());
+                self.active_menu = None;
+            }
+            Message::CloseDiagnosticsModal => {
+                self.diagnostics_modal = None;
+            }
+            Message::CopyDiagnosticsToClipboard => {
+                let report =
+                    crate::features::diagnostics::get_system_diagnostics().formatted_report();
+                return iced::clipboard::write(report);
             }
             Message::RefreshGitStatus => {
                 if let Some(dir) = self.repo_dir() {
@@ -3972,7 +4020,10 @@ impl App {
                             * crate::features::concept_model::GRID_SIZE;
                         let snapped_y = (y / crate::features::concept_model::GRID_SIZE).round()
                             * crate::features::concept_model::GRID_SIZE;
-                        let new_id = self.project.concept_graph_mut().add_node_at(&concept, snapped_x, snapped_y);
+                        let new_id = self
+                            .project
+                            .concept_graph_mut()
+                            .add_node_at(&concept, snapped_x, snapped_y);
                         self.selected_graph_node_id = Some(new_id);
                         self.broadcast_mutation(
                             &crate::features::collab::protocol::ModelMutation::ConceptDiagramNodeAdded(
@@ -4608,10 +4659,14 @@ impl App {
                 let val_count = e.values().len();
                 let cx = ((center_world.x
                     - crate::features::information_model::DEFAULT_CLASS_NODE_WIDTH / 2.0)
-                    / crate::features::concept_model::GRID_SIZE).round() * crate::features::concept_model::GRID_SIZE;
+                    / crate::features::concept_model::GRID_SIZE)
+                    .round()
+                    * crate::features::concept_model::GRID_SIZE;
                 let cy = ((center_world.y
                     - crate::features::information_model::calculate_class_node_height(0) / 2.0)
-                    / crate::features::concept_model::GRID_SIZE).round() * crate::features::concept_model::GRID_SIZE;
+                    / crate::features::concept_model::GRID_SIZE)
+                    .round()
+                    * crate::features::concept_model::GRID_SIZE;
                 let node_id = self
                     .project
                     .information_graph_mut()
@@ -5785,7 +5840,9 @@ impl App {
                         // Click without drag -> select or add
                         match drag.item {
                             PaletteDragItem::Concept(cid) => {
-                                if let Some(node) = self.project.concept_graph().find_node_by_concept(cid) {
+                                if let Some(node) =
+                                    self.project.concept_graph().find_node_by_concept(cid)
+                                {
                                     self.selected_graph_node_id = Some(node.id());
                                 } else {
                                     return self.update(Message::AddConceptToDiagram(cid));
@@ -5795,7 +5852,8 @@ impl App {
                                 return self.update(Message::SelectInformationClass(Some(cid)));
                             }
                             PaletteDragItem::Enumeration(eid) => {
-                                return self.update(Message::SelectInformationEnumeration(Some(eid)));
+                                return self
+                                    .update(Message::SelectInformationEnumeration(Some(eid)));
                             }
                         }
                     }
@@ -6047,6 +6105,11 @@ impl App {
         .width(Length::Fill);
 
         // 2. Modale dialoger (Stack Overlay)
+        let maybe_diagnostics_modal: Option<Element<Message>> = self
+            .diagnostics_modal
+            .as_ref()
+            .map(|modal| self.view_diagnostics_modal(modal));
+
         let maybe_publish_modal: Option<Element<Message>> = self
             .publish_modal
             .as_ref()
@@ -7378,9 +7441,14 @@ impl App {
                             .color(ThemeColors::TEXT_MUTED),
                         Space::new().height(2),
                         menu_item("📖", "FDA Modelregler v2.1 ↗", Message::OpenModelRules),
+                        menu_item(
+                            "🔍",
+                            "System- og grafikdiagnostik...",
+                            Message::OpenDiagnosticsModal
+                        ),
                     ]
                     .spacing(2)
-                    .width(Length::Fixed(220.0)),
+                    .width(Length::Fixed(240.0)),
                 ),
                 MenuType::Collab => (
                     384.0,
@@ -7621,83 +7689,88 @@ impl App {
             .height(Length::Fill)
             .into();
 
-        let maybe_drag_ghost: Option<Element<Message>> = self.palette_drag.as_ref().and_then(|drag| {
-            if !drag.is_dragging {
-                return None;
-            }
-            let (icon, label, tag_color) = match drag.item {
-                PaletteDragItem::Concept(cid) => {
-                    let term = self
-                        .project
-                        .concepts()
-                        .iter()
-                        .find(|c| c.id() == cid)
-                        .map(|c| c.preferred_term().to_string())
-                        .unwrap_or_else(|| "Begreb".to_string());
-                    ("💡", term, ThemeColors::PRIMARY)
+        let maybe_drag_ghost: Option<Element<Message>> =
+            self.palette_drag.as_ref().and_then(|drag| {
+                if !drag.is_dragging {
+                    return None;
                 }
-                PaletteDragItem::Class(cid) => {
-                    let name = self
-                        .project
-                        .information_model()
-                        .get_class(cid)
-                        .map(|c| c.name().to_string())
-                        .unwrap_or_else(|| "Klasse".to_string());
-                    ("🏛️", name, ThemeColors::PRIMARY)
-                }
-                PaletteDragItem::Enumeration(eid) => {
-                    let name = self
-                        .project
-                        .information_model()
-                        .get_enumeration(eid)
-                        .map(|e| e.name().to_string())
-                        .unwrap_or_else(|| "Enumeration".to_string());
-                    ("🔢", name, ThemeColors::ACCENT_GREEN)
-                }
-            };
+                let (icon, label, tag_color) = match drag.item {
+                    PaletteDragItem::Concept(cid) => {
+                        let term = self
+                            .project
+                            .concepts()
+                            .iter()
+                            .find(|c| c.id() == cid)
+                            .map(|c| c.preferred_term().to_string())
+                            .unwrap_or_else(|| "Begreb".to_string());
+                        ("💡", term, ThemeColors::PRIMARY)
+                    }
+                    PaletteDragItem::Class(cid) => {
+                        let name = self
+                            .project
+                            .information_model()
+                            .get_class(cid)
+                            .map(|c| c.name().to_string())
+                            .unwrap_or_else(|| "Klasse".to_string());
+                        ("🏛️", name, ThemeColors::PRIMARY)
+                    }
+                    PaletteDragItem::Enumeration(eid) => {
+                        let name = self
+                            .project
+                            .information_model()
+                            .get_enumeration(eid)
+                            .map(|e| e.name().to_string())
+                            .unwrap_or_else(|| "Enumeration".to_string());
+                        ("🔢", name, ThemeColors::ACCENT_GREEN)
+                    }
+                };
 
-            let ghost_card = container(
-                row![
-                    text(icon).size(13),
-                    Space::new().width(4),
-                    text(label).size(12).color(tag_color),
-                    Space::new().width(6),
-                    container(text("Slip på lærred").size(9).color(ThemeColors::TEXT_MUTED))
+                let ghost_card = container(
+                    row![
+                        text(icon).size(13),
+                        Space::new().width(4),
+                        text(label).size(12).color(tag_color),
+                        Space::new().width(6),
+                        container(
+                            text("Slip på lærred")
+                                .size(9)
+                                .color(ThemeColors::TEXT_MUTED)
+                        )
                         .style(pill_container_style)
                         .padding([1, 4]),
-                ]
-                .align_y(Alignment::Center),
-            )
-            .style(move |_| container::Style {
-                background: Some(iced::Background::Color(iced::Color::from_rgba(1.0, 1.0, 1.0, 0.94))),
-                border: iced::Border {
-                    color: tag_color,
-                    width: 1.5,
-                    radius: 6.0.into(),
-                },
-                shadow: iced::Shadow {
-                    color: iced::Color::from_rgba(0.0, 0.0, 0.0, 0.15),
-                    offset: iced::Vector::new(2.0, 4.0),
-                    blur_radius: 8.0,
-                },
-                ..Default::default()
-            })
-            .padding([6, 10]);
+                    ]
+                    .align_y(Alignment::Center),
+                )
+                .style(move |_| container::Style {
+                    background: Some(iced::Background::Color(iced::Color::from_rgba(
+                        1.0, 1.0, 1.0, 0.94,
+                    ))),
+                    border: iced::Border {
+                        color: tag_color,
+                        width: 1.5,
+                        radius: 6.0.into(),
+                    },
+                    shadow: iced::Shadow {
+                        color: iced::Color::from_rgba(0.0, 0.0, 0.0, 0.15),
+                        offset: iced::Vector::new(2.0, 4.0),
+                        blur_radius: 8.0,
+                    },
+                    ..Default::default()
+                })
+                .padding([6, 10]);
 
-            let overlay = container(
-                column![
+                let overlay = container(column![
                     Space::new().height(Length::Fixed((drag.current_pos.y + 12.0).max(0.0))),
                     row![
                         Space::new().width(Length::Fixed((drag.current_pos.x + 12.0).max(0.0))),
                         ghost_card,
                     ],
-                ],
-            )
-            .width(Length::Fill)
-            .height(Length::Fill);
+                ])
+                .width(Length::Fill)
+                .height(Length::Fill);
 
-            Some(overlay.into())
-        });
+                Some(overlay.into())
+            });
 
         let layered_layout: Element<Message> = if let Some(ghost) = maybe_drag_ghost {
             stack![base_layout, ghost].into()
@@ -7705,7 +7778,9 @@ impl App {
             base_layout
         };
 
-        if let Some(modal) = maybe_conflict_resolver_modal {
+        if let Some(modal) = maybe_diagnostics_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(modal) = maybe_conflict_resolver_modal {
             stack![layered_layout, modal].into()
         } else if let Some(modal) = maybe_history_modal {
             stack![layered_layout, modal].into()
@@ -8649,6 +8724,136 @@ impl App {
             .style(modal_card_style)
             .padding(24)
             .width(Length::Fixed(560.0));
+
+        container(modal_card)
+            .style(modal_backdrop_style)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .into()
+    }
+
+    fn view_diagnostics_modal<'a>(&self, modal: &'a DiagnosticsModalState) -> Element<'a, Message> {
+        let title_row = row![
+            text("🔍 System- og Grafikdiagnostik")
+                .size(17)
+                .color(ThemeColors::SLATE_900),
+            Space::new().width(Length::Fill),
+            button(text("✕").size(13))
+                .style(secondary_button_style)
+                .on_press(Message::CloseDiagnosticsModal)
+                .padding([3, 7]),
+        ]
+        .align_y(Alignment::Center);
+
+        let subtitle = text(
+            "Platforminformation, aktiv rendering-motor og lokale loghændelser til fejlfinding (ADR 013).",
+        )
+        .size(12)
+        .color(ThemeColors::TEXT_MUTED);
+
+        let info_item = |label: &'static str, val: &str| {
+            row![
+                text(label)
+                    .size(12)
+                    .color(ThemeColors::SLATE_600)
+                    .width(Length::Fixed(140.0)),
+                text(val.to_string()).size(12).color(ThemeColors::SLATE_900),
+            ]
+            .align_y(Alignment::Center)
+        };
+
+        let log_path_str = modal
+            .diagnostics
+            .log_path
+            .as_deref()
+            .unwrap_or("(Ingen skriveadgang / in-memory)");
+
+        let system_info_card = container(
+            column![
+                info_item("Operativsystem:", &modal.diagnostics.os),
+                info_item("Arkitektur:", &modal.diagnostics.arch),
+                info_item("Kant Version:", &modal.diagnostics.app_version),
+                info_item("Iced Backend:", &modal.diagnostics.iced_backend),
+                info_item("Logfil Sti:", log_path_str),
+            ]
+            .spacing(6),
+        )
+        .style(|_| container::Style {
+            background: Some(iced::Background::Color(ThemeColors::SLATE_50)),
+            border: iced::Border {
+                color: ThemeColors::SLATE_200,
+                width: 1.0,
+                radius: 8.0.into(),
+            },
+            ..Default::default()
+        })
+        .padding(12)
+        .width(Length::Fill);
+
+        let logs_header = text("Seneste loghændelser (In-memory buffer):")
+            .size(12)
+            .color(ThemeColors::SLATE_700);
+
+        let mut log_column = column![].spacing(3);
+        if modal.logs.is_empty() {
+            log_column = log_column.push(
+                text("Ingen logbeskeder registreret endnu.")
+                    .size(11)
+                    .color(ThemeColors::SLATE_500),
+            );
+        } else {
+            for entry in modal.logs.iter().rev().take(30) {
+                log_column =
+                    log_column.push(text(entry.clone()).size(11).color(ThemeColors::SLATE_800));
+            }
+        }
+
+        let logs_container = container(scrollable(log_column).height(Length::Fixed(180.0)))
+            .style(|_| container::Style {
+                background: Some(iced::Background::Color(iced::Color::WHITE)),
+                border: iced::Border {
+                    color: ThemeColors::SLATE_200,
+                    width: 1.0,
+                    radius: 6.0.into(),
+                },
+                ..Default::default()
+            })
+            .padding(10)
+            .width(Length::Fill);
+
+        let actions = row![
+            button(text("📋 Kopier rapport til udklipsholder").size(12))
+                .style(primary_button_style)
+                .on_press(Message::CopyDiagnosticsToClipboard)
+                .padding([6, 14]),
+            Space::new().width(Length::Fill),
+            button(text("Luk").size(12))
+                .style(secondary_button_style)
+                .on_press(Message::CloseDiagnosticsModal)
+                .padding([6, 16]),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center);
+
+        let body = column![
+            title_row,
+            subtitle,
+            Space::new().height(4),
+            system_info_card,
+            Space::new().height(4),
+            logs_header,
+            logs_container,
+            Space::new().height(8),
+            actions,
+        ]
+        .spacing(8);
+
+        let modal_card = container(body)
+            .style(modal_card_style)
+            .padding(24)
+            .width(Length::Fixed(620.0));
 
         container(modal_card)
             .style(modal_backdrop_style)

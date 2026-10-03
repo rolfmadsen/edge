@@ -64,7 +64,7 @@ impl ThemeColors {
 
 pub fn card_container_style(_theme: &iced::Theme) -> container::Style {
     container::Style {
-        background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.94))),
+        background: Some(Background::Color(ThemeColors::SURFACE_CARD)),
         border: Border {
             color: Color::from_rgba(0.85, 0.88, 0.93, 0.85),
             width: 1.0,
@@ -81,7 +81,7 @@ pub fn card_container_style(_theme: &iced::Theme) -> container::Style {
 
 pub fn floating_panel_style(_theme: &iced::Theme) -> container::Style {
     container::Style {
-        background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.92))),
+        background: Some(Background::Color(ThemeColors::SURFACE_CARD)),
         border: Border {
             color: Color::from_rgba(0.84, 0.88, 0.93, 0.85),
             width: 1.0,
@@ -122,7 +122,7 @@ pub fn modal_backdrop_style(_theme: &iced::Theme) -> container::Style {
 
 pub fn modal_card_style(_theme: &iced::Theme) -> container::Style {
     container::Style {
-        background: Some(Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.98))),
+        background: Some(Background::Color(ThemeColors::SURFACE_CARD)),
         border: Border {
             color: Color::from_rgba(0.80, 0.84, 0.90, 0.80),
             width: 1.0,
@@ -417,9 +417,7 @@ pub fn list_item_button(
     }
 }
 
-pub fn list_item_container_style(
-    is_selected: bool,
-) -> impl Fn(&iced::Theme) -> container::Style {
+pub fn list_item_container_style(is_selected: bool) -> impl Fn(&iced::Theme) -> container::Style {
     move |_theme| {
         if is_selected {
             container::Style {

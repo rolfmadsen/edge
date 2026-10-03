@@ -6,7 +6,17 @@ use kant::ui::platform::initialize_platform_defaults;
 fn main() -> iced::Result {
     initialize_platform_defaults();
 
-    let initial_path = std::env::args().nth(1).map(std::path::PathBuf::from);
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|arg| arg == "--diagnostics" || arg == "-d") {
+        let diag = kant::features::diagnostics::get_system_diagnostics();
+        println!("{}", diag.formatted_report());
+        return Ok(());
+    }
+
+    let initial_path = args
+        .get(1)
+        .filter(|s| !s.starts_with('-'))
+        .map(std::path::PathBuf::from);
     let app_creator = move || match initial_path {
         Some(ref p) => App::new_with_path(Some(p.clone())),
         None => App::new_auto_open(),

@@ -12,7 +12,7 @@ use iced::widget::{
     button, checkbox, column, container, mouse_area, pick_list, row, scrollable, text, text_input,
     Space,
 };
-use iced::{Alignment, Color, Element, Length, mouse};
+use iced::{mouse, Alignment, Color, Element, Length};
 
 #[allow(clippy::too_many_arguments)]
 pub fn view<'a>(
@@ -125,7 +125,9 @@ pub fn view<'a>(
                     .padding([4, 6]),
             )
             .interaction(mouse::Interaction::Grab)
-            .on_press(Message::StartPaletteDrag(PaletteDragItem::Concept(concept_id)))
+            .on_press(Message::StartPaletteDrag(PaletteDragItem::Concept(
+                concept_id,
+            )))
             .into()
         } else {
             button(item_content)

@@ -7296,11 +7296,11 @@ fn test_task_060_machine_readable_model_interchange_xmi_skos_and_shacl() {
 fn test_task_062_windows_software_rendering_and_backend_resolution() {
     use kant::ui::platform::resolve_default_iced_backend;
 
-    // AC1: På Windows uden sat ICED_BACKEND skal "tiny-skia" vælges
+    // AC1: På Windows uden sat ICED_BACKEND gennemtvinges ikke længere tiny-skia (Superceded by Task 065 / ADR 013)
     assert_eq!(
         resolve_default_iced_backend(true, None),
-        Some("tiny-skia"),
-        "På Windows skal tiny-skia vælges som robust standard hvis ingen backend er specificeret"
+        None,
+        "På Windows skal tiny-skia IKKE længere vælges som tvungen standard (ADR 013 / Task 065)"
     );
 
     // AC1: På Windows med eksplicit ICED_BACKEND skal den respekteres (ingen default overskrivning)
@@ -8179,26 +8179,39 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
     );
     let enum_id = app.project().information_model().enumerations()[0].id();
     assert!(
-        app.project().information_graph().is_class_on_diagram(enum_id),
+        app.project()
+            .information_graph()
+            .is_class_on_diagram(enum_id),
         "AC1: Opret enumeration fra canvas-værktøjslinjen skal placere noden direkte på canvas"
     );
 
     // 2. AC2: Drag-and-Drop af begreber på Begrebsdiagram med Always-On gitter-snapping
     let concept = Concept::new("Station", "Togstation", BelongsToDomain::Yes);
-    let concept_id = app.project_mut().add_concept(concept).expect("Tilføj begreb");
-    if let Some(node) = app.project().concept_graph().find_node_by_concept(concept_id) {
+    let concept_id = app
+        .project_mut()
+        .add_concept(concept)
+        .expect("Tilføj begreb");
+    if let Some(node) = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(concept_id)
+    {
         let nid = node.id();
         app.project_mut().concept_graph_mut().remove_node(nid);
     }
     assert!(
-        !app.project().concept_graph().is_concept_on_diagram(concept_id),
+        !app.project()
+            .concept_graph()
+            .is_concept_on_diagram(concept_id),
         "Begrebet må ikke være på diagrammet før det trækkes/tilføjes"
     );
 
     // Drop begreb på canvas ved (253.7, 184.2) - snapper til (260.0, 180.0)
     let _ = app.update(Message::AddConceptToDiagramAt(concept_id, 253.7, 184.2));
     assert!(
-        app.project().concept_graph().is_concept_on_diagram(concept_id),
+        app.project()
+            .concept_graph()
+            .is_concept_on_diagram(concept_id),
         "AC2: Begrebet skal være tilføjet til begrebsdiagrammet efter drop"
     );
     let (concept_node_id, node_x, node_y) = {
@@ -8210,13 +8223,11 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         (cn.id(), cn.x(), cn.y())
     };
     assert_eq!(
-        node_x,
-        260.0,
+        node_x, 260.0,
         "AC2: Noden skal snappe til nærmeste 20px gitterpunkt x"
     );
     assert_eq!(
-        node_y,
-        180.0,
+        node_y, 180.0,
         "AC2: Noden skal snappe til nærmeste 20px gitterpunkt y"
     );
 
@@ -8233,14 +8244,18 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
     let cls = InformationClass::new("Spor");
     let class_id = app.project_mut().information_model_mut().add_class(cls);
     assert!(
-        !app.project().information_graph().is_class_on_diagram(class_id),
+        !app.project()
+            .information_graph()
+            .is_class_on_diagram(class_id),
         "Klassen må ikke være på informationsdiagrammet endnu"
     );
 
     // Drop klasse på informationslærredet ved (312.4, 215.8) - snapper til (320.0, 220.0)
     let _ = app.update(Message::AddClassToDiagramAt(class_id, 312.4, 215.8));
     assert!(
-        app.project().information_graph().is_class_on_diagram(class_id),
+        app.project()
+            .information_graph()
+            .is_class_on_diagram(class_id),
         "AC3: Klassen skal findes på informationsdiagrammet efter drop"
     );
     let (class_x, class_y) = {
@@ -8252,13 +8267,11 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         (class_node.x(), class_node.y())
     };
     assert_eq!(
-        class_x,
-        320.0,
+        class_x, 320.0,
         "AC3: Klassenoden skal snappe til nærmeste 20px gitterpunkt x"
     );
     assert_eq!(
-        class_y,
-        220.0,
+        class_y, 220.0,
         "AC3: Klassenoden skal snappe til nærmeste 20px gitterpunkt y"
     );
 
@@ -8273,7 +8286,9 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         .add_enumeration(enum2);
     let _ = app.update(Message::AddEnumerationToDiagramAt(enum2_id, 411.3, 155.6));
     assert!(
-        app.project().information_graph().is_class_on_diagram(enum2_id),
+        app.project()
+            .information_graph()
+            .is_class_on_diagram(enum2_id),
         "AC3: Enumerationen skal findes på informationsdiagrammet efter drop"
     );
     let (enum_x, enum_y) = {
@@ -8285,13 +8300,11 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         (enum_node.x(), enum_node.y())
     };
     assert_eq!(
-        enum_x,
-        420.0,
+        enum_x, 420.0,
         "AC3: Enumeration-noden skal snappe til nærmeste 20px gitterpunkt x"
     );
     assert_eq!(
-        enum_y,
-        160.0,
+        enum_y, 160.0,
         "AC3: Enumeration-noden skal snappe til nærmeste 20px gitterpunkt y"
     );
 
@@ -8308,17 +8321,25 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
     // 4. AC4: Bevarelse af 1-klik '+' tilføjelse
     let concept_quick = Concept::new("Perron", "Perron til passagerer", BelongsToDomain::Yes);
     let c_quick_id = app.project_mut().add_concept(concept_quick).unwrap();
-    if let Some(node) = app.project().concept_graph().find_node_by_concept(c_quick_id) {
+    if let Some(node) = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(c_quick_id)
+    {
         let nid = node.id();
         app.project_mut().concept_graph_mut().remove_node(nid);
     }
     assert!(
-        !app.project().concept_graph().is_concept_on_diagram(c_quick_id),
+        !app.project()
+            .concept_graph()
+            .is_concept_on_diagram(c_quick_id),
         "Begrebet må ikke være på diagrammet før '+' klik"
     );
     let _ = app.update(Message::AddConceptToDiagram(c_quick_id));
     assert!(
-        app.project().concept_graph().is_concept_on_diagram(c_quick_id),
+        app.project()
+            .concept_graph()
+            .is_concept_on_diagram(c_quick_id),
         "AC4: 1-klik '+' tilføjelse af begreb skal fortsat fungere"
     );
 
@@ -8347,23 +8368,31 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
     // A: Træk begreb fra palet og slip på canvas
     let concept_drag = Concept::new("Ventesal", "Lokale for passagerer", BelongsToDomain::Yes);
     let c_drag_id = app.project_mut().add_concept(concept_drag).unwrap();
-    if let Some(node) = app.project().concept_graph().find_node_by_concept(c_drag_id) {
+    if let Some(node) = app
+        .project()
+        .concept_graph()
+        .find_node_by_concept(c_drag_id)
+    {
         let nid = node.id();
         app.project_mut().concept_graph_mut().remove_node(nid);
     }
-    assert!(!app.project().concept_graph().is_concept_on_diagram(c_drag_id));
+    assert!(!app
+        .project()
+        .concept_graph()
+        .is_concept_on_diagram(c_drag_id));
 
     // Tryk ned på palet
-    let _ = app.update(Message::StartPaletteDrag(PaletteDragItem::Concept(c_drag_id)));
+    let _ = app.update(Message::StartPaletteDrag(PaletteDragItem::Concept(
+        c_drag_id,
+    )));
     // Træk musen over på canvas
     let _ = app.update(Message::PaletteDragMoved(Point::new(150.0, 150.0)));
     // Slip over canvas ved (348.6, 211.2) - snapper til (360.0, 220.0)
-    let _ = app.update(Message::CanvasDropAt {
-        x: 348.6,
-        y: 211.2,
-    });
+    let _ = app.update(Message::CanvasDropAt { x: 348.6, y: 211.2 });
     assert!(
-        app.project().concept_graph().is_concept_on_diagram(c_drag_id),
+        app.project()
+            .concept_graph()
+            .is_concept_on_diagram(c_drag_id),
         "AC2: Begreb skal placeres på canvas efter fuld drag-and-drop livscyklus"
     );
     let c_node = app
@@ -8388,16 +8417,20 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         .project_mut()
         .information_model_mut()
         .add_class(cls_drag);
-    assert!(!app.project().information_graph().is_class_on_diagram(cls_drag_id));
+    assert!(!app
+        .project()
+        .information_graph()
+        .is_class_on_diagram(cls_drag_id));
 
-    let _ = app.update(Message::StartPaletteDrag(PaletteDragItem::Class(cls_drag_id)));
+    let _ = app.update(Message::StartPaletteDrag(PaletteDragItem::Class(
+        cls_drag_id,
+    )));
     let _ = app.update(Message::PaletteDragMoved(Point::new(180.0, 200.0)));
-    let _ = app.update(Message::CanvasDropAt {
-        x: 273.8,
-        y: 189.5,
-    });
+    let _ = app.update(Message::CanvasDropAt { x: 273.8, y: 189.5 });
     assert!(
-        app.project().information_graph().is_class_on_diagram(cls_drag_id),
+        app.project()
+            .information_graph()
+            .is_class_on_diagram(cls_drag_id),
         "AC3: Klasse skal placeres på canvas efter fuld drag-and-drop livscyklus"
     );
     let cls_node = app
@@ -8425,16 +8458,20 @@ fn test_task_064_drag_and_drop_from_palette_to_canvas_and_toolbar_refinements() 
         .project_mut()
         .information_model_mut()
         .add_enumeration(enum_drag);
-    assert!(!app.project().information_graph().is_class_on_diagram(enum_drag_id));
+    assert!(!app
+        .project()
+        .information_graph()
+        .is_class_on_diagram(enum_drag_id));
 
-    let _ = app.update(Message::StartPaletteDrag(PaletteDragItem::Enumeration(enum_drag_id)));
+    let _ = app.update(Message::StartPaletteDrag(PaletteDragItem::Enumeration(
+        enum_drag_id,
+    )));
     let _ = app.update(Message::PaletteDragMoved(Point::new(190.0, 210.0)));
-    let _ = app.update(Message::CanvasDropAt {
-        x: 418.2,
-        y: 263.9,
-    });
+    let _ = app.update(Message::CanvasDropAt { x: 418.2, y: 263.9 });
     assert!(
-        app.project().information_graph().is_class_on_diagram(enum_drag_id),
+        app.project()
+            .information_graph()
+            .is_class_on_diagram(enum_drag_id),
         "AC3: Enumeration skal placeres på canvas efter fuld drag-and-drop livscyklus"
     );
     let enum_node = app
@@ -8489,8 +8526,7 @@ fn test_enumeration_relations_persisted_and_not_dropped_on_sync_or_restart() {
         .add_class(repo_class);
 
     // 2. Opret enumeration "Enumeration2"
-    let enumeration =
-        InformationEnumeration::new("Enumeration2", vec!["aktiv".to_string()]);
+    let enumeration = InformationEnumeration::new("Enumeration2", vec!["aktiv".to_string()]);
     let enum_id = app
         .project_mut()
         .information_model_mut()
@@ -8513,17 +8549,13 @@ fn test_enumeration_relations_persisted_and_not_dropped_on_sync_or_restart() {
         RelationKind::Dependency,
         Some("«use»".to_string()),
     );
-    app.project_mut()
-        .information_model_mut()
-        .add_relation(rel);
-    app.project_mut()
-        .information_graph_mut()
-        .add_relation(
-            repo_node_id,
-            enum_node_id,
-            RelationKind::Dependency,
-            Some("«use»".to_string()),
-        );
+    app.project_mut().information_model_mut().add_relation(rel);
+    app.project_mut().information_graph_mut().add_relation(
+        repo_node_id,
+        enum_node_id,
+        RelationKind::Dependency,
+        Some("«use»".to_string()),
+    );
 
     assert_eq!(
         app.project().information_model().relations().len(),
@@ -8551,7 +8583,8 @@ fn test_enumeration_relations_persisted_and_not_dropped_on_sync_or_restart() {
     );
 
     // 6. Gem og genindlæs fra dekomponeret format (.kant)
-    let temp_dir = std::env::temp_dir().join(format!("kant_enum_rel_test_{}", uuid::Uuid::new_v4()));
+    let temp_dir =
+        std::env::temp_dir().join(format!("kant_enum_rel_test_{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(&temp_dir).unwrap();
 
     kant::features::model::decomposed::save_decomposed(app.project(), &temp_dir)
@@ -8596,11 +8629,11 @@ fn test_enumeration_relations_persisted_and_not_dropped_on_sync_or_restart() {
 
 #[test]
 fn test_task_065_windows_rendering_diagnostics_and_wgpu_restoration() {
-    use kant::ui::platform::resolve_default_iced_backend;
-    use kant::features::diagnostics::{get_system_diagnostics, get_recent_logs, log_info};
-    use kant::ui::app::{App, Message};
-    use kant::ui::theme::{card_container_style, floating_panel_style};
     use iced::{Background, Theme};
+    use kant::features::diagnostics::{get_recent_logs, get_system_diagnostics, log_info};
+    use kant::ui::app::{App, Message};
+    use kant::ui::platform::resolve_default_iced_backend;
+    use kant::ui::theme::{card_container_style, floating_panel_style};
 
     // AC1: På Windows skal vi IKKE længere tvinge tiny-skia som default når ingen backend er sat
     assert_eq!(
@@ -8619,30 +8652,49 @@ fn test_task_065_windows_rendering_diagnostics_and_wgpu_restoration() {
     assert!(!diag.os.is_empty(), "OS skal være udfyldt");
     assert!(!diag.arch.is_empty(), "Arch skal være udfyldt");
     let report = diag.formatted_report();
-    assert!(report.contains("Kant System- og Grafikdiagnostik"), "Rapport skal have overskrift");
-    assert!(report.contains(&diag.os), "Rapport skal indeholde operativsystem");
+    assert!(
+        report.contains("Kant System- og Grafikdiagnostik"),
+        "Rapport skal have overskrift"
+    );
+    assert!(
+        report.contains(&diag.os),
+        "Rapport skal indeholde operativsystem"
+    );
 
     // AC2: In-memory log buffer
     log_info("diagnostics_test", "Acceptance test for Task 065 logging");
     let logs = get_recent_logs();
     assert!(
-        logs.iter().any(|entry| entry.contains("Acceptance test for Task 065 logging")),
+        logs.iter()
+            .any(|entry| entry.contains("Acceptance test for Task 065 logging")),
         "Log-besked skal kunne findes i den seneste log-buffer"
     );
 
     // AC4: In-app modal integration
     let mut app = App::new_with_path(None);
-    assert!(app.diagnostics_modal().is_none(), "Modal skal være lukket som standard");
+    assert!(
+        app.diagnostics_modal().is_none(),
+        "Modal skal være lukket som standard"
+    );
     let _ = app.update(Message::OpenDiagnosticsModal);
-    assert!(app.diagnostics_modal().is_some(), "Modal skal være åben efter OpenDiagnosticsModal");
+    assert!(
+        app.diagnostics_modal().is_some(),
+        "Modal skal være åben efter OpenDiagnosticsModal"
+    );
     let _ = app.update(Message::CloseDiagnosticsModal);
-    assert!(app.diagnostics_modal().is_none(), "Modal skal være lukket efter CloseDiagnosticsModal");
+    assert!(
+        app.diagnostics_modal().is_none(),
+        "Modal skal være lukket efter CloseDiagnosticsModal"
+    );
 
     // AC5: Hærdet opak styling for card_container_style og floating_panel_style
     let theme = Theme::Light;
     let card_style = card_container_style(&theme);
     if let Some(Background::Color(c)) = card_style.background {
-        assert_eq!(c.a, 1.0, "Card container skal have 100% opak baggrund for at forhindre sorte artefakter");
+        assert_eq!(
+            c.a, 1.0,
+            "Card container skal have 100% opak baggrund for at forhindre sorte artefakter"
+        );
     } else {
         panic!("Card container skal have en defineret baggrundsfarve");
     }
@@ -8654,5 +8706,3 @@ fn test_task_065_windows_rendering_diagnostics_and_wgpu_restoration() {
         panic!("Floating panel skal have en defineret baggrundsfarve");
     }
 }
-
-
