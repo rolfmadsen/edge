@@ -4,40 +4,38 @@
   "execution_origin": "LOCAL",
   "verdict": "PASSED",
   "task_contract": {
-    "task_id": "065-windows-rendering-diagnostics-and-wgpu-restoration",
-    "task_title": "Task 065: Windows Rendering Diagnostics & WGPU Restoration",
-    "task_digest": "cf60050a238c69dd06c05ee57e555bfc5fea1716c52443e08dbc1096e98c08af",
+    "task_id": "066-startup-latency-profiling-and-windows-dx12-fastpath",
+    "task_title": "Task 066: Startup Latency Profiling & Windows DX12 Fast-Path",
+    "task_digest": "cc397b9fb56cd7744a297e24f8e972c6e21501841eb16c5e90c66cd72428ec31",
     "acceptance_criteria": [
-      "**AC1 - Backend Default Resolution (WGPU Restoration)**: `resolve_default_iced_backend(is_windows: bool, existing_backend: Option<&str>)` gennemtvinger IKKE længere blindt `tiny-skia`. Hvis `existing_backend` er `None`, returneres `None` (hvorved Iced benytter standard `wgpu`), mens eksplicit `ICED_BACKEND` (fx `\"tiny-skia\"` eller `\"wgpu\"`) fortsat respekteres.",
-      "**AC2 - Struktureret Lokal Logning & Diagnostikmodul**: Nyt modul `kant::features::diagnostics` (eller `src/ui/diagnostics.rs`) initialiserer logning til lokal logfil og in-memory buffer, opfanger opstartsinformation (OS, arkitektur, miljøvariable, valgt backend) og genererer en formateret systemrapport.",
-      "**AC3 - CLI Startup Argumenter**: Hvis appen startes med `--diagnostics` eller `-d`, udskrives systemdiagnostikken struktureret til stdout/konsol.",
-      "**AC4 - In-App Diagnostik Modal under Hjælp**: Under \"Hjælp\"-menuen findes menupunktet \"🔍 System- og grafikdiagnostik...\", som åbner en modal med platformdata, aktiv backend, log-udsnit og en \"Kopier rapport\"-handling.",
-      "**AC5 - Hærdet Opak Styling & Ingen Sorte Skygge-Artefakter**: Container styles (`card_container_style`, `floating_panel_style`, `base_layout`) anvender 100% opake baggrunde, så manglende eller defekt software-alpha-blending ikke resulterer i sorte paneler.",
-      "**AC6 - Regression & Acceptance Tests**: Automatiserede accepttests i `tests/acceptance.rs` verificerer backend-resolution, diagnostisk rapportgenerering og logging uden fejl."
+      "**AC1 - Relativ tidsstempling i log**: Alle loglinjer i `kant.log` og log-bufferen indeholder relativ tid siden processtart formateret som `[+Xms]`.",
+      "**AC2 - WGPU DX12 Fast-Path på Windows**: `resolve_default_wgpu_backend(is_windows: bool, existing: Option<&str>)` returnerer `Some(\"dx12\")` når `is_windows == true` og ingen backend er sat, og `None` hvis en eksisterende overstyring findes eller på ikke-Windows.",
+      "**AC3 - Opstartsprofilering i Diagnostics**: `SystemDiagnostics` opfanger opstartstids-milepæle og rapporterer total opstartstid til første frame i diagnostik-rapporten.",
+      "**AC4 - Regression & Acceptance Tests**: Automatiserede accepttests i `tests/acceptance.rs` verificerer relativ tidsstempling, backend-resolution for WGPU og milepælsregistrering."
     ],
     "unresolved_criteria": []
   },
   "workspace_state": {
     "manifest_version": "1.0",
-    "source_content_digest": "c09dc075eaffac0dd0e179cac658bbe3ed108ffa51ec72edc247436a586449a8",
-    "source_manifest_digest_pre": "73b7ad993071bfb8acf9a6567c66baa559fc25a448be0bd29cd7730c893258a1",
-    "source_manifest_digest_post": "73b7ad993071bfb8acf9a6567c66baa559fc25a448be0bd29cd7730c893258a1",
-    "config_digest": "6c4ed652d9c8de38319bed5e317e0bd91232155ffbc325ae6dd39ee26a8c9bf3",
-    "task_digest": "cf60050a238c69dd06c05ee57e555bfc5fea1716c52443e08dbc1096e98c08af",
+    "source_content_digest": "cb31e1cbba4499fb3eca20308252a7ee92c6f15dfbd939043b9fe212bf078ee8",
+    "source_manifest_digest_pre": "b0d34bd7d2330a8b8f4cd422cd6c59012284a85ff81a20a4c4733525d4fe9d33",
+    "source_manifest_digest_post": "b0d34bd7d2330a8b8f4cd422cd6c59012284a85ff81a20a4c4733525d4fe9d33",
+    "config_digest": "2d621e65c66f37d557c5ba19992b3a2c0f048d8cb123d1e2c3a38708793ba745",
+    "task_digest": "cc397b9fb56cd7744a297e24f8e972c6e21501841eb16c5e90c66cd72428ec31",
     "policy_digest": "e0c429cf3079964fb23a93295081a320e1c98690dacc1877579368587805dcdf",
     "check_definitions_digest": "dd50656a3cb4808ad5a7096762f6729b2503e0d6f90c203a5819983ef61167c2",
-    "included_files_count": 141,
+    "included_files_count": 142,
     "vcs": {
       "type": "git",
-      "head": "8e4a328",
-      "commit": "8e4a328",
+      "head": "35605ad",
+      "commit": "35605ad",
       "is_dirty": true
     }
   },
   "execution_metadata": {
-    "started_at": "2026-10-03T11:05:09Z",
-    "finished_at": "2026-10-03T11:05:14Z",
-    "total_duration_seconds": 4.491288074,
+    "started_at": "2026-10-03T11:40:47Z",
+    "finished_at": "2026-10-03T11:40:51Z",
+    "total_duration_seconds": 4.446233977,
     "environment": {
       "arch": "x86_64",
       "engine": "xgauntlet-core",
@@ -50,7 +48,7 @@
       "name": "spec",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.021453049,
+      "duration_seconds": 0.023968647,
       "optional": false,
       "passed": true,
       "log_digest": "bb99eecf7da47bb699e08b5414193ade3c049ead245334b322a8ca6aff367842"
@@ -59,37 +57,37 @@
       "name": "lint",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.736104029,
+      "duration_seconds": 0.724439525,
       "optional": true,
       "passed": true,
-      "log_digest": "b784093a696d2b4f3c01d1be09842f1b69d54f95b54776acd68782c99574011f"
+      "log_digest": "cad3ac996c3483cb04aa75e45aa4f9e9ef54b17ad89e0cba115b8245ff87eeb5"
     },
     {
       "name": "types",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.563442104,
+      "duration_seconds": 0.569604923,
       "optional": true,
       "passed": true,
-      "log_digest": "b779c8adcce1de12eb480ab2b8df664c4c9f3234709d59d25f1838a3e8fa1e55"
+      "log_digest": "e1287b45cb75c1eba597824d272e771d3794f300410e022e4cf3375cd72c7e1c"
     },
     {
       "name": "unit",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 2.6111835599999997,
+      "duration_seconds": 2.5543550809999997,
       "optional": false,
       "passed": true,
-      "log_digest": "2acf7db33d19668251c23a79237d4d0a0fa5e51e0176f4d032b27c637773b320"
+      "log_digest": "2d4717bd244aaff456b975db6f93fb6536bf7234999463852a52c5f2879f9c72"
     },
     {
       "name": "invariants",
       "status": "PASSED",
       "exit_code": 0,
-      "duration_seconds": 0.54305528,
+      "duration_seconds": 0.555838419,
       "optional": false,
       "passed": true,
-      "log_digest": "a70bbae1a07a5dcbd62e14302e5e51a28250028f8eecd88ea75667e76197e7bb"
+      "log_digest": "5365c0844a61a7cef66fd5199f03a5d09f498d30b1c9428670ba917af176aae2"
     }
   ],
   "diagnostics": []
