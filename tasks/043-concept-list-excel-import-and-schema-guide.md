@@ -24,7 +24,7 @@ Gøre det hurtigt og fejlfrit for domæneeksperter og forretningsanalytikere at 
      - `Foretrukken term` / `Navn` * (ikke-tom tekststreng, trimmet)
      - `Definition` * (ikke-tom tekststreng, trimmet)
    - **Valgfrie felter**:
-     - `Engelsk term` (jf. Task 042)
+     - `Engelsk begrebslag (DA+EN)` (jf. Task 042: Foretrukken term (en), Definition (en), Accepteret term (en), etc. fra arket `Begrebsliste DA+EN`)
      - `Tilhører domæne` / `Indgår i domæne` ("Ja", "Nej", eller model-URI. Standard: "Ja")
      - `Godkendt term`
      - `Frarådet term`
@@ -47,9 +47,9 @@ Gøre det hurtigt og fejlfrit for domæneeksperter og forretningsanalytikere at 
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Robust Excel Parsing**: Parseren kan indlæse `.xlsx` filer (og fallback standard `.csv`) og identificere kolonner uafhængigt af rækkefølge og store/små bogstaver.
+- [ ] **AC1 - Robust Excel Parsing**: Parseren kan indlæse `.xlsx` filer (både monolingual `Begrebsliste DA` og tosproget `Begrebsliste DA+EN`, samt fallback standard `.csv`) og identificere kolonner uafhængigt af rækkefølge og store/små bogstaver.
 - [ ] **AC2 - Validering af Obligatoriske Felter**: Rækker uden både en ikke-tom `Foretrukken term` og `Definition` afvises med en klar årsagsforklaring (rækkenummer og manglende felt).
-- [ ] **AC3 - Håndtering af Valgfrie Felter**: Udfyldte valgfrie felter (engelsk term, domæne, eksempler, noter, kilder) mappes korrekt over i `Concept`.
+- [ ] **AC3 - Håndtering af Valgfrie Felter**: Udfyldte valgfrie felter (engelsk term og definition jf. Task 042, domæne, eksempler, noter, kilder) mappes korrekt over i `Concept` og `ConceptEnglishFields`.
 - [ ] **AC4 - Hent Skabelon-funktion**: Brugeren kan med et klik eksportere/gemme en gyldig `.xlsx` skabelonfil med forbillede-data.
 - [ ] **AC5 - Visuel Skemaguide**: En modal i brugergrænsefladen forklarer kolonneskemaet og reglerne pædagogisk.
 - [ ] **AC6 - Forhåndsvisnings- og bekræftelsesdialog**: Importen udføres ikke blindt; brugeren ser antallet af gyldige/ugyldige rækker før endelig bekræftelse.
