@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
 
+pub mod excel;
 pub mod linter;
 pub use linter::{
     AristotleBreakdown, DefinitionIssueKind, DefinitionLintIssue, DefinitionLinter,

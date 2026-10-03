@@ -8912,7 +8912,7 @@ fn test_task_043_concept_list_excel_import_upsert_and_export() {
         "Transportministeriet",
         "Mobilitet",
         "1.0.0",
-        ModelStatus::Approved,
+        ModelStatus::Completed,
     );
     let mut project = ModelProject::new(metadata);
 
@@ -8923,7 +8923,9 @@ fn test_task_043_concept_list_excel_import_upsert_and_export() {
         "Et transportmiddel på hjul.",
         BelongsToDomain::Yes,
     );
-    c1.set_identifier(Some("https://data.gov.dk/model/core/transport/Vehicle".to_string()));
+    c1.set_identifier(Some(
+        "https://data.gov.dk/model/core/transport/Vehicle".to_string(),
+    ));
     c1.set_english(Some(ConceptEnglishFields {
         preferred_term: Some("Vehicle".to_string()),
         definition: Some("A means of transport on wheels.".to_string()),
@@ -8941,8 +8943,8 @@ fn test_task_043_concept_list_excel_import_upsert_and_export() {
     );
     project.add_concept(c2).unwrap();
 
-    let exported_bytes = export_project_concepts_to_xlsx(&project)
-        .expect("Eksport til Excel skal lykkes");
+    let exported_bytes =
+        export_project_concepts_to_xlsx(&project).expect("Eksport til Excel skal lykkes");
     assert!(
         exported_bytes.starts_with(&[0x50, 0x4B, 0x03, 0x04]),
         "Eksporten skal være en gyldig XLSX-fil"
@@ -8957,7 +8959,11 @@ fn test_task_043_concept_list_excel_import_upsert_and_export() {
     // AC3: Test Intelligent Upsert
     let mut imported_concepts = import_summary.valid_concepts;
     // Opdater definitionen på Køretøj
-    imported_concepts[0].set_definition("Opdateret definition af køretøj via Excel import.");
+    let koeretoej = imported_concepts
+        .iter_mut()
+        .find(|c| c.preferred_term() == "Køretøj")
+        .expect("Køretøj skal findes i importerede begreber");
+    koeretoej.set_definition("Opdateret definition af køretøj via Excel import.");
 
     // Nyt begreb der skal indsættes
     let new_c = Concept::new(
@@ -8968,7 +8974,10 @@ fn test_task_043_concept_list_excel_import_upsert_and_export() {
     imported_concepts.push(new_c);
 
     let upsert_report = apply_concept_upsert(&mut project, imported_concepts);
-    assert_eq!(upsert_report.updated, 2, "Begge eksisterende begreber skal opdateres");
+    assert_eq!(
+        upsert_report.updated, 2,
+        "Begge eksisterende begreber skal opdateres"
+    );
     assert_eq!(upsert_report.inserted, 1, "Et nyt begreb skal indsættes");
 
     // Bevaring af UUID invariant (Must NOT)

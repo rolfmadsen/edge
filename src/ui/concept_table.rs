@@ -48,9 +48,66 @@ pub fn view<'a>(
     .on_press(Message::StartNewConcept)
     .padding([8, 16]);
 
-    let top_bar = row![search_bar, count_badge, Space::new().width(8), create_btn]
-        .spacing(12)
-        .align_y(Alignment::Center);
+    let import_btn = button(
+        row![
+            text("📥").size(13),
+            Space::new().width(6),
+            text("Importér Excel").size(13),
+        ]
+        .align_y(Alignment::Center),
+    )
+    .style(secondary_button_style)
+    .on_press(Message::ImportConceptsExcelDialog)
+    .padding([8, 14]);
+
+    let export_btn = button(
+        row![
+            text("📊").size(13),
+            Space::new().width(6),
+            text("Eksportér Excel").size(13),
+        ]
+        .align_y(Alignment::Center),
+    )
+    .style(secondary_button_style)
+    .on_press(Message::ExportConceptListXlsxDialog)
+    .padding([8, 14]);
+
+    let template_btn = button(
+        row![
+            text("📄").size(13),
+            Space::new().width(6),
+            text("Hent skabelon").size(13),
+        ]
+        .align_y(Alignment::Center),
+    )
+    .style(secondary_button_style)
+    .on_press(Message::ExportFdaTemplateXlsxDialog)
+    .padding([8, 14]);
+
+    let guide_btn = button(
+        row![
+            text("ℹ️").size(13),
+            Space::new().width(6),
+            text("Skemaguide").size(13),
+        ]
+        .align_y(Alignment::Center),
+    )
+    .style(secondary_button_style)
+    .on_press(Message::OpenExcelSchemaGuideModal)
+    .padding([8, 14]);
+
+    let top_bar = row![
+        search_bar,
+        count_badge,
+        Space::new().width(4),
+        create_btn,
+        import_btn,
+        export_btn,
+        template_btn,
+        guide_btn,
+    ]
+    .spacing(8)
+    .align_y(Alignment::Center);
 
     // 2. Tabelhoved
     let header_row = row![
@@ -110,10 +167,36 @@ pub fn view<'a>(
                     .size(13)
                     .color(ThemeColors::TEXT_MUTED),
                 Space::new().height(16),
-                button(text("+ Opret Første Begreb").size(13))
-                    .style(primary_button_style)
-                    .on_press(Message::StartNewConcept)
-                    .padding([8, 18]),
+                row![
+                    button(text("+ Opret Første Begreb").size(13))
+                        .style(primary_button_style)
+                        .on_press(Message::StartNewConcept)
+                        .padding([8, 18]),
+                    button(
+                        row![
+                            text("📥").size(13),
+                            Space::new().width(6),
+                            text("Importér fra Excel").size(13),
+                        ]
+                        .align_y(Alignment::Center),
+                    )
+                    .style(secondary_button_style)
+                    .on_press(Message::ImportConceptsExcelDialog)
+                    .padding([8, 16]),
+                    button(
+                        row![
+                            text("📄").size(13),
+                            Space::new().width(6),
+                            text("Hent officiel skabelon").size(13),
+                        ]
+                        .align_y(Alignment::Center),
+                    )
+                    .style(secondary_button_style)
+                    .on_press(Message::ExportFdaTemplateXlsxDialog)
+                    .padding([8, 16]),
+                ]
+                .spacing(12)
+                .align_y(Alignment::Center),
             ]
             .spacing(6)
             .align_x(Alignment::Center),

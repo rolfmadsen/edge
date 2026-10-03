@@ -51,6 +51,14 @@ pub enum PublishAsyncResult {
 }
 
 #[derive(Debug, Clone)]
+pub struct ExcelImportPreviewState {
+    pub import_summary: crate::features::concepts::excel::ExcelImportSummary,
+    pub new_count: usize,
+    pub update_count: usize,
+    pub file_path: PathBuf,
+}
+
+#[derive(Debug, Clone)]
 pub struct DiagnosticsModalState {
     pub diagnostics: crate::features::diagnostics::SystemDiagnostics,
     pub logs: Vec<String>,
@@ -629,6 +637,8 @@ pub enum FileDialogMode {
 pub enum ExportKind {
     DiagramSvg,
     ConceptListCsv,
+    ConceptListXlsx,
+    FdaTemplateXlsx,
     ModelReportMarkdown,
     ModelReportHtml,
     ModelXmi,
@@ -703,6 +713,16 @@ pub enum Message {
     ExportModelSkosDialog,
     ExportModelShaclDialog,
     ExportDialogCompleted(crate::ui::file_dialog::DialogResult, ExportKind),
+
+    // Excel Import, Eksport & Skemaguide (Task 043)
+    ExportConceptListXlsxDialog,
+    ExportFdaTemplateXlsxDialog,
+    ImportConceptsExcelDialog,
+    ImportConceptsExcelCompleted(crate::ui::file_dialog::DialogResult),
+    OpenExcelSchemaGuideModal,
+    CloseExcelSchemaGuideModal,
+    ConfirmExcelImport,
+    DismissExcelImportModal,
 
     // Modelomslag & Metadata modal (Task 017 & Task 055)
     OpenMetadataModal,
@@ -978,6 +998,8 @@ pub struct App {
     git_connection_modal: Option<GitConnectionModalState>,
     git_clone_modal: Option<GitCloneModalState>,
     diagnostics_modal: Option<DiagnosticsModalState>,
+    excel_schema_guide_open: bool,
+    excel_import_preview: Option<ExcelImportPreviewState>,
     recent_store: crate::features::model::recent::RecentStore,
 }
 
@@ -1102,6 +1124,8 @@ impl App {
                         git_connection_modal: None,
                         git_clone_modal: None,
                         diagnostics_modal: None,
+                        excel_schema_guide_open: false,
+                        excel_import_preview: None,
                     };
                 }
             }
@@ -1168,6 +1192,8 @@ impl App {
             git_connection_modal: None,
             git_clone_modal: None,
             diagnostics_modal: None,
+            excel_schema_guide_open: false,
+            excel_import_preview: None,
             recent_store,
         }
     }
@@ -3476,11 +3502,131 @@ impl App {
                     |res| Message::ExportDialogCompleted(res, ExportKind::ModelShaclTurtle),
                 );
             }
+            Message::ExportConceptListXlsxDialog => {
+                self.active_menu = None;
+                let sanitized_name = self.project.metadata().name().replace(' ', "_");
+                let default_name = format!("{}_begrebsliste.xlsx", sanitized_name);
+                return Task::perform(
+                    async move {
+                        crate::ui::file_dialog::pick_file_to_export(
+                            &default_name,
+                            "Excel-arbejdsbog (*.xlsx)",
+                            "xlsx",
+                        )
+                    },
+                    |res| Message::ExportDialogCompleted(res, ExportKind::ConceptListXlsx),
+                );
+            }
+            Message::ExportFdaTemplateXlsxDialog => {
+                self.active_menu = None;
+                let default_name = "Begrebsliste_i_tabelformat_skabelon.xlsx".to_string();
+                return Task::perform(
+                    async move {
+                        crate::ui::file_dialog::pick_file_to_export(
+                            &default_name,
+                            "Excel-arbejdsbog (*.xlsx)",
+                            "xlsx",
+                        )
+                    },
+                    |res| Message::ExportDialogCompleted(res, ExportKind::FdaTemplateXlsx),
+                );
+            }
+            Message::ImportConceptsExcelDialog => {
+                self.active_menu = None;
+                return Task::perform(
+                    async move { crate::ui::file_dialog::pick_excel_file_to_import() },
+                    Message::ImportConceptsExcelCompleted,
+                );
+            }
+            Message::ImportConceptsExcelCompleted(res) => {
+                if let crate::ui::file_dialog::DialogResult::Selected(path) = res {
+                    match std::fs::read(&path) {
+                        Ok(bytes) => {
+                            match crate::features::concepts::excel::parse_concepts_from_xlsx_bytes(
+                                &bytes,
+                            ) {
+                                Ok(import_summary) => {
+                                    let mut new_count = 0;
+                                    let mut update_count = 0;
+                                    for c in &import_summary.valid_concepts {
+                                        let is_match =
+                                            self.project.concepts().iter().any(|existing| {
+                                                (c.identifier().is_some()
+                                                    && c.identifier() == existing.identifier())
+                                                    || c.preferred_term()
+                                                        .trim()
+                                                        .eq_ignore_ascii_case(
+                                                            existing.preferred_term().trim(),
+                                                        )
+                                            });
+                                        if is_match {
+                                            update_count += 1;
+                                        } else {
+                                            new_count += 1;
+                                        }
+                                    }
+                                    self.excel_import_preview = Some(ExcelImportPreviewState {
+                                        import_summary,
+                                        new_count,
+                                        update_count,
+                                        file_path: path,
+                                    });
+                                }
+                                Err(err) => {
+                                    eprintln!("Fejl ved parsing af Excel-regneark: {}", err);
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            eprintln!("Fejl ved indlæsning af fil: {}", err);
+                        }
+                    }
+                }
+            }
+            Message::OpenExcelSchemaGuideModal => {
+                self.active_menu = None;
+                self.excel_schema_guide_open = true;
+            }
+            Message::CloseExcelSchemaGuideModal => {
+                self.excel_schema_guide_open = false;
+            }
+            Message::ConfirmExcelImport => {
+                if let Some(preview) = self.excel_import_preview.take() {
+                    let summary = crate::features::concepts::excel::apply_concept_upsert(
+                        &mut self.project,
+                        preview.import_summary.valid_concepts,
+                    );
+                    println!(
+                        "Excel import gennemført: {} nye begreber tilføjet, {} eksisterende opdateret",
+                        summary.inserted, summary.updated
+                    );
+                    self.trigger_autosave();
+                }
+            }
+            Message::DismissExcelImportModal => {
+                self.excel_import_preview = None;
+            }
             Message::ExportDialogCompleted(res, kind) => {
                 if let crate::ui::file_dialog::DialogResult::Selected(path) = res {
-                    let content = match kind {
+                    let write_res = match kind {
+                        ExportKind::ConceptListXlsx => {
+                            match crate::features::concepts::excel::export_project_concepts_to_xlsx(
+                                &self.project,
+                            ) {
+                                Ok(bytes) => std::fs::write(&path, bytes),
+                                Err(err) => {
+                                    eprintln!("Fejl under generering af Excel-fil: {}", err);
+                                    return Task::none();
+                                }
+                            }
+                        }
+                        ExportKind::FdaTemplateXlsx => {
+                            let bytes =
+                                crate::features::concepts::excel::get_fda_template_xlsx_bytes();
+                            std::fs::write(&path, bytes)
+                        }
                         ExportKind::DiagramSvg => {
-                            if self.active_tab == Tab::InformationModel {
+                            let content = if self.active_tab == Tab::InformationModel {
                                 export_information_model_svg(
                                     self.project.information_graph(),
                                     self.project.information_model(),
@@ -3490,21 +3636,30 @@ impl App {
                                     self.project.concept_graph(),
                                     self.project.concepts(),
                                 )
-                            }
+                            };
+                            std::fs::write(&path, content)
                         }
                         ExportKind::ConceptListCsv => {
-                            export_concepts_to_csv(self.project.concepts())
+                            std::fs::write(&path, export_concepts_to_csv(self.project.concepts()))
                         }
                         ExportKind::ModelReportMarkdown => {
-                            export_model_report_markdown(&self.project)
+                            std::fs::write(&path, export_model_report_markdown(&self.project))
                         }
-                        ExportKind::ModelReportHtml => export_model_report_html(&self.project),
-                        ExportKind::ModelXmi => export_to_xmi_2_1(&self.project),
-                        ExportKind::ModelSkosTurtle => export_to_skos_turtle(&self.project),
-                        ExportKind::ModelShaclTurtle => export_to_shacl_turtle(&self.project),
+                        ExportKind::ModelReportHtml => {
+                            std::fs::write(&path, export_model_report_html(&self.project))
+                        }
+                        ExportKind::ModelXmi => {
+                            std::fs::write(&path, export_to_xmi_2_1(&self.project))
+                        }
+                        ExportKind::ModelSkosTurtle => {
+                            std::fs::write(&path, export_to_skos_turtle(&self.project))
+                        }
+                        ExportKind::ModelShaclTurtle => {
+                            std::fs::write(&path, export_to_shacl_turtle(&self.project))
+                        }
                     };
 
-                    if let Err(err) = std::fs::write(&path, content) {
+                    if let Err(err) = write_res {
                         eprintln!("Fejl under skrivning af eksportfil {:?}: {}", path, err);
                     }
                 }
@@ -6176,6 +6331,18 @@ impl App {
             .as_ref()
             .map(|modal| self.view_git_clone_modal(modal));
 
+        let maybe_excel_schema_guide_modal: Option<Element<Message>> =
+            if self.excel_schema_guide_open {
+                Some(self.view_excel_schema_guide_modal())
+            } else {
+                None
+            };
+
+        let maybe_excel_import_preview_modal: Option<Element<Message>> = self
+            .excel_import_preview
+            .as_ref()
+            .map(|modal| self.view_excel_import_preview_modal(modal));
+
         let maybe_metadata_modal: Option<Element<Message>> =
             self.metadata_modal.as_ref().map(|meta_state| {
                 let title_row = row![
@@ -7317,6 +7484,11 @@ impl App {
                         menu_item("📁", "Åbn modelmappe...", Message::OpenProjectFolderDialog),
                         menu_item("💾", "Gem", Message::SaveProject),
                         menu_item("💾", "Gem som...", Message::SaveProjectAsDialog),
+                        menu_item(
+                            "📥",
+                            "Importér begreber (Excel)...",
+                            Message::ImportConceptsExcelDialog
+                        ),
                     ]
                     .spacing(2);
 
@@ -7426,7 +7598,17 @@ impl App {
                         Space::new().height(2),
                         menu_item(
                             "📊",
-                            "Begrebsliste (CSV / Excel)...",
+                            "Begrebsliste (Excel .xlsx)...",
+                            Message::ExportConceptListXlsxDialog,
+                        ),
+                        menu_item(
+                            "📄",
+                            "Tom FDA Begrebsliste-skabelon (.xlsx)...",
+                            Message::ExportFdaTemplateXlsxDialog,
+                        ),
+                        menu_item(
+                            "📋",
+                            "Begrebsliste (CSV)...",
                             Message::ExportConceptListCsvDialog,
                         ),
                         Space::new().height(4),
@@ -7482,6 +7664,11 @@ impl App {
                             .color(ThemeColors::TEXT_MUTED),
                         Space::new().height(2),
                         menu_item("📖", "FDA Modelregler v2.1 ↗", Message::OpenModelRules),
+                        menu_item(
+                            "ℹ️",
+                            "Excel Skemaguide (FDA)...",
+                            Message::OpenExcelSchemaGuideModal
+                        ),
                         menu_item(
                             "🔍",
                             "System- og grafikdiagnostik...",
@@ -7830,6 +8017,10 @@ impl App {
         } else if let Some(modal) = maybe_git_connection_modal {
             stack![layered_layout, modal].into()
         } else if let Some(modal) = maybe_git_clone_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(modal) = maybe_excel_schema_guide_modal {
+            stack![layered_layout, modal].into()
+        } else if let Some(modal) = maybe_excel_import_preview_modal {
             stack![layered_layout, modal].into()
         } else if let Some(modal) = maybe_metadata_modal {
             stack![layered_layout, modal].into()
@@ -8904,6 +9095,370 @@ impl App {
             .style(modal_card_style)
             .padding(24)
             .width(Length::Fixed(620.0));
+
+        container(modal_card)
+            .style(modal_backdrop_style)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .into()
+    }
+
+    fn view_excel_schema_guide_modal<'a>(&self) -> Element<'a, Message> {
+        let title_row = row![
+            text("ℹ️ FDA Begrebsliste - Excel Skemaguide")
+                .size(17)
+                .color(ThemeColors::SLATE_900),
+            Space::new().width(Length::Fill),
+            button(text("✕").size(13))
+                .style(secondary_button_style)
+                .on_press(Message::CloseExcelSchemaGuideModal)
+                .padding([3, 7]),
+        ]
+        .align_y(Alignment::Center);
+
+        let subtitle = text(
+            "Oversigt over felter og kolonner i den officielle FDA Excel-skabelon (SKOS-kompatibel med tosprogethed):",
+        )
+        .size(12)
+        .color(ThemeColors::TEXT_MUTED);
+
+        let entries = crate::features::concepts::excel::get_fda_schema_guide_entries();
+        let mut entry_cards = column![].spacing(8);
+
+        for entry in entries {
+            let badge = if entry.required {
+                container(text("Obligatorisk").size(10).color(ThemeColors::ACCENT_RED))
+                    .style(|_| container::Style {
+                        background: Some(iced::Background::Color(ThemeColors::ACCENT_RED_LIGHT)),
+                        border: iced::Border {
+                            color: ThemeColors::ACCENT_RED,
+                            width: 1.0,
+                            radius: 4.0.into(),
+                        },
+                        ..Default::default()
+                    })
+                    .padding([2, 6])
+            } else {
+                container(text("Valgfri").size(10).color(ThemeColors::SLATE_600))
+                    .style(pill_container_style)
+                    .padding([2, 6])
+            };
+
+            let header = row![
+                text(entry.name).size(13).color(ThemeColors::SLATE_900),
+                Space::new().width(Length::Fill),
+                text(entry.tag).size(11).color(ThemeColors::PRIMARY),
+                Space::new().width(6),
+                badge,
+            ]
+            .align_y(Alignment::Center);
+
+            let desc = text(entry.description)
+                .size(12)
+                .color(ThemeColors::SLATE_700);
+            let example = text(format!("Eksempel / format: {}", entry.example))
+                .size(11)
+                .color(ThemeColors::TEXT_MUTED);
+
+            let card = container(column![header, desc, example].spacing(4))
+                .style(|_| container::Style {
+                    background: Some(iced::Background::Color(ThemeColors::SLATE_50)),
+                    border: iced::Border {
+                        color: ThemeColors::SLATE_200,
+                        width: 1.0,
+                        radius: 6.0.into(),
+                    },
+                    ..Default::default()
+                })
+                .padding([8, 12])
+                .width(Length::Fill);
+
+            entry_cards = entry_cards.push(card);
+        }
+
+        let scrollable_entries = scrollable(entry_cards).height(Length::Fixed(400.0));
+
+        let actions_row = row![
+            button(
+                row![
+                    text("📄").size(13),
+                    Space::new().width(6),
+                    text("Hent officiel FDA-skabelon (.xlsx)").size(12),
+                ]
+                .align_y(Alignment::Center),
+            )
+            .style(secondary_button_style)
+            .on_press(Message::ExportFdaTemplateXlsxDialog)
+            .padding([6, 14]),
+            Space::new().width(Length::Fill),
+            button(text("Luk").size(12))
+                .style(primary_button_style)
+                .on_press(Message::CloseExcelSchemaGuideModal)
+                .padding([6, 18]),
+        ]
+        .align_y(Alignment::Center);
+
+        let modal_card = container(
+            column![
+                title_row,
+                subtitle,
+                scrollable_entries,
+                Space::new().height(4),
+                actions_row,
+            ]
+            .spacing(12),
+        )
+        .style(modal_card_style)
+        .padding(20)
+        .width(Length::Fixed(680.0));
+
+        container(modal_card)
+            .style(modal_backdrop_style)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .into()
+    }
+
+    fn view_excel_import_preview_modal<'a>(
+        &self,
+        preview: &'a ExcelImportPreviewState,
+    ) -> Element<'a, Message> {
+        let file_name = preview
+            .file_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("Excel-fil");
+
+        let title_row = row![
+            text("📥 Forhåndsvisning af Excel Import")
+                .size(17)
+                .color(ThemeColors::SLATE_900),
+            Space::new().width(Length::Fill),
+            button(text("✕").size(13))
+                .style(secondary_button_style)
+                .on_press(Message::DismissExcelImportModal)
+                .padding([3, 7]),
+        ]
+        .align_y(Alignment::Center);
+
+        let file_info = text(format!(
+            "Valgt regneark: {} (Ark: {})",
+            file_name, preview.import_summary.sheet_name
+        ))
+        .size(12)
+        .color(ThemeColors::TEXT_MUTED);
+
+        let stats_row = row![
+            container(
+                row![
+                    text("Gyldige i Excel:")
+                        .size(12)
+                        .color(ThemeColors::SLATE_600),
+                    Space::new().width(6),
+                    text(format!("{}", preview.import_summary.valid_concepts.len()))
+                        .size(13)
+                        .color(ThemeColors::SLATE_900),
+                ]
+                .align_y(Alignment::Center),
+            )
+            .style(pill_container_style)
+            .padding([4, 10]),
+            container(
+                row![
+                    text("+ Nye begreber:")
+                        .size(12)
+                        .color(ThemeColors::ACCENT_GREEN),
+                    Space::new().width(6),
+                    text(format!("{}", preview.new_count))
+                        .size(13)
+                        .color(ThemeColors::ACCENT_GREEN),
+                ]
+                .align_y(Alignment::Center),
+            )
+            .style(|_| container::Style {
+                background: Some(iced::Background::Color(ThemeColors::ACCENT_GREEN_LIGHT)),
+                border: iced::Border {
+                    color: ThemeColors::ACCENT_GREEN,
+                    width: 1.0,
+                    radius: 999.0.into(),
+                },
+                ..Default::default()
+            })
+            .padding([4, 10]),
+            container(
+                row![
+                    text("🔄 Opdateres (upsert):")
+                        .size(12)
+                        .color(ThemeColors::PRIMARY),
+                    Space::new().width(6),
+                    text(format!("{}", preview.update_count))
+                        .size(13)
+                        .color(ThemeColors::PRIMARY),
+                ]
+                .align_y(Alignment::Center),
+            )
+            .style(|_| container::Style {
+                background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
+                border: iced::Border {
+                    color: ThemeColors::PRIMARY,
+                    width: 1.0,
+                    radius: 999.0.into(),
+                },
+                ..Default::default()
+            })
+            .padding([4, 10]),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center);
+
+        let notice_card = container(
+            text("💡 Intelligent upsert matcher på begrebets Identifikator (URI) eller Foretrukken term (case-insensitiv). Eksisterende begrebers interne Uuid bevares uændret, så eksisterende diagram-placeringer og relationer aldrig brydes.")
+                .size(12)
+                .color(ThemeColors::SLATE_700),
+        )
+        .style(|_| container::Style {
+            background: Some(iced::Background::Color(ThemeColors::SLATE_50)),
+            border: iced::Border {
+                color: ThemeColors::SLATE_200,
+                width: 1.0,
+                radius: 6.0.into(),
+            },
+            ..Default::default()
+        })
+        .padding([8, 12])
+        .width(Length::Fill);
+
+        let mut preview_list = column![].spacing(6);
+        for concept in &preview.import_summary.valid_concepts {
+            let is_match = self.project.concepts().iter().any(|existing| {
+                (concept.identifier().is_some() && concept.identifier() == existing.identifier())
+                    || concept
+                        .preferred_term()
+                        .trim()
+                        .eq_ignore_ascii_case(existing.preferred_term().trim())
+            });
+
+            let status_badge = if is_match {
+                container(text("Opdateres").size(10).color(ThemeColors::PRIMARY))
+                    .style(|_| container::Style {
+                        background: Some(iced::Background::Color(ThemeColors::PRIMARY_LIGHT)),
+                        border: iced::Border {
+                            color: ThemeColors::PRIMARY,
+                            width: 1.0,
+                            radius: 4.0.into(),
+                        },
+                        ..Default::default()
+                    })
+                    .padding([1, 6])
+            } else {
+                container(text("Ny").size(10).color(ThemeColors::ACCENT_GREEN))
+                    .style(|_| container::Style {
+                        background: Some(iced::Background::Color(ThemeColors::ACCENT_GREEN_LIGHT)),
+                        border: iced::Border {
+                            color: ThemeColors::ACCENT_GREEN,
+                            width: 1.0,
+                            radius: 4.0.into(),
+                        },
+                        ..Default::default()
+                    })
+                    .padding([1, 6])
+            };
+
+            let row_item = row![
+                status_badge,
+                Space::new().width(6),
+                text(concept.preferred_term())
+                    .size(12)
+                    .color(ThemeColors::SLATE_900)
+                    .width(Length::FillPortion(2)),
+                text(concept.definition())
+                    .size(11)
+                    .color(ThemeColors::TEXT_MUTED)
+                    .width(Length::FillPortion(3)),
+            ]
+            .align_y(Alignment::Center);
+
+            preview_list = preview_list.push(row_item);
+        }
+
+        let scrollable_list = scrollable(preview_list).height(Length::Fixed(240.0));
+
+        let actions_row = row![
+            Space::new().width(Length::Fill),
+            button(text("Annuller").size(12))
+                .style(secondary_button_style)
+                .on_press(Message::DismissExcelImportModal)
+                .padding([6, 14]),
+            button(row![text("Bekræft og Gennemfør Import").size(12),].align_y(Alignment::Center),)
+                .style(primary_button_style)
+                .on_press(Message::ConfirmExcelImport)
+                .padding([6, 16]),
+        ]
+        .spacing(10)
+        .align_y(Alignment::Center);
+
+        let mut modal_content = column![title_row, file_info, stats_row, notice_card,].spacing(12);
+
+        if !preview.import_summary.rejected_rows.is_empty() {
+            let mut rej_col = column![
+                text(format!(
+                    "⚠️ {} række(r) blev sprunget over pga. manglende påkrævet Foretrukken term eller Definition:",
+                    preview.import_summary.rejected_rows.len()
+                ))
+                .size(12)
+                .color(ThemeColors::ACCENT_RED),
+            ]
+            .spacing(2);
+
+            for rej in preview.import_summary.rejected_rows.iter().take(5) {
+                rej_col = rej_col.push(
+                    text(format!(
+                        "• Række {}: \"{}\" ({})",
+                        rej.row_index, rej.preferred_term, rej.reason
+                    ))
+                    .size(11)
+                    .color(ThemeColors::ACCENT_RED),
+                );
+            }
+            if preview.import_summary.rejected_rows.len() > 5 {
+                rej_col = rej_col.push(
+                    text(format!(
+                        "... og {} mere",
+                        preview.import_summary.rejected_rows.len() - 5
+                    ))
+                    .size(10)
+                    .color(ThemeColors::ACCENT_RED),
+                );
+            }
+
+            modal_content = modal_content.push(
+                container(rej_col)
+                    .style(|_| container::Style {
+                        background: Some(iced::Background::Color(ThemeColors::ACCENT_RED_LIGHT)),
+                        border: iced::Border {
+                            color: ThemeColors::ACCENT_RED,
+                            width: 1.0,
+                            radius: 6.0.into(),
+                        },
+                        ..Default::default()
+                    })
+                    .padding([8, 12])
+                    .width(Length::Fill),
+            );
+        }
+
+        modal_content = modal_content.push(scrollable_list);
+        modal_content = modal_content.push(Space::new().height(4));
+        modal_content = modal_content.push(actions_row);
+
+        let modal_card = container(modal_content)
+            .style(modal_card_style)
+            .padding(20)
+            .width(Length::Fixed(660.0));
 
         container(modal_card)
             .style(modal_backdrop_style)

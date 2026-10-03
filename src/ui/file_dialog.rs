@@ -23,6 +23,19 @@ pub fn pick_file_to_open() -> DialogResult {
     }
 }
 
+/// Åbner native filvælger til at vælge en Excel-fil (*.xlsx, *.xls) til import
+pub fn pick_excel_file_to_import() -> DialogResult {
+    let dialog = rfd::FileDialog::new()
+        .set_title("Vælg Excel-regneark med begreber (*.xlsx, *.xls)")
+        .add_filter("Excel-arbejdsbøger (*.xlsx, *.xls)", &["xlsx", "xls"])
+        .add_filter("Alle filer", &["*"]);
+
+    match dialog.pick_file() {
+        Some(path) => DialogResult::Selected(path),
+        None => DialogResult::Cancelled,
+    }
+}
+
 /// Åbner native filvælger til at gemme modelprojekt som ny fil
 pub fn pick_file_to_save(default_name: Option<&str>) -> DialogResult {
     let mut dialog = rfd::FileDialog::new()
