@@ -23,5 +23,7 @@ target
 # Local model projects created during development/testing
 .kant/
 *.kant.json
+*.edge.json
+model.kant.json
 model.edge.json
 
