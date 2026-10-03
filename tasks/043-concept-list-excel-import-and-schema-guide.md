@@ -2,14 +2,14 @@
 type: Task Package
 title: "Task 043: Excel Import, Upsert, Skabelon & Dataeksport for Begrebsliste"
 description: "Masse-håndtering af begreber via Excel (.xlsx) med import (sikker upsert på ID/navn), eksport af tom FDA-skabelon, de facto dataeksport af projektets begrebsliste og visuel skemaguide"
-status: active
+status: done
 generated: { by: process:antigravity-task-init, at: "2026-09-21T21:30:00Z" }
 tags: [import, export, excel, xlsx, upsert, schema-guide, concepts, validation, fda, ergonomics]
 ---
 
 # Task 043: Excel Import, Upsert, Skabelon & Dataeksport for Begrebsliste
 
-**Status**: `ACTIVE`  
+**Status**: `DONE`  
 **Intent**: 🚀 `NEW FEATURE`  
 **Oprettet**: `2026-09-21`  
 **Opdateret**: `2026-10-03` (Udvidet med de facto Excel-dataeksport, eksport af tom FDA-skabelon samt intelligent upsert)  
@@ -42,14 +42,14 @@ Gøre det hurtigt, fleksibelt og fejlfrit for forretningsanalytikere og domænee
 ---
 
 ## 📋 Acceptance Criteria
-- [ ] **AC1 - Robust Excel Parsing**: Parseren kan indlæse `.xlsx` filer (både `Begrebsliste DA` og tosproget `Begrebsliste DA+EN`, samt fallback standard `.csv`) og identificere kolonner uafhængigt af rækkefølge og store/små bogstaver.
-- [ ] **AC2 - Validering af Obligatoriske Felter**: Rækker uden både en ikke-tom `Foretrukken term` og `Definition` afvises med klar årsagsforklaring (rækkenummer og manglende felt).
-- [ ] **AC3 - Intelligent Upsert**: Import opdaterer eksisterende begreber (matchet på `identifier` eller `preferred_term`) uden at ændre deres `Uuid`, og opretter nye begreber for ukendte termer.
-- [ ] **AC4 - Eksport af Tom FDA-skabelon**: Brugeren kan med ét klik eksportere den originale officielle `Begrebsliste_i_tabelformat_skabelon.xlsx` fil.
-- [ ] **AC5 - De Facto Dataeksport til Excel**: Modellen kan eksporteres til en gyldig `.xlsx` fil med udfyldte metadata og begreber i `Begrebsliste DA` og `Begrebsliste DA+EN`.
-- [ ] **AC6 - Visuel Skemaguide**: En modal i brugergrænsefladen forklarer kolonneskemaet og reglerne pædagogisk.
-- [ ] **AC7 - Forhåndsvisnings- og bekræftelsesdialog**: Brugeren præsenteres for antal nye, antal opdaterede (upsert) og eventuelle afviste rækker før bekræftelse.
-- [ ] **AC8 - Verifikation via Accepttest**: `test_task_043_concept_list_excel_import_upsert_and_export` beviser at skabelon eksporteres, data eksporteres til `.xlsx`, Excel-data parses og upsertes korrekt, og begreber opdateres i modellen.
+- [x] **AC1 - Robust Excel Parsing**: Parseren kan indlæse `.xlsx` filer (både `Begrebsliste DA` og tosproget `Begrebsliste DA+EN`, samt fallback standard `.csv`) og identificere kolonner uafhængigt af rækkefølge og store/små bogstaver.
+- [x] **AC2 - Validering af Obligatoriske Felter**: Rækker uden både en ikke-tom `Foretrukken term` og `Definition` afvises med klar årsagsforklaring (rækkenummer og manglende felt).
+- [x] **AC3 - Intelligent Upsert**: Import opdaterer eksisterende begreber (matchet på `identifier` eller `preferred_term`) uden at ændre deres `Uuid`, og opretter nye begreber for ukendte termer.
+- [x] **AC4 - Eksport af Tom FDA-skabelon**: Brugeren kan med ét klik eksportere den originale officielle `Begrebsliste_i_tabelformat_skabelon.xlsx` fil.
+- [x] **AC5 - De Facto Dataeksport til Excel**: Modellen kan eksporteres til en gyldig `.xlsx` fil med udfyldte metadata og begreber i `Begrebsliste DA` og `Begrebsliste DA+EN`.
+- [x] **AC6 - Visuel Skemaguide**: En modal i brugergrænsefladen forklarer kolonneskemaet og reglerne pædagogisk.
+- [x] **AC7 - Forhåndsvisnings- og bekræftelsesdialog**: Brugeren præsenteres for antal nye, antal opdaterede (upsert) og eventuelle afviste rækker før bekræftelse.
+- [x] **AC8 - Verifikation via Accepttest**: `test_task_043_concept_list_excel_import_upsert_and_export` beviser at skabelon eksporteres, data eksporteres til `.xlsx`, Excel-data parses og upsertes korrekt, og begreber opdateres i modellen.
 
 ---
 
@@ -64,6 +64,7 @@ Gøre det hurtigt, fleksibelt og fejlfrit for forretningsanalytikere og domænee
 ## 📝 Revisions
 - 2026-09-21: Oprettet opgavepakke.
 - 2026-10-03: Udvidet med tosprogethed (DA+EN jf. Task 042), de facto Excel dataeksport, eksport af tom officiel FDA-skabelon og intelligent upsert-matching.
+- 2026-10-03: Færdiggjort og verificeret. Implementeret FDA Excel skabelon-indlejring, parsing, intelligent upsert, dataeksport, visuel skemaguide og preview-modal i UI.
 
 ---
 
